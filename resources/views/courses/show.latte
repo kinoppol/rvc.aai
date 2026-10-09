@@ -1,0 +1,312 @@
+{layout '../layout.latte'}
+
+{block title}{$course['name']}{/block}
+
+{block content}
+<div class="course-page">
+    <div class="course-header">
+        <div class="course-header-inner">
+            <div class="course-head-top">
+                <div class="course-head-info">
+                    <div class="course-head-code">{$course['code']} · {$course['classroom_name'] ?? 'ยังไม่ระบุกลุ่มเรียน'}</div>
+                    <h1>{$course['name']}</h1>
+                    <div class="course-head-stats">
+                        {$course['student_count']} นักเรียน · {$course['unit_count']} หน่วยการเรียน
+                    </div>
+                </div>
+                <a class="btn" href="{$base}/courses/{$course['id']}/edit" style="align-self:center">แก้ไขรายวิชา</a>
+                <a class="btn" href="{$base}/courses/{$course['id']}/plan-print" target="_blank" style="align-self:center">🖨 พิมพ์แผนการสอน</a>
+                {if $course['ai_quiz_enabled'] || $course['ai_lesson_plan_enabled']}
+                    <div class="ai-menu" data-ai-menu>
+                        <button type="button" class="btn btn-ai" data-ai-toggle>
+                            <span>✦</span> ให้ AI ช่วย <span class="caret">▾</span>
+                        </button>
+                        <div class="ai-menu-panel" hidden>
+                            {if $course['ai_quiz_enabled']}
+                                <a href="{$base}/courses/{$course['id']}/quizzes/create">
+                                    <div class="t">ออกข้อสอบจากหน่วยการเรียน</div>
+                                    <div class="d">เลือกหน่วยแล้วให้ร่างข้อสอบให้</div>
+                                </a>
+                            {/if}
+                            {if $course['ai_lesson_plan_enabled']}
+                                <a href="{$base}/courses/{$course['id']}/lesson-plan">
+                                    <div class="t">ทำแผนการจัดการเรียนรู้</div>
+                                    <div class="d">ร่างตามแบบฟอร์ม สอศ.</div>
+                                </a>
+                            {/if}
+                            <div class="ai-menu-note">ผลลัพธ์ทุกชิ้นจะอยู่ในสถานะรอครูตรวจก่อนเผยแพร่</div>
+                        </div>
+                    </div>
+                {/if}
+            </div>
+
+            <div class="tabs">
+                {var $tabs = ['units' => 'หน่วยการเรียน', 'quizzes' => 'แบบทดสอบ', 'students' => 'นักเรียน', 'scores' => 'คะแนน']}
+                {foreach $tabs as $key => $label}
+                    <a href="{$base}/courses/{$course['id']}?tab={$key}" n:class="tab, $tab === $key ? is-active">{$label}</a>
+                {/foreach}
+            </div>
+        </div>
+    </div>
+
+    <div class="course-body">
+        {if $tab === 'units'}
+            <div class="list">
+                {foreach $units as $u}
+                    <div class="list-row">
+                        <div class="list-no">{$u['no']}</div>
+                        <div class="list-main">
+                            <div class="list-title">{$u['title']}</div>
+                            <div class="list-meta">{$u['meta']}</div>
+                        </div>
+                        <span class="tag tag-{$u['tag_kind']}">{$u['tag']}</span>
+                        <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/units/{$u['id']}/edit">แก้ไข</a>
+                    </div>
+                {/foreach}
+                {if !$units}<div class="empty"><h3>ยังไม่มีหน่วยการเรียน</h3><p>กดปุ่มด้านล่างเพื่อเพิ่มหน่วยการเรียนแรก</p></div>{/if}
+            </div>
+            <div class="list-actions">
+                <a class="btn" href="{$base}/courses/{$course['id']}/units/new">+ เพิ่มหน่วยการเรียน</a>
+                {if $course['ai_lesson_plan_enabled']}
+                    <a class="btn" href="{$base}/courses/{$course['id']}/units/design">✦ ให้ AI ออกแบบรายชื่อหน่วย</a>
+                {/if}
+            </div>
+
+        {elseif $tab === 'quizzes'}
+            <div class="list">
+                {foreach $quizzes as $q}
+                    <div class="list-row">
+                        <div class="list-main">
+                            <div class="list-title">{$q['title']}</div>
+                            <div class="list-meta">
+                                {$q['kind'] === 'pretest' ? 'ก่อนเรียน' : 'หลังเรียน'}
+                                · {$q['unit_title'] ?? 'ยังไม่ผูกกับหน่วยการเรียน'}
+                                · {$q['question_count']} ข้อ
+                                {if $q['submitted_count'] > 0} · ส่งแล้ว {$q['submitted_count']} คน{/if}
+                            </div>
+                        </div>
+                        {if $q['review_status'] === 'published'}<span class="tag tag-ok">เผยแพร่แล้ว</span>
+                        {elseif $q['review_status'] === 'pending'}<span class="tag tag-warn">รอตรวจ</span>
+                        {else}<span class="tag">ฉบับร่าง</span>{/if}
+                        <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/quizzes/{$q['id']}/review">เปิดดู</a>
+                    </div>
+                {/foreach}
+                {if !$quizzes}
+                    <div class="empty">
+                        <h3>ยังไม่มีแบบทดสอบในรายวิชานี้</h3>
+                        <p>แบบทดสอบที่สร้างด้วยผู้ช่วย AI ทุกฉบับจะมาอยู่ที่นี่ ทั้งฉบับร่างและที่เผยแพร่แล้ว</p>
+                    </div>
+                {/if}
+            </div>
+            {if $course['ai_quiz_enabled']}
+                <div class="list-actions">
+                    <a class="btn" href="{$base}/courses/{$course['id']}/quizzes/create">✦ สร้างแบบทดสอบด้วย AI</a>
+                </div>
+            {/if}
+
+        {elseif $tab === 'students'}
+            <div class="card join-invite">
+                <div class="join-invite-head">
+                    <div>
+                        <h2>ให้นักเรียนเข้าร่วมรายวิชาเอง</h2>
+                        <div class="card-sub">
+                            {if $course['join_enabled']}
+                                แจกรหัสหรือลิงก์นี้ นักเรียนเข้าสู่ระบบแล้วกรอกรหัส หรือเปิดลิงก์ ก็เข้ารายวิชาได้ทันที
+                            {else}
+                                ปิดการเข้าร่วมอยู่ · รหัสและลิงก์ใช้ไม่ได้จนกว่าจะเปิดอีกครั้ง
+                            {/if}
+                        </div>
+                    </div>
+                    <form method="post" action="{$base}/courses/{$course['id']}/join">
+                        <input type="hidden" name="_token" value="{$csrf}">
+                        {if $course['join_enabled']}
+                            <button class="btn btn-sm" name="do" value="close">ปิดการเข้าร่วม</button>
+                        {else}
+                            <button class="btn btn-sm btn-primary" name="do" value="open">เปิดการเข้าร่วม</button>
+                        {/if}
+                    </form>
+                </div>
+
+                <div n:class="join-invite-body, !$course['join_enabled'] ? is-off">
+                    <div class="join-invite-code">
+                        <div class="join-label">รหัสเข้าร่วม</div>
+                        <div class="join-code mono">{$joinCode}</div>
+                        <button type="button" class="btn btn-sm" data-copy="{$joinCode}">คัดลอกรหัส</button>
+                    </div>
+                    <div class="join-invite-link">
+                        <div class="join-label">ลิงก์เข้าร่วม</div>
+                        <input class="input mono" value="{$joinUrl}" readonly onfocus="this.select()">
+                        <div class="join-invite-actions">
+                            <button type="button" class="btn btn-sm" data-copy="{$joinUrl}">คัดลอกลิงก์</button>
+                            <form method="post" action="{$base}/courses/{$course['id']}/join"
+                                  data-confirm-title="สร้างรหัสใหม่" data-confirm-ok="สร้างรหัสใหม่" data-confirm-danger
+                                  data-confirm="รหัสและลิงก์เดิมจะใช้ไม่ได้ทันที · นักเรียนที่เข้าร่วมแล้วยังอยู่ในรายวิชาครบ">
+                                <input type="hidden" name="_token" value="{$csrf}">
+                                <button class="btn btn-sm" name="do" value="regenerate">สร้างรหัสใหม่</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card roster">
+                <div class="roster-head">
+                    <div>
+                        <h2>เพิ่มนักเรียนจากกลุ่มเรียน</h2>
+                        <div class="card-sub">เลือกกลุ่มเรียน ติ๊กนักเรียนที่ต้องการแล้วกดเพิ่ม · เพิ่มได้หลายกลุ่ม เปลี่ยนกลุ่มแล้วเพิ่มต่อได้เลย</div>
+                    </div>
+                    <form method="get" action="{$base}/courses/{$course['id']}" class="roster-pick">
+                        <input type="hidden" name="tab" value="students">
+                        <select class="input" name="group" data-combo data-combo-placeholder="พิมพ์ชื่อกลุ่ม เช่น ชคพ.1/1"
+                                onchange="if (this.value) this.form.submit()">
+                            <option value="">— เลือกกลุ่มเรียน —</option>
+                            {foreach $classrooms as $r}
+                                <option value="{$r['id']}" selected="{$rosterGroup && $rosterGroup['id'] == $r['id']}">
+                                    {$r['name']}{if $r['id'] == $course['classroom_id']} (กลุ่มของรายวิชา){/if}
+                                </option>
+                            {/foreach}
+                        </select>
+                    </form>
+                </div>
+
+                {if $rosterGroup}
+                    {if $roster}
+                        <form method="post" action="{$base}/courses/{$course['id']}/students/classroom">
+                            <input type="hidden" name="_token" value="{$csrf}">
+                            <input type="hidden" name="classroom_id" value="{$rosterGroup['id']}">
+                            <div class="table-scroll">
+                                <table class="data roster-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:1%"><input type="checkbox" data-roster-all {if $rosterPending}checked{else}disabled{/if} title="เลือกทั้งหมด"></th>
+                                            <th>รหัสนักศึกษา</th><th>ชื่อ-นามสกุล</th><th>อีเมล</th><th>สถานะ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {foreach $roster as $s}
+                                            {var $inCourse = in_array($s['enrollment_status'], ['active', 'completed'], true)}
+                                            <tr>
+                                                <td><input type="checkbox" name="student_ids[]" value="{$s['id']}" data-roster-row {if $inCourse}disabled{else}checked{/if}></td>
+                                                <td class="mono">{$s['username']}</td>
+                                                <td>{$s['full_name']}</td>
+                                                <td class="mono">{$s['email'] ?: '—'}</td>
+                                                <td>{if $inCourse}<span class="chip chip-ok">อยู่ในรายวิชาแล้ว</span>{else}<span class="chip chip-muted">ยังไม่ได้เพิ่ม</span>{/if}</td>
+                                            </tr>
+                                        {/foreach}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="add-by-email-foot">
+                                <span class="hint">กลุ่ม {$rosterGroup['name']} · {count($roster)} คน · ยังไม่ได้เพิ่ม {$rosterPending} คน</span>
+                                <button class="btn btn-primary" type="submit" {if !$rosterPending}disabled{/if}>เพิ่มนักเรียนที่เลือกเข้ารายวิชา</button>
+                            </div>
+                        </form>
+                    {else}
+                        <div class="hint" style="margin-top:12px">ไม่พบนักเรียนในกลุ่ม {$rosterGroup['name']} — ผู้ดูแลระบบต้องโอนข้อมูลนักเรียนจาก RMS ก่อน</div>
+                    {/if}
+                {/if}
+            </div>
+
+            <form class="card add-by-email" method="post" action="{$base}/courses/{$course['id']}/students">
+                <input type="hidden" name="_token" value="{$csrf}">
+                <h2>เพิ่มนักเรียนด้วยอีเมล</h2>
+                <div class="card-sub">ใส่อีเมลของนักเรียนที่มีบัญชีในระบบแล้ว ใส่หลายอีเมลได้ คั่นด้วยการขึ้นบรรทัดใหม่ เว้นวรรค หรือจุลภาค</div>
+                <textarea class="input add-by-email-input mono" name="emails" rows="3" required
+                          placeholder="somchai@rvc.ac.th&#10;suda@rvc.ac.th"></textarea>
+                <div class="add-by-email-foot">
+                    <span class="hint">ถ้านักเรียนยังไม่มีอีเมลในบัญชี เพิ่มได้ที่เมนู <a href="{$base}/students">นักเรียน</a> หรือให้เข้าร่วมด้วยรหัสด้านบน</span>
+                    <button class="btn btn-primary" type="submit">เพิ่มเข้ารายวิชา</button>
+                </div>
+            </form>
+
+            <div class="list">
+                {foreach $students as $s}
+                    <div class="list-row">
+                        <div class="mini-avatar">{mb_substr($s['full_name'], 0, 2)}</div>
+                        <div class="mono list-id">{$s['username']}</div>
+                        <div class="list-main">
+                            <div class="list-title">{$s['full_name']}</div>
+                            {if $s['email']}<div class="hint mono">{$s['email']}</div>{/if}
+                        </div>
+                    </div>
+                {/foreach}
+                {if !$students}<div class="empty"><h3>ยังไม่มีนักเรียนในรายวิชานี้</h3><p>แจกรหัสหรือลิงก์เข้าร่วมด้านบนให้นักเรียน รายชื่อจะขึ้นที่นี่เมื่อนักเรียนเข้าร่วมแล้ว</p></div>{/if}
+            </div>
+
+        {else}
+            {if $scoreRows}
+                <div class="table-scroll">
+                    <table class="data score-table">
+                        <thead>
+                        <tr>
+                            <th>นักเรียน</th>
+                            {foreach $scoreQuizzes as $q}<th class="num">{$q['title']|truncate:24}</th>{/foreach}
+                            <th class="num">รวม</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {foreach $scoreRows as $r}
+                            <tr>
+                                <td>{$r['name']}</td>
+                                {foreach $r['cells'] as $c}<td class="num mono">{$c}</td>{/foreach}
+                                <td class="num mono" style="color:var(--brand);font-weight:500">{$r['total']}</td>
+                            </tr>
+                        {/foreach}
+                        </tbody>
+                    </table>
+                </div>
+            {else}
+                <div class="empty"><h3>ยังไม่มีคะแนน</h3><p>คะแนนจะปรากฏเมื่อมีแบบทดสอบที่เผยแพร่และนักเรียนทำแล้ว</p></div>
+            {/if}
+        {/if}
+    </div>
+</div>
+
+<script>
+    (function () {
+        var menu = document.querySelector('[data-ai-menu]');
+        if (!menu) return;
+        var toggle = menu.querySelector('[data-ai-toggle]');
+        var panel = menu.querySelector('.ai-menu-panel');
+        toggle.addEventListener('click', function (e) { e.stopPropagation(); panel.hidden = !panel.hidden; });
+        document.addEventListener('click', function () { panel.hidden = true; });
+    })();
+
+    // ปุ่มคัดลอกรหัส/ลิงก์เข้าร่วม
+    // ติ๊ก/เอาออกทั้งกลุ่ม — ข้ามคนที่อยู่ในรายวิชาแล้ว (checkbox ถูกปิดไว้)
+    var rosterAll = document.querySelector('[data-roster-all]');
+    if (rosterAll) {
+        var rows = document.querySelectorAll('[data-roster-row]:not(:disabled)');
+        rosterAll.addEventListener('change', function () {
+            rows.forEach(function (c) { c.checked = rosterAll.checked; });
+        });
+        rows.forEach(function (c) {
+            c.addEventListener('change', function () {
+                rosterAll.checked = Array.prototype.every.call(rows, function (x) { return x.checked; });
+            });
+        });
+    }
+
+    document.querySelectorAll('[data-copy]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var text = btn.getAttribute('data-copy');
+            var label = btn.textContent;
+            var done = function () {
+                btn.textContent = 'คัดลอกแล้ว ✓';
+                setTimeout(function () { btn.textContent = label; }, 1600);
+            };
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(done);
+            } else {
+                var t = document.createElement('textarea');
+                t.value = text;
+                document.body.appendChild(t);
+                t.select();
+                document.execCommand('copy');
+                t.remove();
+                done();
+            }
+        });
+    });
+</script>
+{/block}

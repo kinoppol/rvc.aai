@@ -1,0 +1,13 @@
+/vendor/
+/composer.phar
+/config/config.php
+/storage/logs/*
+/storage/cache/*
+/storage/uploads/*
+/storage/install.lock
+!/storage/**/.gitkeep
+.DS_Store
+Thumbs.db
+
+# แม่แบบดีไซน์ (อ้างอิงเท่านั้น ไม่นำขึ้น git)
+/resources/design/

@@ -1,0 +1,21 @@
+{layout '../layout.latte'}
+
+{block title}ส่งคำตอบแล้ว{/block}
+
+{block content}
+<div class="form-page" style="max-width:640px">
+    <div class="card" style="text-align:center;padding:44px 40px;margin-top:20px">
+        <div class="result-check">✓</div>
+        <h1 style="margin-top:16px">ส่งคำตอบเรียบร้อยแล้ว</h1>
+        {if $graded}
+            <div class="result-score mono">{rtrim(rtrim((string)$attempt['score'], '0'), '.')} / {rtrim(rtrim((string)$attempt['max_score'], '0'), '.')}</div>
+            <div class="sub" style="margin-top:6px">ทำ {$quiz['title']} · ใช้เวลา {$durationText}</div>
+        {else}
+            <div class="sub" style="margin-top:10px;line-height:1.8">
+                มีข้ออัตนัยที่ครูต้องตรวจ ครูจะประกาศคะแนนในหน้าเดิม<br>ใช้เวลา {$durationText}
+            </div>
+        {/if}
+        <a class="btn" href="{$base}/learn/{$course['id']}" style="margin-top:22px">กลับไปที่รายวิชา</a>
+    </div>
+</div>
+{/block}

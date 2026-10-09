@@ -1,0 +1,66 @@
+{layout '../layout.latte'}
+
+{block title}ตรวจแผนการสอน{/block}
+
+{block content}
+<div class="wizard-page mid" id="planEditRoot" data-base="{$base}" data-course="{$course['id']}">
+    <a class="back-link" href="{$base}/courses/{$course['id']}/lesson-plan">← กลับไปที่ทำแผนการสอน</a>
+
+    <div class="alert alert-warning review-warn">
+        <div class="warn-mark">!</div>
+        <div class="grow">
+            <strong>เอกสารนี้สร้างโดย AI กรุณาตรวจสอบก่อนส่งฝ่ายวิชาการ</strong><br>
+            แก้ได้ทุกบรรทัดในหน้านี้ · สถานะปัจจุบัน: {$published ? 'บันทึกแล้ว' : 'รอครูตรวจ'}
+        </div>
+    </div>
+
+    <div class="field" style="margin-top:16px">
+        <label for="planTitle">ชื่อเอกสาร</label>
+        <input class="input" id="planTitle" value="{$doc['title']}">
+    </div>
+
+    <div class="plan-doc card">
+        <div class="plan-doc-head">
+            <div class="plan-doc-title">แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะอาชีพ</div>
+            <div class="plan-doc-sub">วิชา{$doc['meta']['course_name']} รหัส {$doc['meta']['course_code']} · วิทยาลัยเทคนิคร้อยเอ็ด</div>
+            <div class="plan-doc-sub">{$doc['meta']['unit']} · {$doc['meta']['hours']} ชั่วโมง{if $doc['meta']['week']} · สัปดาห์ที่ {$doc['meta']['week']}{/if}</div>
+        </div>
+        <div id="planSections">
+            {foreach $doc['sections'] as $s}
+                <div class="plan-section" data-idx="{$iterator->counter0}">
+                    <div class="plan-section-head">{$s['head']}</div>
+                    <div class="plan-section-body" contenteditable="true" data-field="body">{$s['body']}</div>
+                </div>
+            {/foreach}
+        </div>
+        <div class="plan-doc-foot">
+            <span>ผู้สอน: {$user['full_name']}</span>
+            <span class="mono">ร่าง{$createdAgo}</span>
+        </div>
+    </div>
+
+    <form method="post" action="{$base}/courses/{$course['id']}/lesson-plan/{$plan['id']}" class="review-footer" id="planSaveForm">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <input type="hidden" name="sections" id="planSectionsField">
+        <input type="hidden" name="title" id="planTitleField">
+        <a class="btn" href="{$base}/courses/{$course['id']}/lesson-plan">ลองใหม่อีกแบบ</a>
+        <div class="grow"></div>
+        <a class="btn" href="{$base}/courses/{$course['id']}/lesson-plan/{$plan['id']}/export.doc">ส่งออกเป็นไฟล์เอกสาร</a>
+        <a class="btn" href="{$base}/courses/{$course['id']}/lesson-plan/{$plan['id']}/export.pdf" target="_blank">ส่งออกเป็น PDF</a>
+        <button type="submit" name="action" value="draft" class="btn">เก็บไว้ตรวจภายหลัง</button>
+        <button type="submit" name="action" value="publish" class="btn btn-primary">ยืนยันและบันทึกแผน</button>
+    </form>
+</div>
+
+<script>
+(function () {
+    document.getElementById('planSaveForm').addEventListener('submit', function () {
+        var sections = Array.prototype.slice.call(document.querySelectorAll('.plan-section')).map(function (el) {
+            return { body: el.querySelector('[data-field=body]').innerText.trim() };
+        });
+        document.getElementById('planSectionsField').value = JSON.stringify(sections);
+        document.getElementById('planTitleField').value = document.getElementById('planTitle').value;
+    });
+})();
+</script>
+{/block}

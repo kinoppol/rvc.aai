@@ -1,0 +1,21 @@
+{* กล่องยืนยันกลางของระบบ แทน confirm() ของเบราว์เซอร์
+   ใช้งาน: ใส่ data-confirm="ข้อความ" ที่ <form> (เสริมด้วย data-confirm-title / data-confirm-ok / data-confirm-danger)
+   หรือเรียก rvcConfirm({message: '...'}).then(ok => ...) จากสคริปต์เอง *}
+<div class="modal-backdrop" id="confirmModal" hidden>
+    <div class="modal-panel confirm-panel">
+        <div class="modal-head">
+            <div class="confirm-mark" id="confirmMark">?</div>
+            <div class="grow">
+                <div class="modal-title" id="confirmTitle">ยืนยันการทำรายการ</div>
+            </div>
+        </div>
+        <div class="modal-body">
+            <p class="confirm-text" id="confirmText"></p>
+        </div>
+        <div class="modal-foot">
+            <div class="spacer"></div>
+            <button type="button" class="btn" data-confirm-cancel>ยกเลิก</button>
+            <button type="button" class="btn btn-primary" id="confirmOk">ยืนยัน</button>
+        </div>
+    </div>
+</div>

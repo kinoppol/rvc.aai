@@ -1,0 +1,42 @@
+{layout '../layout.latte'}
+
+{block title}รอตรวจก่อนเผยแพร่{/block}
+
+{block content}
+<div class="wizard-page" style="max-width:1000px">
+    <h1>รอตรวจก่อนเผยแพร่</h1>
+    <div class="sub">เนื้อหาที่ผู้ช่วย AI ร่างไว้และยังไม่ได้ยืนยัน นักเรียนยังไม่เห็นทั้งหมด</div>
+
+    {if $groups}
+        {foreach $groups as $g}
+            <div class="review-group">
+                <div class="review-group-head">
+                    <span class="review-group-name">{$g['course']}</span>
+                    <span class="mono review-group-code">{$g['code']}</span>
+                </div>
+                <div class="list">
+                    {foreach $g['items'] as $it}
+                        <div class="list-row">
+                            <div class="list-main">
+                                <div class="list-title">{$it['title']}</div>
+                                <div class="list-meta">ร่าง{$it['ago']}{if $it['summary']} · {$it['summary']}{/if} · ยังไม่มีนักเรียนเห็น</div>
+                            </div>
+                            <span class="src-chip">{$it['source']}</span>
+                            {if $it['open_url']}
+                                <a class="btn btn-sm btn-ai" href="{$it['open_url']}">ตรวจ</a>
+                            {else}
+                                <span class="btn btn-sm" style="opacity:.55;cursor:default">ตรวจบนคอมพิวเตอร์</span>
+                            {/if}
+                        </div>
+                    {/foreach}
+                </div>
+            </div>
+        {/foreach}
+    {else}
+        <div class="empty" style="margin-top:26px">
+            <h3>ไม่มีเนื้อหาที่รอตรวจ</h3>
+            <p>เมื่อผู้ช่วย AI ร่างข้อสอบหรือแผนการสอนให้ รายการจะมารออยู่ที่นี่</p>
+        </div>
+    {/if}
+</div>
+{/block}

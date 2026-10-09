@@ -1,0 +1,46 @@
+{layout '../layout.latte'}
+
+{block title}นำเข้านักเรียนจาก Excel{/block}
+
+{block content}
+<div class="page-head">
+    <div>
+        <h1>นำเข้านักเรียนจาก Excel</h1>
+        <div class="sub">ถ้ารหัสนักศึกษาซ้ำกับที่มีอยู่แล้วในสถานศึกษาของคุณ ระบบจะอัปเดตข้อมูลแทนการเพิ่มใหม่</div>
+    </div>
+</div>
+
+<div class="card" style="max-width:560px">
+    <div class="field">
+        <a class="btn" href="{$base}/students/template">⬇ ดาวน์โหลดไฟล์ต้นแบบ (.xlsx)</a>
+        <div class="hint" style="margin-top:8px">
+            คอลัมน์: รหัสนักศึกษา, ชื่อ-สกุล, เลขประจำตัวประชาชน (13 หลัก), อีเมล, เบอร์โทรศัพท์
+        </div>
+    </div>
+
+    <form method="post" action="{$base}/students/import" enctype="multipart/form-data" data-busy="กำลังนำเข้ารายชื่อ…">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <div class="field">
+            <label for="file">ไฟล์ Excel (.xlsx)</label>
+            <input class="input" type="file" id="file" name="file" accept=".xlsx" required>
+        </div>
+        <button type="submit" class="btn btn-primary">นำเข้ารายชื่อ</button>
+        <a class="btn" href="{$base}/students">ยกเลิก</a>
+    </form>
+</div>
+
+{if $result}
+    <div class="card" style="max-width:560px;margin-top:16px">
+        <h3 style="margin-top:0">ผลการนำเข้า</h3>
+        <p>เพิ่มใหม่ {$result['created']} คน · อัปเดต {$result['updated']} คน</p>
+        {if $result['errors']}
+            <div class="alert alert-warning">
+                พบ {count($result['errors'])} แถวที่ข้ามไป:
+                <ul style="margin:8px 0 0;padding-left:20px">
+                    {foreach $result['errors'] as $err}<li>{$err}</li>{/foreach}
+                </ul>
+            </div>
+        {/if}
+    </div>
+{/if}
+{/block}

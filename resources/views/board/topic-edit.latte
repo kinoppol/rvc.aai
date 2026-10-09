@@ -1,0 +1,30 @@
+{layout '../layout.latte'}
+
+{block title}ตั้งกระทู้ใหม่ · {$group['name']}{/block}
+
+{block content}
+<div class="form-page">
+    <a class="back-link" href="{$base}/board/{$group['id']}">← กลับไปที่ {$group['name']}</a>
+    <h1>ตั้งกระทู้ใหม่</h1>
+
+    <form method="post" action="{$base}/board/{$group['id']}/topics" class="edit-form" style="margin-top:24px">
+        <input type="hidden" name="_token" value="{$csrf}">
+
+        <div class="field">
+            <label>หัวข้อกระทู้ <span class="req">*</span></label>
+            <input type="text" name="title" class="input" maxlength="200" required autofocus placeholder="ระบุหัวข้อให้ชัดเจน">
+        </div>
+
+        <div class="field">
+            <label>เนื้อหา <span class="req">*</span></label>
+            <textarea name="body" class="input" rows="8" required maxlength="10000"
+                      placeholder="เขียนรายละเอียด คำถาม หรือข้อเสนอแนะที่ต้องการแชร์" style="height:auto;font-size:15px;line-height:1.7"></textarea>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">ตั้งกระทู้</button>
+            <a class="btn" href="{$base}/board/{$group['id']}">ยกเลิก</a>
+        </div>
+    </form>
+</div>
+{/block}

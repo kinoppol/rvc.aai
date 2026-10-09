@@ -1,0 +1,219 @@
+{layout '../layout.latte'}
+
+{block title}จัดการฐานข้อมูล{/block}
+
+{block content}
+<div class="page-head">
+    <div>
+        <h1>จัดการโครงสร้างฐานข้อมูล</h1>
+        <div class="sub">ตรวจสอบและสั่งปรับปรุงโครงสร้างตารางของระบบ (migration) โดยไม่ต้องใช้คำสั่งจากหน้าจอดำ</div>
+    </div>
+    <div class="actions">
+        <form method="post" action="{$base}/admin/migrations/run" data-busy="กำลังรัน migration…">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <button type="submit" class="btn btn-primary" n:attr="disabled: !$status['pending']">
+                รันรายการที่ค้าง{if $status['pending']} ({count($status['pending'])}){/if}
+            </button>
+        </form>
+        <button type="button" class="btn" onclick="document.getElementById('rollbackDialog').showModal()"
+                n:attr="disabled: $status['lastBatch'] === 0">
+            ย้อนกลับชุดล่าสุด
+        </button>
+        <button type="button" class="btn btn-danger" onclick="document.getElementById('resetDialog').showModal()"
+                n:attr="disabled: !$status['ran']">
+            รีเซ็ตทั้งหมด
+        </button>
+    </div>
+</div>
+
+<div class="stat-row">
+    <div class="stat">
+        <div class="label">ปรับปรุงแล้ว</div>
+        <div class="value ok">{count($status['ran'])}</div>
+    </div>
+    <div class="stat">
+        <div class="label">รอปรับปรุง</div>
+        <div n:class="value, $status['pending'] ? warn">{count($status['pending'])}</div>
+    </div>
+    <div class="stat">
+        <div class="label">ไฟล์หาย</div>
+        <div n:class="value, $status['missing'] ? err">{count($status['missing'])}</div>
+    </div>
+    <div class="stat">
+        <div class="label">ชุดล่าสุด (batch)</div>
+        <div class="value">{$status['lastBatch']}</div>
+    </div>
+</div>
+
+{if $status['missing']}
+    <div class="alert alert-warning">
+        <span>△</span>
+        <div>
+            <strong>มีบันทึกการปรับปรุงที่หาไฟล์ไม่เจอแล้ว {count($status['missing'])} รายการ</strong><br>
+            มักเกิดจากไฟล์ถูกลบหรือยังไม่ได้อัปโหลดขึ้นเซิร์ฟเวอร์ ระบบจะย้อนกลับรายการเหล่านี้ให้อัตโนมัติไม่ได้
+            <div class="mt-16">
+                {foreach $status['missing'] as $item}
+                    <div class="mono" style="font-size:12.5px">{$item['name']} · ชุดที่ {$item['batch']} · {$item['ran_at']}</div>
+                {/foreach}
+            </div>
+        </div>
+    </div>
+{/if}
+
+{if $result}
+    <div class="card">
+        <h2>ผลการทำงานล่าสุด</h2>
+        <div class="card-sub">
+            {if $result['action'] === 'run'}สั่งปรับปรุงโครงสร้าง{elseif $result['action'] === 'rollback'}ย้อนกลับชุดล่าสุด{else}รีเซ็ตทั้งหมด{/if}
+        </div>
+        <ul class="log">
+            {foreach $result['steps'] as $step}
+                <li>
+                    <span n:class="log-mark, $step['ok'] ? ok : fail">{$step['ok'] ? '✓' : '✕'}</span>
+                    <div style="flex:1;min-width:0">
+                        <div class="mono" style="font-size:12.5px">{$step['name']}</div>
+                        <div>{$step['description']}</div>
+                        {if $step['error']}
+                            <div class="log-error">{$step['error']}</div>
+                        {/if}
+                    </div>
+                    <span class="log-time">{$step['duration_ms']} ms</span>
+                </li>
+            {/foreach}
+        </ul>
+    </div>
+{/if}
+
+<div class="card">
+    <h2>รายการทั้งหมด</h2>
+    <div class="card-sub">เรียงตามลำดับการรัน — ระบบจะรันเฉพาะรายการที่ยังไม่เคยรัน</div>
+
+    <div class="table-scroll">
+        <table class="data">
+            <thead>
+            <tr>
+                <th style="width:44%">รายการ</th>
+                <th style="width:110px">สถานะ</th>
+                <th style="width:80px">ชุดที่</th>
+                <th style="width:160px">ปรับปรุงเมื่อ</th>
+                <th style="width:90px">ใช้เวลา</th>
+                <th style="width:90px"></th>
+            </tr>
+            </thead>
+            <tbody>
+            {foreach $rows as $row}
+                <tr>
+                    <td>
+                        <div class="name">{$row['name']}</div>
+                        <div class="desc">{$row['description']}</div>
+                    </td>
+                    <td>
+                        {if $row['state'] === 'ran'}
+                            <span class="chip chip-ok">ปรับปรุงแล้ว</span>
+                        {else}
+                            <span class="chip chip-warn">รอปรับปรุง</span>
+                        {/if}
+                    </td>
+                    <td class="mono">{$row['batch'] ?? '—'}</td>
+                    <td class="mono" style="font-size:12.5px">{$row['ran_at'] ?? '—'}</td>
+                    <td class="mono">{if $row['state'] === 'ran'}{$row['duration_ms']} ms{else}—{/if}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm" onclick="rvcPreview('{$row['name']}')">ดู SQL</button>
+                    </td>
+                </tr>
+            {/foreach}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="alert alert-info mt-16">
+        <span>ℹ</span>
+        <div>
+            MariaDB ไม่รองรับการยกเลิกคำสั่งสร้างหรือแก้ตารางแบบย้อนกลับอัตโนมัติ
+            ถ้ามีรายการทำงานล้มเหลวกลางทาง ระบบจะหยุดทันทีและบันทึกไว้เฉพาะรายการที่สำเร็จ
+            กรุณาแก้ไขสาเหตุแล้วสั่งรันใหม่ หรือย้อนกลับด้วยตนเอง — <strong>ควรสำรองฐานข้อมูลก่อนทุกครั้ง</strong>
+        </div>
+    </div>
+</div>
+
+<dialog class="modal" id="rollbackDialog">
+    <form method="post" action="{$base}/admin/migrations/rollback">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <div class="modal-head"><h2>ย้อนกลับชุดที่ {$status['lastBatch']}</h2></div>
+        <div class="modal-body">
+            <p>ระบบจะเรียกคำสั่งย้อนกลับของรายการต่อไปนี้ ตารางและข้อมูลที่เกี่ยวข้องจะถูกลบ</p>
+            <ul class="log">
+                {foreach $rollbackTargets as $name}
+                    <li><span class="log-mark">▾</span><span class="mono" style="font-size:12.5px">{$name}</span></li>
+                {/foreach}
+            </ul>
+        </div>
+        <div class="modal-foot">
+            <button type="button" class="btn" onclick="document.getElementById('rollbackDialog').close()">ยกเลิก</button>
+            <button type="submit" class="btn btn-danger">ยืนยันย้อนกลับ</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog class="modal" id="resetDialog">
+    <form method="post" action="{$base}/admin/migrations/reset">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <div class="modal-head"><h2>รีเซ็ตโครงสร้างฐานข้อมูลทั้งหมด</h2></div>
+        <div class="modal-body">
+            <div class="alert alert-error">
+                <span>✕</span>
+                <div>ตารางของระบบทั้งหมดจะถูกลบ รวมถึงบัญชีผู้ใช้ รายวิชา และข้อสอบ การกระทำนี้ย้อนคืนไม่ได้</div>
+            </div>
+            <div class="field">
+                <label for="confirm">พิมพ์คำว่า <strong>รีเซ็ต</strong> เพื่อยืนยัน</label>
+                <input class="input" type="text" id="confirm" name="confirm" autocomplete="off" required>
+            </div>
+        </div>
+        <div class="modal-foot">
+            <button type="button" class="btn" onclick="document.getElementById('resetDialog').close()">ยกเลิก</button>
+            <button type="submit" class="btn btn-danger">ยืนยันรีเซ็ต</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog class="modal" id="previewDialog">
+    <div class="modal-head">
+        <h2>คำสั่ง SQL</h2>
+        <span class="mono text-muted" id="previewName" style="font-size:12.5px"></span>
+    </div>
+    <div class="modal-body">
+        <h3 class="mb-8">ตอนปรับปรุง (up)</h3>
+        <pre class="sql" id="previewUp"></pre>
+        <h3 class="mb-8 mt-16">ตอนย้อนกลับ (down)</h3>
+        <pre class="sql" id="previewDown"></pre>
+    </div>
+    <div class="modal-foot">
+        <button type="button" class="btn" onclick="document.getElementById('previewDialog').close()">ปิด</button>
+    </div>
+</dialog>
+
+<script>
+    function rvcPreview(name) {
+        var dialog = document.getElementById('previewDialog');
+        document.getElementById('previewName').textContent = name;
+        document.getElementById('previewUp').textContent = 'กำลังโหลด...';
+        document.getElementById('previewDown').textContent = '';
+        dialog.showModal();
+
+        var base = {$base};
+        fetch(base + '/admin/migrations/preview/' + encodeURIComponent(name))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.error) {
+                    document.getElementById('previewUp').textContent = data.error;
+                    return;
+                }
+                document.getElementById('previewUp').textContent = data.up.join(';\n\n') + ';';
+                document.getElementById('previewDown').textContent = data.down.join(';\n\n') + ';';
+            })
+            .catch(function () {
+                document.getElementById('previewUp').textContent = 'โหลดคำสั่ง SQL ไม่สำเร็จ';
+            });
+    }
+</script>
+{/block}

@@ -1,0 +1,358 @@
+{*
+  แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ ตามแบบฟอร์ม สอศ. หลักสูตร พ.ศ. 2567 — หน้าสำหรับสั่งพิมพ์ (A4)
+  ทั้งเอกสารแก้ไขได้ (contenteditable) เพื่อให้ครูเติมส่วนที่ระบบยังไม่มีข้อมูลก่อนพิมพ์ ข้อความที่แก้จะไม่ถูกบันทึกลงระบบ
+*}
+{var $level = str_starts_with((string) $course['code'], '3') ? 'ประกาศนียบัตรวิชาชีพชั้นสูง (ปวส.)' : 'ประกาศนียบัตรวิชาชีพ (ปวช.)'}
+{var $credits = rtrim(rtrim(number_format((float) $course['credits'], 1, '.', ''), '0'), '.')}
+{var $tpn = $course['theory_hours'] . '-' . $course['practice_hours'] . '-' . $credits}
+{var $termText = $term ? 'ภาคเรียนที่ ' . $term['semester'] . ' ปีการศึกษา ' . $term['academic_year'] : 'ภาคเรียนที่ ...... ปีการศึกษา ..........'}
+{var $teacherName = $teacher['full_name'] ?? '........................................'}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>แผนการจัดการเรียนรู้ {$course['code']} {$course['name']}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    {* สำรองไว้กรณีเครื่องไม่มีฟอนต์ TH Sarabun New *}
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap">
+    <style>
+        /* TH Sarabun New — ใช้ฟอนต์ที่ติดตั้งในเครื่องก่อน หรือวางไฟล์ไว้ที่ public/assets/fonts/ */
+        @font-face {
+            font-family: 'PlanSarabun';
+            font-weight: 400;
+            src: local('TH Sarabun New'), local('THSarabunNew'),
+                 url('{$base}/assets/fonts/THSarabunNew.ttf') format('truetype');
+        }
+        @font-face {
+            font-family: 'PlanSarabun';
+            font-weight: 700;
+            src: local('TH Sarabun New Bold'), local('THSarabunNew-Bold'), local('THSarabunNew Bold'),
+                 url('{$base}/assets/fonts/THSarabunNew-Bold.ttf') format('truetype');
+        }
+        @page { size: A4; margin: 2.5cm 2cm 2cm 3cm; }
+        * { box-sizing: border-box; }
+        html { background: #e9e9e6; }
+        body {
+            margin: 0;
+            font-family: 'PlanSarabun', 'TH Sarabun New', 'THSarabunNew', 'Sarabun', sans-serif;
+            font-size: 16pt;
+            line-height: 1.25;
+            color: #000;
+        }
+        body.fallback { font-size: 12.5pt; } /* Sarabun จาก Google ตัวใหญ่กว่า TH Sarabun New */
+        .toolbar {
+            position: sticky; top: 0; z-index: 10;
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+            padding: 10px 16px; background: #fff; border-bottom: 1px solid #ccc;
+            font-family: 'Sarabun', sans-serif; font-size: 14px;
+        }
+        .toolbar button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #999; background: #fff; cursor: pointer; }
+        .toolbar button.primary { background: #0E6B60; border-color: #0E6B60; color: #fff; }
+        .toolbar .note { color: #555; flex: 1 1 260px; }
+        .toolbar .warn { color: #a15c00; }
+        .sheet {
+            width: 21cm; min-height: 29.7cm; margin: 16px auto; padding: 2.5cm 2cm 2cm 3cm;
+            background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.15);
+        }
+        .sheet:focus, .sheet *:focus { outline: 1px dashed #8bb; }
+        h1, h2, h3 { margin: 0; font-weight: 700; }
+        h1 { font-size: 20pt; text-align: center; }
+        h2 { font-size: 18pt; text-align: center; margin-bottom: 12pt; }
+        h3 { font-size: 16pt; margin-top: 10pt; }
+        p { margin: 0; }
+        .center { text-align: center; }
+        .indent { text-indent: 2.5em; text-align: justify; }
+        ol, ul { margin: 0; padding-left: 2.4em; }
+        .sub { padding-left: 1.2em; }
+        .dots { border-bottom: 1px dotted #000; min-height: 1.25em; margin-left: 1.2em; }
+        table { width: 100%; border-collapse: collapse; margin: 4pt 0; }
+        th, td { border: 1px solid #000; padding: 2pt 6pt; vertical-align: top; }
+        th { font-weight: 700; text-align: center; }
+        td.num { text-align: center; width: 1%; white-space: nowrap; }
+        .head-box td { border: 1px solid #000; }
+        .muted { color: #555; }
+        .excerpt { font-size: 14pt; color: #222; }
+        .cover { display: flex; flex-direction: column; justify-content: space-between; text-align: center; }
+        .cover .big { font-size: 26pt; font-weight: 700; line-height: 1.3; }
+        .cover .mid { font-size: 20pt; font-weight: 700; line-height: 1.4; }
+        .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 24pt 16pt; margin-top: 24pt; text-align: center; }
+        .sign .one { grid-column: 1 / -1; }
+        .sign p + p { margin-top: 2pt; }
+        .no-break { break-inside: avoid; }
+        @media print {
+            html { background: none; }
+            .toolbar { display: none; }
+            .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+            .sheet + .sheet { break-before: page; }
+            .cover { min-height: 24cm; }
+            .sheet:focus, .sheet *:focus { outline: none; }
+            body.no-front .front { display: none; }
+            body.no-front .front + .sheet { break-before: auto; }
+        }
+        @media screen and (max-width: 22cm) {
+            .sheet { width: auto; margin: 8px; padding: 16px; min-height: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="toolbar">
+    <button type="button" class="primary" onclick="window.print()">🖨 พิมพ์ / บันทึกเป็น PDF</button>
+    <label><input type="checkbox" id="frontToggle" checked> พิมพ์ส่วนหน้า (ปก ลักษณะรายวิชา ตารางหน่วย)</label>
+    <span class="note">คลิกที่ข้อความเพื่อแก้ไข/เติมข้อมูลก่อนพิมพ์ได้ — ข้อความที่แก้บนหน้านี้จะไม่ถูกบันทึกลงระบบ · ตั้งค่ากระดาษ A4 และปิด "ส่วนหัวและท้ายกระดาษ" ในหน้าต่างพิมพ์</span>
+    <span class="warn" id="fontWarn" hidden>เครื่องนี้ไม่มีฟอนต์ TH Sarabun New จึงใช้ Sarabun แทน — ติดตั้งฟอนต์ หรือวางไฟล์ THSarabunNew.ttf ไว้ที่ assets/fonts/</span>
+</div>
+
+{* ───────── ปก ───────── *}
+<section class="sheet cover front" contenteditable="true">
+    <div>
+        <p class="big">แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ</p>
+        <p class="mid" style="margin-top:18pt">รหัสวิชา {$course['code']} ชื่อวิชา {$course['name']}</p>
+        <p class="mid">ท-ป-น {$tpn}</p>
+    </div>
+    <div>
+        <p class="mid">หลักสูตร{$level}</p>
+        <p class="mid">พุทธศักราช 2567</p>
+        <p class="mid">ประเภทวิชา ........................ สาขาวิชา {$teacher['subject_area'] ?? '........................'}</p>
+    </div>
+    <div>
+        <p class="mid">จัดทำโดย</p>
+        <p class="mid">{$teacherName}</p>
+        <p class="mid">ตำแหน่ง ครู</p>
+    </div>
+    <div>
+        <p class="mid">{$termText}</p>
+        <p class="mid">{$college}</p>
+        <p class="mid">สำนักงานคณะกรรมการการอาชีวศึกษา กระทรวงศึกษาธิการ</p>
+    </div>
+</section>
+
+{* ───────── ลักษณะรายวิชา ───────── *}
+<section class="sheet front" contenteditable="true">
+    <h2>ลักษณะรายวิชา</h2>
+    <p><b>รหัสวิชา</b> {$course['code']} <b>ชื่อวิชา</b> {$course['name']} <b>ท-ป-น</b> {$tpn}</p>
+    <p><b>หน่วยกิต</b> {$credits} <b>เวลาเรียน</b> {$weekly} ชั่วโมงต่อสัปดาห์ รวม {$totalHours} ชั่วโมง</p>
+    {if $course['classroom_name']}<p><b>กลุ่มเรียน</b> {$course['classroom_name']}</p>{/if}
+
+    <h3>ผลลัพธ์การเรียนรู้ระดับรายวิชา</h3>
+    <p class="dots"></p><p class="dots"></p>
+
+    <h3>จุดประสงค์รายวิชา เพื่อให้</h3>
+    {if $courseObjectives}
+        <ol>{foreach $courseObjectives as $o}<li>{$o}</li>{/foreach}</ol>
+    {else}
+        <ol><li><span class="muted">.........................................................................</span></li></ol>
+    {/if}
+
+    <h3>สมรรถนะรายวิชา</h3>
+    <ol>
+        {if $courseCompetencies}
+            {foreach $courseCompetencies as $c}<li>{$c}</li>{/foreach}
+        {else}
+            {* ยังไม่ได้กรอกสมรรถนะรายวิชา — ใช้สมรรถนะประจำหน่วยทั้งหมดแทนให้ครูแก้ก่อนพิมพ์ *}
+            {foreach $plans as $p}
+                {foreach $p['competencies'] as $c}<li>{$c}</li>{/foreach}
+            {/foreach}
+        {/if}
+    </ol>
+
+    <h3>คำอธิบายรายวิชา</h3>
+    {if $description}
+        {foreach $description as $d}<p class="indent">{$d}</p>{/foreach}
+    {else}
+        <p class="dots"></p><p class="dots"></p><p class="dots"></p>
+    {/if}
+
+    <div class="sign no-break">
+        <div>
+            <p>ลงชื่อ ........................................ ครูผู้สอน</p>
+            <p>({$teacherName})</p>
+        </div>
+        <div>
+            <p>ลงชื่อ ........................................ หัวหน้าแผนกวิชา</p>
+            <p>(........................................)</p>
+        </div>
+        <div>
+            <p>ลงชื่อ ........................................ หัวหน้างานพัฒนาหลักสูตรการเรียนการสอน</p>
+            <p>(........................................)</p>
+        </div>
+        <div>
+            <p>ลงชื่อ ........................................ รองผู้อำนวยการฝ่ายวิชาการ</p>
+            <p>(........................................)</p>
+        </div>
+        <div class="one">
+            <p>☐ อนุมัติ &nbsp; ☐ ไม่อนุมัติ</p>
+            <p>ลงชื่อ ........................................ ผู้อำนวยการ{$college}</p>
+            <p>(........................................)</p>
+        </div>
+    </div>
+</section>
+
+{* ───────── หน่วยการเรียนรู้และเวลา ───────── *}
+<section class="sheet front" contenteditable="true">
+    <h2>หน่วยการเรียนรู้และกำหนดเวลา</h2>
+    <p class="center">รหัสวิชา {$course['code']} ชื่อวิชา {$course['name']} ท-ป-น {$tpn}</p>
+    <table>
+        <thead>
+            <tr><th>หน่วยที่</th><th>ชื่อหน่วยการเรียนรู้</th><th>สอนครั้งที่</th><th>จำนวนชั่วโมง</th></tr>
+        </thead>
+        <tbody>
+            {foreach $plans as $p}
+                <tr>
+                    <td class="num">{$p['no']}</td>
+                    <td>{$p['unit']['title']}</td>
+                    <td class="num">{$p['session_from']}{if $p['session_to'] > $p['session_from']}–{$p['session_to']}{/if}</td>
+                    <td class="num">{$p['hours']}</td>
+                </tr>
+            {else}
+                <tr><td colspan="4" class="center muted">ยังไม่มีหน่วยการเรียน</td></tr>
+            {/foreach}
+            <tr><th colspan="3">รวม</th><th>{$totalHours}</th></tr>
+        </tbody>
+    </table>
+    <p class="muted" style="font-size:14pt;margin-top:6pt">หมายเหตุ ชั่วโมงแต่ละหน่วยระบบแบ่งให้เท่า ๆ กันจากเวลาเรียน {$weekly} ชั่วโมง × 18 สัปดาห์ แก้ไขตัวเลขให้ตรงกับการสอนจริงได้</p>
+</section>
+
+{* ───────── แผนรายหน่วย ───────── *}
+{foreach $plans as $p}
+{var $u = $p['unit']}
+<section class="sheet" contenteditable="true">
+    <table class="head-box">
+        <tr>
+            <td rowspan="2" style="width:62%"><b>แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ</b><br>รหัสวิชา {$course['code']} ชื่อวิชา {$course['name']}</td>
+            <td class="center"><b>หน่วยที่ {$p['no']}</b></td>
+        </tr>
+        <tr><td class="center">สอนครั้งที่ {$p['session_from']}{if $p['session_to'] > $p['session_from']}–{$p['session_to']}{/if}</td></tr>
+        <tr>
+            <td><b>ชื่อหน่วย</b> {$u['title']}</td>
+            <td class="center">จำนวน {$p['hours']} ชั่วโมง</td>
+        </tr>
+    </table>
+
+    <h3>1. สาระสำคัญ</h3>
+    {if $p['key_content']}
+        {foreach $p['key_content'] as $line}<p class="indent">{$line}</p>{/foreach}
+    {else}<p class="dots"></p><p class="dots"></p>{/if}
+
+    <h3>2. สมรรถนะประจำหน่วย</h3>
+    {if $p['competencies']}
+        <ol>{foreach $p['competencies'] as $line}<li>{$line}</li>{/foreach}</ol>
+    {else}<p class="dots"></p>{/if}
+
+    <h3>3. จุดประสงค์การเรียนรู้</h3>
+    <p class="sub"><b>3.1 ด้านความรู้และทักษะ</b></p>
+    {if $p['objectives']}
+        <ol class="sub">{foreach $p['objectives'] as $line}<li>{$line}</li>{/foreach}</ol>
+    {else}<p class="dots"></p>{/if}
+    <p class="sub"><b>3.2 ด้านความสามารถในการประยุกต์ใช้และความรับผิดชอบ</b></p>
+    <ol class="sub">
+        <li>ประยุกต์ใช้ความรู้และทักษะในหน่วยนี้กับงานอาชีพได้อย่างเหมาะสม</li>
+        <li>มีความรับผิดชอบ ตรงต่อเวลา ซื่อสัตย์ และทำงานร่วมกับผู้อื่นได้</li>
+    </ol>
+
+    <h3>4. เนื้อหาสาระการเรียนรู้</h3>
+    {if $p['sections']}
+        <ol>
+            {foreach $p['sections'] as $s}
+                <li>{$s['title']}{if $s['type'] === 'text' && $s['excerpt'] !== ''}<br><span class="excerpt">{$s['excerpt']}</span>{/if}</li>
+            {/foreach}
+        </ol>
+    {else}<p class="dots"></p><p class="dots"></p>{/if}
+
+    <h3>5. กิจกรรมการเรียนรู้</h3>
+    <p class="sub"><b>5.1 ขั้นนำเข้าสู่บทเรียน</b></p>
+    <ol class="sub">
+        <li>ครูชี้แจงสมรรถนะประจำหน่วยและจุดประสงค์การเรียนรู้ เชื่อมโยงกับประสบการณ์เดิมของผู้เรียน</li>
+        {foreach $p['pretests'] as $q}<li>ผู้เรียนทำแบบทดสอบก่อนเรียน "{$q['title']}" ({$q['question_count']} ข้อ) ผ่านระบบ RVC Learn</li>{/foreach}
+    </ol>
+    <p class="sub"><b>5.2 ขั้นให้ความรู้</b></p>
+    <ol class="sub">
+        {foreach $p['sections'] as $s}
+            <li>{if $s['type'] === 'video'}ผู้เรียนศึกษาวีดิทัศน์{elseif $s['type'] === 'pdf'}ผู้เรียนศึกษาเอกสาร{else}ครูอธิบายและผู้เรียนศึกษาใบความรู้เรื่อง{/if} "{$s['title']}"</li>
+        {else}
+            <li>ครูอธิบายเนื้อหาตามหัวข้อในข้อ 4 พร้อมยกตัวอย่างประกอบ</li>
+        {/foreach}
+        <li>ครูและผู้เรียนร่วมกันอภิปราย ซักถาม และสรุปประเด็นสำคัญ</li>
+    </ol>
+    <p class="sub"><b>5.3 ขั้นฝึกปฏิบัติและประยุกต์ใช้</b></p>
+    <ol class="sub">
+        {foreach $p['assignments'] as $a}
+            <li>ผู้เรียนปฏิบัติตามใบงาน "{$a['title']}" โดยครูสังเกตและให้คำแนะนำระหว่างปฏิบัติ</li>
+        {else}
+            <li>ผู้เรียนฝึกปฏิบัติตามที่ครูมอบหมาย โดยครูสังเกตและให้คำแนะนำระหว่างปฏิบัติ</li>
+        {/foreach}
+    </ol>
+    <p class="sub"><b>5.4 ขั้นสรุปและประเมินผล</b></p>
+    <ol class="sub">
+        <li>ครูและผู้เรียนร่วมกันสรุปสาระสำคัญของหน่วย</li>
+        {foreach $p['posttests'] as $q}<li>ผู้เรียนทำแบบทดสอบหลังเรียน "{$q['title']}" ({$q['question_count']} ข้อ) ผ่านระบบ RVC Learn</li>{/foreach}
+    </ol>
+
+    <h3>6. สื่อและแหล่งการเรียนรู้</h3>
+    <ol>
+        {foreach $p['sections'] as $s}
+            <li>{if $s['type'] === 'video'}วีดิทัศน์{elseif $s['type'] === 'pdf'}เอกสาร PDF{else}ใบความรู้{/if} เรื่อง {$s['title']}{if $s['url']} ({$s['url']}){/if}</li>
+        {/foreach}
+        {foreach $p['assignments'] as $a}<li>ใบงาน เรื่อง {$a['title']}</li>{/foreach}
+        {foreach $p['pretests'] as $q}<li>แบบทดสอบก่อนเรียน {$q['title']}</li>{/foreach}
+        {foreach $p['posttests'] as $q}<li>แบบทดสอบหลังเรียน {$q['title']}</li>{/foreach}
+        <li>ระบบการเรียนรู้ออนไลน์ RVC Learn {$college}</li>
+    </ol>
+
+    <h3>7. หลักฐานการเรียนรู้</h3>
+    <p class="sub"><b>7.1 หลักฐานความรู้</b> {if $p['pretests'] || $p['posttests']}ผลการทำแบบทดสอบก่อนเรียนและหลังเรียน{else}..........................................{/if}</p>
+    <p class="sub"><b>7.2 หลักฐานการปฏิบัติงาน</b> {if $p['assignments']}ผลงานตามใบงาน{foreach $p['assignments'] as $a} "{$a['title']}"{sep},{/sep}{/foreach}{else}..........................................{/if}</p>
+
+    <h3>8. การวัดและประเมินผล</h3>
+    <table class="no-break">
+        <thead><tr><th>รายการประเมิน</th><th>วิธีการ</th><th>เครื่องมือ</th><th>เกณฑ์การผ่าน</th></tr></thead>
+        <tbody>
+            {foreach $p['pretests'] as $q}
+                <tr><td>ความรู้พื้นฐานก่อนเรียน</td><td>ทดสอบ</td><td>แบบทดสอบก่อนเรียน</td><td>ไม่นำไปคิดคะแนน</td></tr>
+            {/foreach}
+            {foreach $p['posttests'] as $q}
+                <tr><td>ความรู้ตามจุดประสงค์การเรียนรู้</td><td>ทดสอบ</td><td>แบบทดสอบหลังเรียน</td><td>ร้อยละ {number_format((float) $course['pass_threshold'], 0)} ขึ้นไป</td></tr>
+            {/foreach}
+            {foreach $p['assignments'] as $a}
+                <tr><td>การปฏิบัติงาน: {$a['title']}</td><td>ตรวจผลงาน</td><td>ใบงานและเกณฑ์การให้คะแนน</td><td>คะแนนร้อยละ {number_format((float) $course['pass_threshold'], 0)} ขึ้นไป</td></tr>
+            {/foreach}
+            <tr><td>ความรับผิดชอบและคุณลักษณะที่พึงประสงค์</td><td>สังเกตพฤติกรรม</td><td>แบบประเมินพฤติกรรม</td><td>ระดับดีขึ้นไป</td></tr>
+        </tbody>
+    </table>
+
+    <h3>9. บันทึกหลังการจัดการเรียนรู้</h3>
+    <p class="sub"><b>9.1 ผลการใช้แผนการจัดการเรียนรู้</b></p><p class="dots"></p><p class="dots"></p>
+    <p class="sub"><b>9.2 ผลการเรียนรู้ของผู้เรียน</b></p><p class="dots"></p><p class="dots"></p>
+    <p class="sub"><b>9.3 ปัญหาที่พบและแนวทางแก้ไข</b></p><p class="dots"></p><p class="dots"></p>
+
+    <div class="sign no-break">
+        <div class="one">
+            <p>ลงชื่อ ........................................ ครูผู้สอน</p>
+            <p>({$teacherName})</p>
+            <p>วันที่ ...... เดือน .................... พ.ศ. ..........</p>
+        </div>
+    </div>
+</section>
+{/foreach}
+
+<script>
+(function () {
+    var toggle = document.getElementById('frontToggle');
+    toggle.addEventListener('change', function () {
+        document.body.classList.toggle('no-front', !toggle.checked);
+    });
+
+    // ตรวจว่ามีฟอนต์ TH Sarabun New หรือไม่ ถ้าไม่มีให้เตือนและปรับขนาดตัวอักษรของ Sarabun ให้ใกล้เคียง
+    if (document.fonts && document.fonts.load) {
+        document.fonts.load('16pt PlanSarabun', 'ก').then(function (faces) {
+            if (!faces.length) {
+                document.body.classList.add('fallback');
+                document.getElementById('fontWarn').hidden = false;
+            }
+        }).catch(function () { /* เบราว์เซอร์ไม่รองรับ — ปล่อยไว้ */ });
+    }
+})();
+</script>
+</body>
+</html>

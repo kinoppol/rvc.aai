@@ -1,0 +1,69 @@
+{layout '../layout.latte'}
+
+{block title}หน้าแรก{/block}
+
+{block content}
+<div class="page-head">
+    <div>
+        <h1>ภาพรวมระบบ</h1>
+        <div class="sub">{$term ?? ''} · วิทยาลัยเทคนิคร้อยเอ็ด</div>
+    </div>
+</div>
+
+<div class="stat-row">
+    <div class="stat">
+        <div class="label">ครูผู้สอน</div>
+        <div class="value">{$userCounts['teacher'] ?? 0}</div>
+    </div>
+    <div class="stat">
+        <div class="label">นักเรียน</div>
+        <div class="value">{$userCounts['student'] ?? 0}</div>
+    </div>
+    <div class="stat">
+        <div class="label">ผู้ดูแลระบบ</div>
+        <div class="value">{$userCounts['admin'] ?? 0}</div>
+    </div>
+    <div class="stat">
+        <div class="label">โครงสร้างฐานข้อมูลที่รอปรับปรุง</div>
+        <div n:class="value, $migrationSummary['pending'] > 0 ? warn : ok">{$migrationSummary['pending']}</div>
+    </div>
+</div>
+
+{if $migrationSummary['pending'] > 0}
+    <div class="alert alert-warning">
+        <span>△</span>
+        <div>
+            <strong>มีการปรับปรุงโครงสร้างฐานข้อมูลรออยู่ {$migrationSummary['pending']} รายการ</strong><br>
+            เปิดเมนู <a href="{$base}/admin/migrations">จัดการฐานข้อมูล</a> เพื่อตรวจสอบและสั่งปรับปรุง
+        </div>
+    </div>
+{/if}
+
+{if !$demoSeeded}
+    <div class="alert alert-info">
+        <span>ℹ</span>
+        <div>
+            ระบบยังไม่มีข้อมูลตัวอย่าง ถ้าต้องการทดลองใช้งานในมุมมองครูและนักเรียน
+            เปิด <a href="{$base}/admin/demo">ใส่ข้อมูลตัวอย่าง</a> เพื่อสร้างรายวิชา ครู และนักเรียนตามหลักสูตรจริง
+        </div>
+    </div>
+{/if}
+
+<div class="card">
+    <h2>ข้อมูลระบบ</h2>
+    <div class="card-sub">ใช้อ้างอิงเวลาแจ้งปัญหากับผู้ดูแลระบบ</div>
+    <div class="table-scroll">
+        <table class="data">
+            <tbody>
+            <tr><td style="width:220px">รุ่นของระบบ</td><td class="mono">{$systemVersion}</td></tr>
+            <tr><td>ฐานข้อมูล</td><td class="mono">{$server['name']} {$server['version']}</td></tr>
+            <tr><td>PHP</td><td class="mono">{$phpVersion}</td></tr>
+            <tr><td>migration ที่ปรับปรุงแล้ว</td><td class="mono">{$migrationSummary['ran']} รายการ</td></tr>
+            {if $installedAt}
+                <tr><td>ติดตั้งเมื่อ</td><td class="mono">{$installedAt}</td></tr>
+            {/if}
+            </tbody>
+        </table>
+    </div>
+</div>
+{/block}

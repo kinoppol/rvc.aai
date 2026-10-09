@@ -1,0 +1,70 @@
+{layout '../layout.latte'}
+
+{block title}หน้าแรก{/block}
+
+{block content}
+<div class="dash">
+    <div class="dash-greeting">สวัสดี {$firstName}</div>
+    <div class="dash-sub">
+        {$term ?? ''} · สอน {count($courses)} รายวิชา
+        {if $todayClasses > 0} · วันนี้มีคาบสอน {$todayClasses} คาบ{/if}
+    </div>
+
+    {if $courses}
+        <div class="course-grid">
+            {foreach $courses as $c}
+                <a class="course-card" href="{$base}/courses/{$c['id']}">
+                    <div class="course-card-head" style="background:#{$c['color']}">
+                        <div class="code">{$c['code']}</div>
+                        <div class="name">{$c['name']}</div>
+                    </div>
+                    <div class="course-card-body">
+                        <div class="meta">{$c['classroom_name'] ?? 'ยังไม่ระบุกลุ่มเรียน'} · {$c['student_count']} คน</div>
+                        <div class="note">{$c['unit_count']} หน่วยการเรียน</div>
+                    </div>
+                </a>
+            {/foreach}
+        </div>
+    {else}
+        <div class="empty" style="margin-top:26px">
+            <h3>ยังไม่มีรายวิชาที่สอนในภาคเรียนนี้</h3>
+            <p>เมื่อผู้ดูแลระบบเพิ่มรายวิชาให้ รายวิชาจะแสดงที่นี่</p>
+        </div>
+    {/if}
+
+    <div class="quota-strip">
+        <div class="grow">
+            <div class="label">ผู้ช่วย AI · เหลือ {$quota['left']} ครั้งในเดือนนี้</div>
+            <div n:class="bar, $quota['pct'] >= 100 ? bar-warn">
+                <span style="width: {100 - $quota['pct']}%"></span>
+            </div>
+        </div>
+        <a class="btn btn-sm" href="{$base}/settings/ai">จัดการ</a>
+    </div>
+
+    <div class="section-head">
+        <h2>งานที่สร้างล่าสุด</h2>
+        <a class="link-btn" href="{$base}/review">ดูรายการรอตรวจ ({$reviewCount ?? 0})</a>
+    </div>
+
+    {if $recent}
+        <div class="recent-list">
+            {foreach $recent as $r}
+                <div class="row">
+                    <div class="main">
+                        <div class="title">{$r['title']}</div>
+                        {if $r['meta']}<div class="meta">{$r['meta']}</div>{/if}
+                    </div>
+                    <span n:class="tag, $r['status_kind'] === 'ok' ? tag-ok : tag-warn">{$r['status']}</span>
+                    <div class="when">{$r['time']}</div>
+                </div>
+            {/foreach}
+        </div>
+    {else}
+        <div class="empty" style="margin-top:12px">
+            <h3>ยังไม่มีงานที่สร้างด้วยผู้ช่วย AI</h3>
+            <p>เปิดรายวิชาแล้วกด “ให้ AI ช่วย” เพื่อร่างข้อสอบหรือแผนการสอนชิ้นแรก</p>
+        </div>
+    {/if}
+</div>
+{/block}

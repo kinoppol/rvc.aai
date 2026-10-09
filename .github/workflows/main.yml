@@ -1,0 +1,34 @@
+name: PHP Deploy Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚀 Remote SSH to Execution Commands
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          port: ${{ secrets.SERVER_PORT }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+            cd /var/www/html/web #เปลี่ยน Path ตรงนี้ให้ถูกต้อง
+            git fetch origin
+            git reset --hard origin/main
+
+            # ติดตั้งไลบรารีให้ตรงกับ composer.lock ที่เพิ่ง deploy มา
+            # ถ้าข้ามขั้นตอนนี้ ไลบรารีที่เพิ่งเพิ่มใหม่จะยังไม่มีบนเซิร์ฟเวอร์ และหน้าที่เรียกใช้จะพัง
+            if command -v composer >/dev/null 2>&1; then
+              composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+            elif [ -f composer.phar ]; then
+              php composer.phar install --no-dev --optimize-autoloader --no-interaction --no-progress
+            else
+              echo "!! ไม่พบ composer บนเซิร์ฟเวอร์ — ข้ามการติดตั้งไลบรารี"
+              echo "!! ติดตั้งด้วย: sudo apt install composer  หรือวาง composer.phar ไว้ที่รากโปรเจกต์"
+              exit 1
+            fi

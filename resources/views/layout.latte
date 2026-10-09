@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{block title}{/block} · {$appName}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="{$base}/assets/css/app.css">
+    {if isset($ui)}
+        {* สีหลักที่ผู้ดูแลหรือครูเลือกไว้ — เขียน # ในเทมเพลตเอง เพราะ Latte จะ escape # ใน CSS *}
+        <style>
+            :root {
+                --brand: #{$ui['brand']};
+                --brandInk: #{$ui['brandInk']};
+                --brandSoft: #{$ui['brandSoft']};
+                --brandLine: #{$ui['brandLine']};
+            }
+            :root[data-theme="dark"] {
+                --brand: #{$ui['darkBrand']};
+                --brandInk: #{$ui['darkInk']};
+                --brandSoft: #{$ui['darkSoft']};
+                --brandLine: #{$ui['darkLine']};
+            }
+        </style>
+    {/if}
+    <script>
+        (function () {
+            var saved = null;
+            try { saved = localStorage.getItem('rvc-theme'); } catch (e) {}
+            if (saved) { document.documentElement.setAttribute('data-theme', saved); }
+        })();
+    </script>
+</head>
+<body>
+{var $role = $user['role'] ?? 'student'}
+{var $rc = $reviewCount ?? 0}
+{var $teaches = $role === 'teacher' || $role === 'supervisor'}
+{var $oversees = $role === 'admin' || $role === 'supervisor'}
+{var $roleName = $roleLabel ?? ($role === 'admin' ? 'ผู้ดูแลระบบ' : ($role === 'teacher' ? 'ครูผู้สอน' : 'นักเรียน'))}
+<div class="app">
+    {if isset($impersonatedBy) && $impersonatedBy}
+        <div class="impersonate-bar">
+            <span>กำลังใช้งานในนาม <strong>{$user['full_name'] ?? 'ผู้ใช้'}</strong> ({$roleName}) · สวมสิทธิ์โดย {$impersonatedBy}</span>
+            <form method="post" action="{$base}/impersonate/stop">
+                <input type="hidden" name="_token" value="{$csrf}">
+                <button type="submit">กลับเป็นผู้ดูแล</button>
+            </form>
+        </div>
+    {/if}
+    <header class="topbar">
+        <a href="{$base}/" class="brand">
+            <div class="brand-mark">RV</div>
+            <div class="brand-name">{$appName}</div>
+        </a>
+        <div class="topbar-spacer"></div>
+        <button type="button" class="btn btn-sm" onclick="rvcToggleTheme()" id="themeButton">โหมดมืด</button>
+        <div class="who">
+            <div class="avatar">{mb_substr($user['full_name'] ?? '?', 0, 2)}</div>
+            <div class="who-name">
+                {$user['full_name'] ?? 'ผู้ใช้'}
+                <span class="text-muted">· {$roleName}</span>
+            </div>
+        </div>
+        <form method="post" action="{$base}/{isset($impersonatedBy) && $impersonatedBy ? 'impersonate/stop' : 'logout'}">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <button type="submit" class="btn btn-sm">{isset($impersonatedBy) && $impersonatedBy ? 'กลับเป็นผู้ดูแล' : 'ออกจากระบบ'}</button>
+        </form>
+    </header>
+
+    <div class="shell">
+        <nav class="sidebar">
+            <a href="{$base}/dashboard" n:class="$page === 'dashboard' ? is-active"><span>⌂</span>หน้าแรก</a>
+
+            {if $teaches}
+                <a href="{$base}/courses" n:class="$page === 'courses' ? is-active"><span>▤</span>รายวิชาของฉัน</a>
+                <a href="{$base}/students" n:class="$page === 'students' ? is-active"><span>🧑‍🎓</span>นักเรียนของฉัน</a>
+                <a href="{$base}/review" n:class="$page === 'review' ? is-active">
+                    <span>✓</span>รอตรวจก่อนเผยแพร่
+                    {if $rc > 0}<span class="nav-badge">{$rc}</span>{/if}
+                </a>
+                <a href="{$base}/board" n:class="$page === 'board' ? is-active"><span>💬</span>กระดานสนทนา</a>
+                <a href="{$base}/settings/ai" n:class="$page === 'settings' ? is-active"><span>✦</span>ผู้ช่วย AI ของฉัน</a>
+                <a href="{$base}/settings/appearance" n:class="$page === 'appearance' ? is-active"><span>◐</span>สีหลักของหน้าจอ</a>
+            {/if}
+
+            {if $role === 'student'}
+                <a href="{$base}/learn" n:class="$page === 'learn' ? is-active"><span>▤</span>วิชาที่เรียน</a>
+            {/if}
+
+            {if $oversees}
+                <div class="group-label">งานกำกับดูแล</div>
+                <a href="{$base}/admin/users" n:class="$page === 'admin-users' ? is-active"><span>◉</span>ผู้ใช้งาน</a>
+                <a href="{$base}/admin/courses" n:class="$page === 'admin-courses' ? is-active"><span>▤</span>รายวิชาทั้งระบบ</a>
+            {/if}
+
+            {if $role === 'admin'}
+                <div class="group-label">สำหรับผู้ดูแลระบบ</div>
+                <a href="{$base}/admin/ai" n:class="$page === 'admin-ai' ? is-active"><span>▣</span>เครื่อง AI และโควตา</a>
+                <a href="{$base}/admin/rms" n:class="$page === 'admin-rms' ? is-active"><span>⇅</span>โอนข้อมูลจาก RMS</a>
+                <a href="{$base}/admin/migrations" n:class="$page === 'migrations' ? is-active"><span>▤</span>จัดการฐานข้อมูล</a>
+                <a href="{$base}/admin/logs" n:class="$page === 'admin-logs' ? is-active"><span>⚠</span>บันทึกข้อขัดข้อง</a>
+                <a href="{$base}/admin/settings" n:class="$page === 'admin-settings' ? is-active"><span>⚙</span>ตั้งค่าระบบ</a>
+            {/if}
+
+            {if $role === 'admin'}
+                <a href="{$base}/settings/appearance" n:class="$page === 'appearance' ? is-active"><span>◐</span>สีหลักของหน้าจอ</a>
+            {/if}
+
+            <div class="spacer"></div>
+            <div class="footnote">{$college}<br>{$term ?? ''}</div>
+        </nav>
+
+        <main class="content">
+            {foreach $flash as $message}
+                <div class="alert alert-{$message['type']}">{$message['message']}</div>
+            {/foreach}
+
+            {include content}
+        </main>
+    </div>
+
+    <nav class="mobile-nav">
+        <a href="{$base}/dashboard" n:class="$page === 'dashboard' ? is-active"><span>⌂</span>หน้าแรก</a>
+        {if $teaches}
+            <a href="{$base}/courses" n:class="$page === 'courses' ? is-active"><span>▤</span>รายวิชา</a>
+            <a href="{$base}/review" n:class="$page === 'review' ? is-active">
+                <span>✓{if $rc > 0}<i class="mobile-badge">{$rc}</i>{/if}</span>รอตรวจ
+            </a>
+            {if $oversees}
+                <a href="{$base}/admin/courses" n:class="$page === 'admin-courses' ? is-active"><span>▤</span>ทั้งระบบ</a>
+            {else}
+                <a href="{$base}/board" n:class="$page === 'board' ? is-active"><span>💬</span>สนทนา</a>
+            {/if}
+        {elseif $role === 'student'}
+            <a href="{$base}/learn" n:class="$page === 'learn' ? is-active"><span>▤</span>วิชาที่เรียน</a>
+        {else}
+            <a href="{$base}/admin/ai" n:class="$page === 'admin-ai' ? is-active"><span>▣</span>เครื่อง AI</a>
+            <a href="{$base}/admin/users" n:class="$page === 'admin-users' ? is-active"><span>◉</span>ผู้ใช้</a>
+        {/if}
+    </nav>
+</div>
+
+{include '_partials/confirm.latte'}
+<script src="{$base}/assets/js/ui.js" defer></script>
+<script src="{$base}/assets/js/combo.js" defer></script>
+
+{if $role !== 'student'}
+    {include '_partials/ai-chat.latte'}
+{/if}
+
+{if isset($toast) && $toast}
+    <div class="toast" id="rvcToast">{$toast}</div>
+{/if}
+
+<script>
+    function rvcToggleTheme() {
+        var root = document.documentElement;
+        var next = root.getAttribute('data-theme') === 'dark' ? '' : 'dark';
+        if (next) { root.setAttribute('data-theme', next); } else { root.removeAttribute('data-theme'); }
+        try { localStorage.setItem('rvc-theme', next); } catch (e) {}
+        document.getElementById('themeButton').textContent = next ? 'โหมดสว่าง' : 'โหมดมืด';
+    }
+    if (document.documentElement.getAttribute('data-theme') === 'dark') {
+        document.getElementById('themeButton').textContent = 'โหมดสว่าง';
+    }
+    (function () {
+        var t = document.getElementById('rvcToast');
+        if (t) { setTimeout(function () { t.classList.add('is-out'); }, 2600); }
+    })();
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+{layout '../layout.latte'}
+
+{block title}{$lesson ? 'แก้ไขบทเรียน' : 'เพิ่มบทเรียน'}{/block}
+
+{block content}
+<div class="form-page">
+    <a class="back-link" href="{$base}/courses/{$course['id']}">← กลับไปที่ {$course['name']}</a>
+    <h1>{$lesson ? 'แก้ไขบทเรียน' : 'เพิ่มบทเรียน'}</h1>
+    <div class="sub">{$course['code']} · {$course['name']}</div>
+
+    <form method="post" action="{$base}/courses/{$course['id']}/lessons{if $lesson}/{$lesson['id']}{/if}" enctype="multipart/form-data" class="card" style="margin-top:20px">
+        <input type="hidden" name="_token" value="{$csrf}">
+
+        <div class="field">
+            <label for="title">ชื่อบทเรียน</label>
+            <input class="input" type="text" id="title" name="title" value="{$lesson['title'] ?? ''}" required autofocus>
+        </div>
+
+        <div class="field">
+            <label for="summary">สรุปสั้น ๆ</label>
+            <textarea class="input" id="summary" name="summary" rows="2">{$lesson['summary'] ?? ''}</textarea>
+        </div>
+
+        <div class="field">
+            <label for="content">เนื้อหาบทเรียน (ไม่บังคับ)</label>
+            <textarea class="input" id="content" name="content" rows="10" style="font-family:var(--body)">{$lesson['content'] ?? ''}</textarea>
+        </div>
+
+        {if $lesson}
+            <div class="field">
+                <label>ไฟล์ใบความรู้ที่แนบไว้</label>
+                {if $attachments}
+                    <div class="list" style="border-top:1px solid var(--line)">
+                        {foreach $attachments as $a}
+                            <div class="list-row">
+                                <div class="list-main"><div class="list-title">{$a['original_name']}</div>
+                                    <div class="list-meta mono">{round($a['size_bytes']/1024)} KB</div>
+                                </div>
+                            </div>
+                        {/foreach}
+                    </div>
+                {else}
+                    <div class="hint">ยังไม่มีไฟล์แนบ</div>
+                {/if}
+            </div>
+        {/if}
+
+        <div class="field">
+            <label for="attachment">แนบไฟล์ใบความรู้ (PDF, Word, PowerPoint, รูปภาพ — ไม่เกิน 20 MB)</label>
+            <input class="input" type="file" id="attachment" name="attachment" accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png,.txt" style="height:auto;padding:8px 10px">
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" name="action" value="draft" class="btn">บันทึกเป็นฉบับร่าง</button>
+            <div class="spacer"></div>
+            <button type="submit" name="action" value="publish" class="btn btn-primary">บันทึกและเผยแพร่</button>
+        </div>
+    </form>
+</div>
+{/block}

@@ -1,0 +1,45 @@
+{layout '../layout.latte'}
+
+{block title}{$course['name']}{/block}
+
+{block content}
+<div class="course-page">
+    <div class="course-header">
+        <div class="course-header-inner">
+            <div class="course-head-code">{$course['code']} · ผู้สอน {$course['teacher_name'] ?? '—'}</div>
+            <h1>{$course['name']}</h1>
+            <div class="course-head-stats">{count($units)} หน่วยการเรียน</div>
+        </div>
+    </div>
+
+    <div class="course-body">
+        {if $units}
+            <div class="list">
+                {foreach $units as $u}
+                    <a class="list-row" href="{$base}/learn/units/{$u['id']}" style="color:inherit">
+                        <div class="list-no">{sprintf('%02d', $iterator->counter)}</div>
+                        <div class="list-main">
+                            <div class="list-title">{$u['title']}</div>
+                            {if $u['key_content']}<div class="list-meta">{$u['key_content']}</div>{/if}
+                        </div>
+                    </a>
+                    {foreach $quizzesByUnit[(int) $u['id']] ?? [] as $q}
+                        {include '../_partials/quiz-row.latte', q: $q}
+                    {/foreach}
+                {/foreach}
+            </div>
+        {elseif !$otherQuizzes}
+            <div class="empty"><h3>ยังไม่มีหน่วยการเรียนที่เผยแพร่</h3></div>
+        {/if}
+
+        {if $otherQuizzes}
+            <h2 class="learn-section-title">แบบทดสอบ</h2>
+            <div class="list">
+                {foreach $otherQuizzes as $q}
+                    {include '../_partials/quiz-row.latte', q: $q}
+                {/foreach}
+            </div>
+        {/if}
+    </div>
+</div>
+{/block}

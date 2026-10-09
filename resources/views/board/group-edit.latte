@@ -1,0 +1,82 @@
+{layout '../layout.latte'}
+
+{block title}สร้างกลุ่มสนทนาใหม่{/block}
+
+{block content}
+<div class="form-page" style="max-width:640px">
+    <a class="back-link" href="{$base}/board">← กลับไปที่กระดานสนทนา</a>
+    <h1>สร้างกลุ่มสนทนาใหม่</h1>
+    <div class="sub">คุณจะเป็นผู้ดูแลกลุ่มและอนุมัติสมาชิกใหม่</div>
+
+    <form method="post" action="{$base}/board" class="edit-form card" style="margin-top:24px;padding:24px">
+        <input type="hidden" name="_token" value="{$csrf}">
+
+        <div class="field">
+            <label>ชื่อกลุ่ม <span class="req">*</span></label>
+            <input type="text" name="name" class="input" maxlength="120" required autofocus placeholder="เช่น ข้อเสนอแนะ ระบบ LMS">
+        </div>
+
+        <div class="field">
+            <label>หมวดหมู่</label>
+            <div class="pill-row" data-group="category" style="flex-wrap:wrap;margin-top:8px">
+                {var $icons = ['lms' => '💻', 'teaching' => '📚', 'general' => '💬', 'other' => '✨']}
+                {foreach $categories as $key => $label}
+                    <button type="button" data-value="{$key}" n:class="pill, $key === 'general' ? is-on">
+                        <span style="margin-right:6px">{$icons[$key] ?? ''}</span>{$label}
+                    </button>
+                {/foreach}
+            </div>
+            <input type="hidden" name="category" id="categoryInput" value="general">
+        </div>
+
+        <div class="field">
+            <label>คำอธิบาย (ไม่บังคับ)</label>
+            <textarea name="description" class="input" rows="3" maxlength="1000" placeholder="อธิบายจุดประสงค์ของกลุ่มนี้"></textarea>
+        </div>
+
+        <div class="landing-toggle" style="margin-top:8px;margin-bottom:6px">
+            <div class="landing-toggle-text">
+                <div class="landing-toggle-title">🔓 กลุ่มเปิด</div>
+                <div class="landing-toggle-sub" id="openHint">
+                    ค่าเริ่มต้นคือกลุ่มปิด — ผู้ที่ไม่ได้เป็นสมาชิกต้องขออนุมัติก่อนเข้าร่วมและตั้ง/ตอบกระทู้
+                </div>
+            </div>
+            <button type="button" class="switch" id="openSwitch" aria-label="สลับกลุ่มเปิด/ปิด">
+                <span class="switch-dot"></span>
+            </button>
+            <input type="hidden" name="is_open" id="openInput" value="0">
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">สร้างกลุ่ม</button>
+            <a class="btn" href="{$base}/board">ยกเลิก</a>
+        </div>
+    </form>
+</div>
+
+<script>
+(function () {
+    var row = document.querySelector('.pill-row[data-group=category]');
+    var input = document.getElementById('categoryInput');
+    row.querySelectorAll('.pill').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            row.querySelectorAll('.pill').forEach(function (b) { b.classList.remove('is-on'); });
+            btn.classList.add('is-on');
+            input.value = btn.dataset.value;
+        });
+    });
+
+    var sw = document.getElementById('openSwitch');
+    var openInput = document.getElementById('openInput');
+    var hint = document.getElementById('openHint');
+    var openText = 'ทุกคนที่ล็อกอินอ่านและตั้ง/ตอบกระทู้ได้ทันทีโดยไม่ต้องขออนุมัติ';
+    var closedText = 'ค่าเริ่มต้นคือกลุ่มปิด — ผู้ที่ไม่ได้เป็นสมาชิกต้องขออนุมัติก่อนเข้าร่วมและตั้ง/ตอบกระทู้';
+    sw.addEventListener('click', function () {
+        var on = !sw.classList.contains('is-on');
+        sw.classList.toggle('is-on', on);
+        openInput.value = on ? '1' : '0';
+        hint.textContent = on ? openText : closedText;
+    });
+})();
+</script>
+{/block}

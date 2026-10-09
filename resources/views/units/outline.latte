@@ -1,0 +1,101 @@
+{layout '../layout.latte'}
+
+{block title}ออกแบบหน่วยการเรียนด้วย AI{/block}
+
+{block content}
+<div class="form-page">
+    <a class="back-link" href="{$base}/courses/{$course['id']}?tab=units">← กลับไปที่ {$course['name']}</a>
+    <h1>ออกแบบหน่วยการเรียนด้วย AI</h1>
+    <div class="sub">
+        ผู้ช่วยจะร่างรายชื่อหน่วยการเรียนให้ครอบคลุมคำอธิบายรายวิชา · ครูเลือกเฉพาะหน่วยที่ต้องการแล้วค่อยบันทึก
+    </div>
+
+    <div class="card" style="margin-top:20px">
+        <div class="card-sub" style="margin:0">คำอธิบายรายวิชาที่ผู้ช่วยจะใช้เป็นโจทย์</div>
+        <div style="margin-top:8px;line-height:1.8">
+            {if $course['description']}
+                {$course['description']}
+            {else}
+                <span class="text-muted">ยังไม่ได้กรอกคำอธิบายรายวิชา — ผู้ช่วยจะอนุมานจากชื่อวิชาแทน
+                <a href="{$base}/courses/{$course['id']}/edit">เพิ่มคำอธิบายรายวิชา</a> จะได้ผลตรงกว่า</span>
+            {/if}
+        </div>
+        {if $existing}
+            <div class="hint" style="margin-top:12px">
+                มีหน่วยการเรียนอยู่แล้ว {count($existing)} หน่วย — ผู้ช่วยจะเลี่ยงไม่ให้ซ้ำของเดิม
+            </div>
+        {/if}
+    </div>
+
+    <form method="post" action="{$base}/courses/{$course['id']}/units/design" class="card"
+          data-busy="กำลังร่างรายชื่อหน่วย…">
+        <input type="hidden" name="_token" value="{$csrf}">
+
+        <div class="field">
+            <label for="count">จำนวนหน่วยที่ต้องการ</label>
+            <input class="input" type="number" id="count" name="count" min="2" max="20" value="{$count}" style="width:120px">
+        </div>
+
+        <div class="field">
+            <label for="note">สั่งเพิ่มเติม (ไม่บังคับ)</label>
+            <input class="input" type="text" id="note" name="note" maxlength="500" value="{$note}"
+                   placeholder="เช่น เน้นการฝึกปฏิบัติในร้านจำลอง หรือแบ่งตามลำดับงานจริงหน้าร้าน">
+        </div>
+
+        <button type="submit" class="btn btn-primary">ให้ AI ร่างรายชื่อหน่วย</button>
+        <span class="hint" style="margin-left:10px">ปกติใช้เวลา 15–60 วินาที</span>
+
+        <div class="busy-note" data-busy-note hidden>
+            <span class="spinner"></span>
+            <span>
+                ผู้ช่วยกำลังอ่านคำอธิบายรายวิชาแล้วร่างรายชื่อหน่วยให้<span class="busy-dots"></span><br>
+                <span class="hint">อย่าปิดหน้านี้ · ผลลัพธ์จะขึ้นให้เลือกด้านล่างเมื่อร่างเสร็จ</span>
+            </span>
+        </div>
+    </form>
+
+    {if $proposed}
+        <form method="post" action="{$base}/courses/{$course['id']}/units/design/save" class="card">
+            <input type="hidden" name="_token" value="{$csrf}">
+
+            <h2 style="font:600 15px/1.4 var(--sans)">ผู้ช่วยร่างมา {count($proposed)} หน่วย</h2>
+            <div class="card-sub">ติ๊กหน่วยที่ต้องการ แล้วกดบันทึก · บันทึกเป็นฉบับร่างให้แก้เนื้อหาต่อได้</div>
+
+            <div class="list" style="margin-top:6px">
+                {foreach $proposed as $i => $u}
+                    <label class="outline-row">
+                        <input type="checkbox" name="pick[]" value="{$i}" checked>
+                        <span class="outline-no mono">{sprintf('%02d', $iterator->counter)}</span>
+                        <span class="outline-main">
+                            <span class="outline-title">{$u['title']}</span>
+                            {if $u['key_content']}<span class="outline-sub">{$u['key_content']}</span>{/if}
+                            {if $u['objectives']}<span class="outline-sub">จุดประสงค์: {$u['objectives']}</span>{/if}
+                            {if $u['competencies']}<span class="outline-sub">สมรรถนะ: {$u['competencies']}</span>{/if}
+                        </span>
+                        {if $u['hours']}<span class="tag">{$u['hours']} ชม.</span>{/if}
+                    </label>
+                {/foreach}
+            </div>
+
+            <div class="form-actions" style="margin-top:16px">
+                <button type="button" class="btn btn-sm" data-pick="all">เลือกทั้งหมด</button>
+                <button type="button" class="btn btn-sm" data-pick="none">ไม่เลือกเลย</button>
+                <div class="spacer"></div>
+                <button type="submit" class="btn btn-primary">บันทึกเป็นหน่วยฉบับร่าง</button>
+            </div>
+        </form>
+
+        {* เว้นวรรคหลัง { ทุกจุด เพราะ Latte อ่าน { ที่ติดตัวอักษรเป็นแท็กของตัวเอง *}
+        <script>
+            document.querySelectorAll('[data-pick]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var on = btn.dataset.pick === 'all';
+                    btn.closest('form').querySelectorAll('input[type="checkbox"]').forEach(function (box) {
+                        box.checked = on;
+                    });
+                });
+            });
+        </script>
+    {/if}
+</div>
+{/block}

@@ -1,0 +1,84 @@
+{layout '../layout.latte'}
+
+{block title}{$assignment ? 'แก้ไขใบงาน' : 'เพิ่มใบงาน'}{/block}
+
+{block content}
+{var $unitUrl = $base . '/courses/' . $course['id'] . '/units/' . $unit['id']}
+<div class="form-page form-page-wide">
+    <a class="back-link" href="{$unitUrl}/edit">← กลับไปที่ {$unit['title']}</a>
+    <h1>{$assignment ? 'แก้ไขใบงาน' : 'เพิ่มใบงาน'}</h1>
+    <div class="sub"><span class="mono">{$course['code']}</span> · {$unit['title']}</div>
+
+    {if $aiEnabled}
+        <form method="post" action="{$unitUrl}/assignments/{if $assignment}{$assignment['id']}/draft{else}draft{/if}"
+              class="card" style="margin-top:20px" data-busy="กำลังร่างใบงาน…">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <input type="hidden" name="max_score" value="{$form['max_score']}">
+
+            <div class="step-label">ให้ผู้ช่วย AI ร่างให้ก่อน</div>
+            <div class="hint" style="margin-top:6px">
+                ผู้ช่วยจะใช้สาระสำคัญของหน่วยนี้ร่างจุดประสงค์ ขั้นตอนการทำงาน สิ่งที่ต้องส่ง และเกณฑ์การให้คะแนนมาให้
+                แล้วครูแก้ต่อได้ทั้งหมดก่อนบันทึก
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px">
+                <input type="text" name="note" class="input" style="flex:1;min-width:240px" maxlength="500"
+                       placeholder="สั่งเพิ่มเติม เช่น ให้ทำเป็นงานกลุ่มหน้าร้านจำลอง (ไม่บังคับ)">
+                <button type="submit" class="btn">✦ ให้ AI ร่างใบงาน</button>
+            </div>
+            <div class="busy-note" data-busy-note hidden>
+                <span class="spinner"></span>
+                <span>ผู้ช่วยกำลังร่างใบงานให้<span class="busy-dots"></span> อย่าปิดหน้านี้</span>
+            </div>
+        </form>
+    {/if}
+
+    <form method="post" action="{$unitUrl}/assignments{if $assignment}/{$assignment['id']}{/if}" class="card">
+        <input type="hidden" name="_token" value="{$csrf}">
+
+        <div class="field">
+            <label for="title">ชื่อใบงาน</label>
+            <input class="input" type="text" id="title" name="title" maxlength="191" required value="{$form['title']}">
+        </div>
+
+        <div class="field">
+            <label for="description">รายละเอียดใบงาน</label>
+            <textarea class="input" id="description" name="description" rows="20"
+                      placeholder="จุดประสงค์ ขั้นตอนการทำงาน สิ่งที่ต้องส่ง และเกณฑ์การให้คะแนน">{$form['description']}</textarea>
+        </div>
+
+        <div class="register-form-grid">
+            <div class="field">
+                <label for="max_score">คะแนนเต็ม</label>
+                <input class="input" type="number" id="max_score" name="max_score" min="0" max="999" step="0.5" value="{$form['max_score']}">
+            </div>
+            <div class="field">
+                <label for="due_at">กำหนดส่ง (ไม่บังคับ)</label>
+                <input class="input" type="datetime-local" id="due_at" name="due_at" value="{$form['due_at']}">
+            </div>
+        </div>
+
+        <label class="check-row">
+            <input type="checkbox" name="allow_late" value="1" n:attr="checked: $form['allow_late']">
+            <span>ให้ส่งช้าหลังกำหนดได้</span>
+        </label>
+
+        <div class="form-actions" style="margin-top:18px">
+            {* ปุ่มลบอยู่ในฟอร์มแยกด้านล่าง เพราะ HTML ซ้อนฟอร์มในฟอร์มไม่ได้ *}
+            {if $assignment}
+                <button type="submit" form="deleteAssignment" class="btn btn-ghost-danger">ลบใบงาน</button>
+            {/if}
+            <div class="spacer"></div>
+            <a class="btn" href="{$unitUrl}/edit">ยกเลิก</a>
+            <button type="submit" class="btn btn-primary">{$assignment ? 'บันทึกใบงาน' : 'เพิ่มใบงาน'}</button>
+        </div>
+    </form>
+
+    {if $assignment}
+        <form method="post" id="deleteAssignment" action="{$unitUrl}/assignments/{$assignment['id']}/delete" hidden
+              data-confirm-title="ลบใบงาน" data-confirm-ok="ลบใบงาน" data-confirm-danger
+              data-confirm="ลบใบงาน {$assignment['title']} ใช่หรือไม่ · ลบได้เฉพาะใบงานที่ยังไม่มีนักเรียนส่งงาน">
+            <input type="hidden" name="_token" value="{$csrf}">
+        </form>
+    {/if}
+</div>
+{/block}

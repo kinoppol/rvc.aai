@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{$quiz['title']} · {$appName}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="{$base}/assets/css/app.css">
+</head>
+<body>
+<div class="take" id="take"
+     data-base="{$base}" data-attempt="{$attempt['id']}" data-token="{$csrf}"
+     data-limit="{$timeLimit ?? ''}" data-started="{$startedAt}" data-total="{count($questions)}">
+
+    <header class="take-bar">
+        <div class="take-bar-inner">
+            <div class="grow">
+                <div class="take-code mono">{$course['code']}</div>
+                <div class="take-title">{$quiz['title']}</div>
+            </div>
+            <div class="take-clock mono" id="clock">{$timeLimit ? '--:--' : ''}</div>
+        </div>
+        <div class="bar take-progress"><span id="progress" style="width:0%"></span></div>
+        <div class="take-bar-inner take-meta">
+            <span id="posText">ข้อ 1 จาก {count($questions)}</span>
+            <span id="answeredText">ตอบแล้ว 0 ข้อ</span>
+        </div>
+    </header>
+
+    <main class="take-main">
+        {foreach $questions as $q}
+            <section class="take-q" data-qid="{$q['id']}" data-type="{$q['type']}" {if !$iterator->first}hidden{/if}>
+                <div class="take-q-text">{$q['question']}</div>
+                {if $q['choices']}
+                    <div class="take-choices">
+                        {foreach $q['choices'] as $c}
+                            <button type="button" class="take-choice{if $q['answered_choice'] === $c['id']} is-picked{/if}" data-choice="{$c['id']}">
+                                <span class="take-choice-key mono">{$c['label']}</span>
+                                <span>{$c['content']}</span>
+                            </button>
+                        {/foreach}
+                    </div>
+                {else}
+                    <textarea class="input take-answer" data-text placeholder="พิมพ์คำตอบของคุณที่นี่" rows="6">{$q['answered_text']}</textarea>
+                {/if}
+            </section>
+        {/foreach}
+    </main>
+
+    <footer class="take-foot">
+        <button type="button" class="btn" id="prevBtn">ข้อก่อนหน้า</button>
+        <span class="grow hint" style="text-align:center">คำตอบถูกบันทึกอัตโนมัติทุกครั้งที่เลือก</span>
+        <button type="button" class="btn btn-primary" id="nextBtn">ข้อถัดไป</button>
+    </footer>
+
+    <form method="post" action="{$base}/learn/attempts/{$attempt['id']}/submit" id="submitForm" hidden>
+        <input type="hidden" name="_token" value="{$csrf}">
+    </form>
+</div>
+
+{* หน้านี้ไม่ได้ใช้ layout.latte จึงต้องโหลดกล่องยืนยันกลางเอง ไม่งั้น rvcConfirm ไม่มีและกดส่งคำตอบไม่ได้ *}
+{include '../_partials/confirm.latte'}
+<script src="{$base}/assets/js/ui.js"></script>
+
+<script>
+(function () {
+    var root = document.getElementById('take');
+    var base = root.dataset.base, attempt = root.dataset.attempt, token = root.dataset.token;
+    var total = +root.dataset.total, limit = root.dataset.limit ? +root.dataset.limit : null;
+    var started = +root.dataset.started * 1000;
+    var qs = Array.prototype.slice.call(document.querySelectorAll('.take-q'));
+    var cur = 0;
+    var answered = {};
+
+    qs.forEach(function (sec) {
+        if (sec.querySelector('.take-choice.is-picked') || (sec.querySelector('[data-text]') && sec.querySelector('[data-text]').value.trim()))
+            answered[sec.dataset.qid] = true;
+    });
+
+    function post(path, body) {
+        return fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body });
+    }
+    function render() {
+        qs.forEach(function (s, i) { s.hidden = i !== cur; });
+        document.getElementById('posText').textContent = 'ข้อ ' + (cur + 1) + ' จาก ' + total;
+        document.getElementById('answeredText').textContent = 'ตอบแล้ว ' + Object.keys(answered).length + ' ข้อ';
+        document.getElementById('progress').style.width = Math.round((cur + 1) / total * 100) + '%';
+        document.getElementById('prevBtn').disabled = cur === 0;
+        document.getElementById('nextBtn').textContent = cur === total - 1 ? 'ส่งคำตอบ' : 'ข้อถัดไป';
+    }
+    function save(sec, choiceId, text) {
+        answered[sec.dataset.qid] = true;
+        var body = new URLSearchParams({ _token: token, question: sec.dataset.qid });
+        if (choiceId != null) body.set('choice', choiceId);
+        if (text != null) body.set('text', text);
+        post('/learn/attempts/' + attempt + '/answer', body);
+        document.getElementById('answeredText').textContent = 'ตอบแล้ว ' + Object.keys(answered).length + ' ข้อ';
+    }
+
+    document.querySelectorAll('.take-choice').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var sec = btn.closest('.take-q');
+            sec.querySelectorAll('.take-choice').forEach(function (b) { b.classList.remove('is-picked'); });
+            btn.classList.add('is-picked');
+            save(sec, btn.dataset.choice, null);
+        });
+    });
+    document.querySelectorAll('[data-text]').forEach(function (ta) {
+        var t;
+        ta.addEventListener('input', function () {
+            clearTimeout(t);
+            t = setTimeout(function () { save(ta.closest('.take-q'), null, ta.value); }, 700);
+        });
+    });
+
+    document.getElementById('prevBtn').addEventListener('click', function () { if (cur > 0) { cur--; render(); } });
+    document.getElementById('nextBtn').addEventListener('click', function () {
+        if (cur < total - 1) { cur++; render(); return; }
+        // ถ้าโหลด ui.js ไม่ได้ ให้ใช้กล่องยืนยันของเบราว์เซอร์แทน นักเรียนจะได้ส่งคำตอบได้เสมอ
+        var ask = window.rvcConfirm || function (o) { return Promise.resolve(window.confirm(o.message)); };
+        ask({
+            title: 'ส่งคำตอบ',
+            message: 'ส่งคำตอบและจบการทำแบบทดสอบใช่หรือไม่ · เมื่อส่งแล้วจะแก้ไขคำตอบไม่ได้อีก',
+            confirmText: 'ส่งคำตอบ'
+        }).then(function (ok) {
+            if (ok) document.getElementById('submitForm').submit();
+        });
+    });
+
+    if (limit) {
+        var deadline = started + limit * 60000;
+        var clock = document.getElementById('clock');
+        (function tick() {
+            var left = Math.max(0, deadline - Date.now());
+            var m = Math.floor(left / 60000), s = Math.floor(left % 60000 / 1000);
+            clock.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+            if (left <= 0) { document.getElementById('submitForm').submit(); return; }
+            setTimeout(tick, 500);
+        })();
+    }
+
+    render();
+})();
+</script>
+</body>
+</html>

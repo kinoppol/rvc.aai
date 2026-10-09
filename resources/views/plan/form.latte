@@ -1,0 +1,120 @@
+{layout '../layout.latte'}
+
+{block title}แผนการจัดการเรียนรู้{/block}
+
+{block content}
+<div class="wizard-page" id="planForm" data-base="{$base}" data-course="{$course['id']}">
+    <a class="back-link" href="{$base}/courses/{$course['id']}">← กลับไปที่ {$course['name']}</a>
+    <h1>แผนการจัดการเรียนรู้</h1>
+    <div class="sub">กรอกหน่วยการเรียนรู้และสมรรถนะ แล้วให้ผู้ช่วยร่างเอกสารตามแบบฟอร์มของ สอศ.</div>
+
+    <div class="wizard-grid plan-grid">
+        <aside class="card plan-input">
+            <div class="step-label">ข้อมูลของหน่วย</div>
+            <div class="field">
+                <label for="pUnit">ชื่อหน่วยการเรียนรู้</label>
+                <input class="input" id="pUnit" placeholder="เช่น หน่วยที่ 4 ระบบนิวแมติกส์เบื้องต้น">
+            </div>
+            <div class="field">
+                <label for="pComp">สมรรถนะประจำหน่วย</label>
+                <textarea class="input" id="pComp" rows="3" style="height:auto;padding:10px 12px" placeholder="ต่อวงจรลมควบคุมกระบอกสูบสองทางด้วยวาล์ว 5/2 ได้ถูกต้องตามหลักความปลอดภัย"></textarea>
+            </div>
+            <div class="grid-2">
+                <div class="field"><label for="pHours">จำนวนชั่วโมง</label>
+                    <input class="input mono" id="pHours" value="6"></div>
+                <div class="field"><label for="pWeek">สัปดาห์ที่</label>
+                    <input class="input mono" id="pWeek" placeholder="7–8"></div>
+            </div>
+            <div class="field">
+                <label>รูปแบบการสอนที่ต้องการ</label>
+                <div class="pill-row" data-group="style">
+                    {foreach $styles as $s}
+                        <button type="button" data-value="{$s}" n:class="pill, $iterator->first ? is-on">{$s}</button>
+                    {/foreach}
+                </div>
+            </div>
+            <div class="hr"></div>
+            <div class="ai-chip">{$aiChip}</div>
+            <button type="button" class="btn btn-primary btn-block" id="makePlanBtn" style="margin-top:14px">ร่างเอกสารให้ฉัน</button>
+        </aside>
+
+        <div class="plan-output" id="planOutput">
+            {if $existing}
+                <div class="card">
+                    <div class="step-label">ร่างที่มีอยู่แล้ว</div>
+                    <div class="list" style="margin-top:8px">
+                        {foreach $existing as $e}
+                            <a class="list-row" href="{$base}/courses/{$course['id']}/lesson-plan/{$e['id']}" style="color:inherit">
+                                <div class="list-main"><div class="list-title">{$e['title']}</div></div>
+                                <span n:class="tag, $e['review_status'] === 'approved' ? tag-ok : tag-warn">
+                                    {$e['review_status'] === 'approved' ? 'บันทึกแล้ว' : 'รอครูตรวจ'}
+                                </span>
+                            </a>
+                        {/foreach}
+                    </div>
+                </div>
+            {/if}
+            <div class="empty" id="planEmpty">
+                <h3>ยังไม่มีร่างเอกสาร</h3>
+                <p>ตรวจข้อมูลด้านซ้ายให้ตรงก่อน แล้วกดปุ่มร่างเอกสาร<br>ร่างที่ได้จะแก้ไขได้ทุกบรรทัดในหน้าถัดไป</p>
+            </div>
+            <div class="plan-stream" id="planStream" hidden></div>
+            <div id="planError" hidden></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var root = document.getElementById('planForm');
+    var base = root.dataset.base, cid = root.dataset.course;
+    var style = root.querySelector('.pill-row .pill.is-on').dataset.value;
+
+    root.querySelectorAll('.pill-row .pill').forEach(function (b) {
+        b.addEventListener('click', function () {
+            root.querySelectorAll('.pill-row .pill').forEach(function (x) { x.classList.remove('is-on'); });
+            b.classList.add('is-on'); style = b.dataset.value;
+        });
+    });
+
+    function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+    document.getElementById('makePlanBtn').addEventListener('click', function () {
+        var btn = this; btn.disabled = true; btn.textContent = 'กำลังร่างเอกสาร…';
+        document.getElementById('planEmpty').hidden = true;
+        var stream = document.getElementById('planStream');
+        stream.hidden = false; stream.innerHTML = '<div class="gen-headline">กำลังร่างเอกสาร…</div>';
+
+        var qs = new URLSearchParams({
+            unit: document.getElementById('pUnit').value,
+            competency: document.getElementById('pComp').value,
+            hours: document.getElementById('pHours').value,
+            week: document.getElementById('pWeek').value,
+            style: style
+        });
+        var es = new EventSource(base + '/courses/' + cid + '/lesson-plan/stream?' + qs.toString());
+
+        es.addEventListener('section', function (e) {
+            var s = JSON.parse(e.data);
+            var el = document.createElement('div');
+            el.className = 'plan-section';
+            el.innerHTML = '<div class="plan-section-head">' + esc(s.head) + '</div><div class="plan-section-body">' + esc(s.body).replace(/\n/g, '<br>') + '</div>';
+            stream.appendChild(el);
+        });
+        es.addEventListener('done', function (e) {
+            es.close();
+            window.location = JSON.parse(e.data).editUrl;
+        });
+        es.addEventListener('error', function (e) {
+            es.close();
+            btn.disabled = false; btn.textContent = 'ร่างเอกสารให้ฉัน';
+            var msg = 'ร่างเอกสารไม่สำเร็จ';
+            try { msg = JSON.parse(e.data).message || msg; } catch (x) {}
+            var box = document.getElementById('planError');
+            box.hidden = false; box.className = 'alert alert-error';
+            box.innerHTML = '<span>✕</span><div>' + esc(msg) + '</div>';
+        });
+    });
+})();
+</script>
+{/block}

@@ -1,0 +1,38 @@
+{*
+    การ์ดแจ้งสถานะผู้ช่วย AI — ใช้เมื่อร่างงานด้วย AI ไม่ได้
+    ตัวแปร: $reason (college_offline|quota_exhausted|queue_long|key_invalid|generate_failed), $message, $settingsUrl
+*}
+{var $conf = [
+    'college_offline' => ['dot' => 'var(--err)', 'title' => 'ตอนนี้เครื่อง AI ของส่วนกลางปิดอยู่',
+        'body' => 'งานที่ครูร่างไว้ยังอยู่ครบ ไม่หายไปไหน ระหว่างนี้ยังเปิดรายวิชา แก้ใบความรู้ และตรวจงานนักเรียนได้ทุกอย่าง',
+        'primary' => 'เชื่อม AI ของฉันเพื่อทำงานต่อ'],
+    'quota_exhausted' => ['dot' => 'var(--warn)', 'title' => 'ใช้โควตาผู้ช่วย AI ของเดือนนี้ครบแล้ว',
+        'body' => 'โควตาจะรีเซ็ตอีกครั้งวันที่ 1 ของเดือนถัดไป งานที่ร่างไว้เดือนนี้ยังใช้และแก้ได้ตามปกติ',
+        'primary' => 'ใช้ AI ของฉันต่อ (ไม่นับโควตา)'],
+    'queue_long' => ['dot' => 'var(--warn)', 'title' => 'มีครูใช้งานพร้อมกันหลายคน',
+        'body' => 'เข้าคิวไว้แล้วปิดหน้านี้ได้ ระบบจะแจ้งเตือนเมื่อร่างเสร็จ ช่วงที่ว่างที่สุดของวันคือ 07:30–09:00 และหลัง 16:00',
+        'primary' => 'เข้าคิวไว้ แล้วแจ้งเตือนฉัน'],
+    'key_invalid' => ['dot' => 'var(--err)', 'title' => 'รหัสเชื่อมต่อของครูใช้ไม่ได้ · สลับมาใช้ AI ของส่วนกลางให้แล้ว',
+        'body' => 'รหัสมีวันหมดอายุได้เป็นเรื่องปกติ ไม่ใช่ความผิดของครู งานที่กำลังร่างไม่สะดุด',
+        'primary' => 'ไปวางรหัสใหม่'],
+    'empty' => ['dot' => 'var(--warn)', 'title' => 'ผู้ช่วยไม่ได้ร่างเนื้อหาออกมา',
+        'body' => 'บางครั้งโมเดลตอบไม่ตรงรูปแบบที่ระบบอ่านได้ ลองกดร่างใหม่อีกครั้ง หรือลดจำนวนข้อ/ปรับหัวข้อให้เจาะจงขึ้น',
+        'primary' => null],
+    'generate_failed' => ['dot' => 'var(--err)', 'title' => 'ร่างงานไม่สำเร็จ',
+        'body' => 'เกิดข้อขัดข้องชั่วคราวระหว่างที่ผู้ช่วยทำงาน ลองกดร่างใหม่อีกครั้งได้เลย',
+        'primary' => null],
+]}
+{var $c = $conf[$reason] ?? $conf['generate_failed']}
+
+<div class="card ai-state">
+    <div class="ai-state-top">
+        <span class="ai-state-dot" style="background: {$c['dot']}"></span>
+        <div>
+            <div class="ai-state-title">{$c['title']}</div>
+            <div class="ai-state-body">{$message ?? $c['body']}</div>
+        </div>
+    </div>
+    {if $c['primary']}
+        <a class="btn btn-primary btn-block" href="{$settingsUrl ?? ($base . '/settings/ai')}" style="margin-top:14px">{$c['primary']}</a>
+    {/if}
+</div>

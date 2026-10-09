@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>เข้าสู่ระบบ · {$appName}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="{$base}/assets/css/app.css">
+    {if isset($ui)}
+        {* สีหลักของระบบ (ค่าเริ่มต้นของเว็บ — ยังไม่รู้ว่าใครล็อกอินอยู่) เขียน # ในเทมเพลตเอง
+           เพราะ Latte จะ escape # ที่ตามด้วย ( หรือ ) ใน context ของ CSS *}
+        <style>
+            :root {
+                --brand: #{$ui['brand']};
+                --brandInk: #{$ui['brandInk']};
+                --brandSoft: #{$ui['brandSoft']};
+                --brandLine: #{$ui['brandLine']};
+            }
+            :root[data-theme="dark"] {
+                --brand: #{$ui['darkBrand']};
+                --brandInk: #{$ui['darkInk']};
+                --brandSoft: #{$ui['darkSoft']};
+                --brandLine: #{$ui['darkLine']};
+            }
+        </style>
+    {/if}
+</head>
+<body>
+<div class="center-page">
+    <form class="panel" method="post" action="{$base}/login">
+        <div class="panel-head">
+            <a href="{$base}/" class="brand-mark" title="ไปหน้าแรกของเว็บ">RV</a>
+            <h1>{$appName}</h1>
+            <div class="sub">{$college}</div>
+        </div>
+
+        {foreach $flash as $message}
+            <div class="alert alert-{$message['type']}">{$message['message']}</div>
+        {/foreach}
+
+        <input type="hidden" name="_token" value="{$csrf}">
+
+        <div class="login-tabs" role="tablist">
+            <label n:class="login-tab, $as !== 'student' ? is-active">
+                <input type="radio" name="as" value="staff" n:attr="checked: $as !== 'student'"
+                       onchange="document.getElementById('loginInstitutionField').hidden = true; document.getElementById('username').placeholder = '';">
+                <span class="login-tab-icon">🧑‍🏫</span>ครู / ผู้ดูแลระบบ
+            </label>
+            <label n:class="login-tab, $as === 'student' ? is-active">
+                <input type="radio" name="as" value="student" n:attr="checked: $as === 'student'"
+                       onchange="document.getElementById('loginInstitutionField').hidden = false; document.getElementById('username').placeholder = 'รหัสนักศึกษา';">
+                <span class="login-tab-icon">🎓</span>นักเรียน
+            </label>
+        </div>
+
+        <div class="field" id="loginInstitutionField" n:attr="hidden: $as !== 'student'">
+            <label for="institution_id">สถานศึกษา</label>
+            <select class="input" id="institution_id" name="institution_id">
+                <option value="">— เลือกสถานศึกษา —</option>
+                {foreach $institutions as $inst}
+                    <option value="{$inst['id']}" n:attr="selected: (string) $inst['id'] === $institution_id">{$inst['name']}</option>
+                {/foreach}
+            </select>
+        </div>
+
+        <div class="field">
+            <label for="username">ชื่อผู้ใช้</label>
+            <input class="input" type="text" id="username" name="username" value="{$username}"
+                   placeholder="{$as === 'student' ? 'รหัสนักศึกษา' : ''}" autocomplete="username" autofocus required>
+        </div>
+
+        <div class="field">
+            <label for="password">รหัสผ่าน</label>
+            <input class="input" type="password" id="password" name="password" autocomplete="current-password" required>
+            {if $as === 'student'}<div class="hint">สำหรับนักเรียน รหัสผ่านคือเลขประจำตัวประชาชน 13 หลัก</div>{/if}
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">เข้าสู่ระบบ</button>
+
+        <div class="sub text-muted mt-16" style="text-align:center;font-size:12.5px">
+            ลืมรหัสผ่าน กรุณาติดต่อครูผู้สอนหรือผู้ดูแลระบบของวิทยาลัย
+        </div>
+        <div class="sub text-muted mt-16" style="text-align:center;font-size:12.5px">
+            เป็นครูและยังไม่มีบัญชี? <a href="{$base}/register">สมัครเข้าใช้ระบบ</a>
+        </div>
+        <div class="panel-foot-link">
+            <a href="{$base}/">← กลับหน้าแรกของเว็บ · ดูรายวิชาที่เปิดสอน</a>
+        </div>
+    </form>
+</div>
+</body>
+</html>

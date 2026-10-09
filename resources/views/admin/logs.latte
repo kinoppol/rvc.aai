@@ -1,0 +1,52 @@
+{layout '../layout.latte'}
+
+{block title}บันทึกข้อขัดข้อง{/block}
+
+{block content}
+<div class="page-head">
+    <div>
+        <h1>บันทึกข้อขัดข้อง</h1>
+        <div class="sub">
+            ค้นด้วยหมายเลขอ้างอิงที่ผู้ใช้แจ้งมา เพื่อดูสาเหตุของเหตุการณ์นั้นโดยตรง
+            {if $exists} · ไฟล์ขนาด {$sizeText}{/if}
+        </div>
+    </div>
+    <div class="actions">
+        <form method="get" action="{$base}/admin/logs" style="display:flex;gap:8px">
+            <input type="text" name="q" class="input" style="width:220px" value="{$query}" placeholder="เช่น 7F3A21 หรือ SQLSTATE">
+            <button type="submit" class="btn btn-sm">ค้นหา</button>
+            {if $query}<a href="{$base}/admin/logs" class="btn btn-sm">ล้าง</a>{/if}
+        </form>
+        {if $exists}
+            <a href="{$base}/admin/logs/download" class="btn btn-sm">ดาวน์โหลดไฟล์</a>
+        {/if}
+    </div>
+</div>
+
+{if !$exists}
+    <div class="empty">
+        <h3>ยังไม่มีไฟล์บันทึก</h3>
+        <p>ระบบจะสร้างไฟล์ให้เองเมื่อเกิดข้อขัดข้องครั้งแรก ({$path})</p>
+    </div>
+{elseif !$entries}
+    <div class="empty">
+        <h3>{if $query}ไม่พบเหตุการณ์ที่ตรงกับ “{$query}”{else}ยังไม่มีเหตุการณ์ที่บันทึกไว้{/if}</h3>
+        <p>{if $query}ลองค้นด้วยหมายเลขอ้างอิงเพียงอย่างเดียว หรือดาวน์โหลดไฟล์ไปตรวจทั้งก้อน{else}เป็นสัญญาณที่ดี — ระบบยังไม่เจอข้อขัดข้อง{/if}</p>
+    </div>
+{else}
+    <div class="card" style="padding:0;overflow:hidden">
+        {foreach $entries as $e}
+            <div class="log-line">
+                <div class="log-head">
+                    {if $e['ref']}<span class="log-ref">{$e['ref']}</span>{/if}
+                    {var $bad = in_array($e['level'], ['ERROR', 'CRITICAL', 'ALERT', 'EMERGENCY'], true)}
+                    <span n:class="chip, $bad ? chip-err, !$bad ? chip-warn">{$e['level']}</span>
+                    <span class="hint">{$e['time']}</span>
+                </div>
+                <pre class="log-msg">{$e['message']}</pre>
+            </div>
+        {/foreach}
+    </div>
+    <div class="hint">แสดงล่าสุดไม่เกิน {$limit} เหตุการณ์ · ต้องการดูทั้งหมดให้ดาวน์โหลดไฟล์</div>
+{/if}
+{/block}

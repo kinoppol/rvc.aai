@@ -1,0 +1,190 @@
+{layout '../layout.latte'}
+
+{block title}ผู้ใช้งาน{/block}
+
+{block content}
+<div class="page-head">
+    <div>
+        <h1>ผู้ใช้งานระบบ</h1>
+        <div class="sub">
+            ครู {$counts['teacher'] ?? 0} · ผู้ดูแลครู {$counts['supervisor'] ?? 0} · นักเรียน {$counts['student'] ?? 0} · ผู้ดูแลระบบ {$counts['admin'] ?? 0}
+            {if $pendingCount > 0} · <span style="color:var(--warn)">รออนุมัติ {$pendingCount} คน</span>{/if}
+        </div>
+    </div>
+    <div class="actions">
+        {var $tabs = ['' => 'ทั้งหมด', 'teacher' => 'ครู', 'supervisor' => 'ผู้ดูแลครู', 'student' => 'นักเรียน', 'admin' => 'ผู้ดูแลระบบ']}
+        {foreach $tabs as $key => $label}
+            <a href="{$base}/admin/users{if $key}?role={$key}{/if}" n:class="btn, btn-sm, $filter === $key ? btn-primary">{$label}</a>
+        {/foreach}
+        <a href="{$base}/admin/users?role=pending" n:class="btn, btn-sm, $filter === 'pending' ? btn-primary">
+            รออนุมัติ{if $pendingCount > 0} ({$pendingCount}){/if}
+        </a>
+    </div>
+</div>
+
+{if $filter === 'pending'}
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+        <div>
+            <div style="font-weight:600;font-size:14px">ต้องอนุมัติก่อนเข้าใช้งาน</div>
+            <div class="sub" style="font-size:12.5px">
+                {if $requireApproval}เปิดอยู่ — ครูที่สมัครใหม่จะอยู่ในสถานะรออนุมัติจนกว่าจะกดอนุมัติ{else}ปิดอยู่ — ครูที่สมัครใหม่จะเข้าใช้งานได้ทันที{/if}
+            </div>
+        </div>
+        <form method="post" action="{$base}/admin/users/settings" style="display:flex;align-items:center;gap:8px">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <input type="hidden" name="require_approval" value="{if $requireApproval}0{else}1{/if}">
+            <button type="submit" class="btn btn-sm {if $requireApproval}btn-ghost-danger{else}btn-primary{/if}">
+                {if $requireApproval}ปิดการอนุมัติ{else}เปิดการอนุมัติ{/if}
+            </button>
+        </form>
+    </div>
+
+    {if $pendingUsers}
+        <div class="card" style="padding:0;overflow:hidden">
+            <div class="table-scroll">
+                <table class="data">
+                    <thead>
+                        <tr><th>ชื่อผู้ใช้</th><th>ชื่อ-สกุล</th><th>อีเมล</th><th>สาขาวิชาที่สอน</th><th>สถานศึกษาที่สังกัด</th><th>สมัครเมื่อ</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                    {foreach $pendingUsers as $u}
+                        <tr>
+                            <td class="mono">{$u['username']}</td>
+                            <td>{$u['full_name']}</td>
+                            <td class="mono" style="font-size:12.5px">{$u['email']}</td>
+                            <td>{$u['subject_area'] ?? '—'}</td>
+                            <td>{$u['institution'] ?? '—'}</td>
+                            <td class="mono" style="font-size:12.5px">{$u['created_text']}</td>
+                            <td style="text-align:right;white-space:nowrap">
+                                <form method="post" action="{$base}/admin/users/{$u['id']}/approve" style="display:inline-block">
+                                    <input type="hidden" name="_token" value="{$csrf}">
+                                    <button type="submit" class="btn btn-sm btn-primary">อนุมัติ</button>
+                                </form>
+                                <form method="post" action="{$base}/admin/users/{$u['id']}/reject" style="display:inline-block"
+                                      data-confirm-title="ปฏิเสธคำขอสมัคร" data-confirm-ok="ปฏิเสธและลบบัญชี" data-confirm-danger
+                                      data-confirm="ปฏิเสธคำขอสมัครของ {$u['full_name']} ใช่หรือไม่ บัญชีนี้จะถูกลบทิ้งทันที">
+                                    <input type="hidden" name="_token" value="{$csrf}">
+                                    <button type="submit" class="btn btn-sm btn-ghost-danger">ปฏิเสธ</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {/foreach}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {else}
+        <div class="empty">
+            <h3>ไม่มีคำขอสมัครที่รออนุมัติ</h3>
+            <p>เมื่อมีครูสมัครเข้าใช้ระบบเอง รายการจะมาแสดงที่นี่</p>
+        </div>
+    {/if}
+{else}
+    <form method="get" action="{$base}/admin/users" class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        {if $filter}<input type="hidden" name="role" value="{$filter}">{/if}
+        <input type="text" name="q" class="input" style="width:250px" value="{$search}" placeholder="ค้นชื่อผู้ใช้ ชื่อ-สกุล หรืออีเมล">
+        <select name="status" class="input" style="width:170px">
+            <option value="">— ทุกสถานะ —</option>
+            <option value="active" n:attr="selected: $status === 'active'">ใช้งาน</option>
+            <option value="pending" n:attr="selected: $status === 'pending'">รออนุมัติ</option>
+            <option value="suspended" n:attr="selected: $status === 'suspended'">ระงับ</option>
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">กรอง</button>
+        {if $search || $status}
+            <a href="{$base}/admin/users{if $filter}?role={$filter}{/if}" class="btn btn-sm">ล้างตัวกรอง</a>
+        {/if}
+        <div class="spacer"></div>
+        <span class="hint">
+            {if $total > 0}
+                แสดง {($pageNo - 1) * $perPage + 1}–{min($pageNo * $perPage, $total)} จาก {$total} บัญชี
+            {else}
+                ไม่พบบัญชีตามเงื่อนไขนี้
+            {/if}
+        </span>
+    </form>
+
+    <div class="card">
+        <div class="table-scroll">
+            <table class="data">
+                <thead><tr><th>ชื่อผู้ใช้</th><th>ชื่อ-สกุล</th><th>บทบาท</th><th>สถานะ</th><th>เข้าใช้ล่าสุด</th><th></th></tr></thead>
+                <tbody>
+                {foreach $users as $u}
+                    <tr>
+                        <td class="mono">{$u['username']}</td>
+                        <td>{$u['full_name']}</td>
+                        <td>
+                            {$u['role_label']}
+                            {if $isAdmin && $u['role'] !== 'student' && (int) $u['id'] !== (int) ($user['id'] ?? 0)}
+                                <form method="post" action="{$base}/admin/users/{$u['id']}/role" class="role-form"
+                                      data-confirm-title="แต่งตั้งบทบาท"
+                                      data-confirm="เปลี่ยนบทบาทของ {$u['full_name']} ตามที่เลือกใช่หรือไม่ · สิทธิ์การเข้าถึงจะเปลี่ยนทันทีที่บันทึก">
+                                    <input type="hidden" name="_token" value="{$csrf}">
+                                    <select name="role" class="input input-sm">
+                                        {foreach $roleOptions as $value => $label}
+                                            <option value="{$value}" n:attr="selected: $u['role'] === $value">{$label}</option>
+                                        {/foreach}
+                                    </select>
+                                    <button type="submit" class="btn btn-sm">แต่งตั้ง</button>
+                                </form>
+                            {/if}
+                        </td>
+                        <td>
+                            {if $u['status'] === 'active'}<span class="chip chip-ok">ใช้งาน</span>
+                            {elseif $u['status'] === 'pending'}<span class="chip chip-warn">รออนุมัติ</span>
+                            {else}<span class="chip chip-err">ระงับ</span>{/if}
+                        </td>
+                        <td class="mono" style="font-size:12.5px">{$u['last_login_text']}</td>
+                        <td style="text-align:right;white-space:nowrap">
+                            {if $isAdmin && $u['role'] !== 'admin' && $u['status'] === 'active' && (int) $u['id'] !== (int) ($user['id'] ?? 0)}
+                                <form method="post" action="{$base}/admin/users/{$u['id']}/impersonate" style="display:inline-block"
+                                      data-confirm-title="สวมสิทธิ์ผู้ใช้" data-confirm-ok="เข้าใช้งานในนามนี้"
+                                      data-confirm="เข้าใช้งานระบบในนาม {$u['full_name']} · กดปุ่ม “กลับเป็นผู้ดูแล” ที่แถบด้านบนเพื่อกลับมาเป็นบัญชีของคุณ">
+                                    <input type="hidden" name="_token" value="{$csrf}">
+                                    <button type="submit" class="btn btn-sm">สวมสิทธิ์</button>
+                                </form>
+                            {/if}
+                            {if $isAdmin && ($u['role'] === 'teacher' || $u['role'] === 'supervisor') && $u['status'] === 'active'}
+                                <form method="post" action="{$base}/admin/users/{$u['id']}/reset-link" style="display:inline-block"
+                                      data-confirm-title="สร้างลิงก์รีเซ็ตรหัสผ่าน" data-confirm-ok="สร้างลิงก์"
+                                      data-confirm="สร้างลิงก์ตั้งรหัสผ่านใหม่ให้ {$u['full_name']} · ลิงก์มีอายุ 60 นาที และคุณต้องคัดลอกไปส่งให้เจ้าตัวเอง">
+                                    <input type="hidden" name="_token" value="{$csrf}">
+                                    <button type="submit" class="btn btn-sm">สร้างลิงก์รีเซ็ต</button>
+                                </form>
+                                <form method="post" action="{$base}/admin/users/{$u['id']}/reset-password" style="display:inline-block"
+                                      data-confirm-title="รีเซ็ตรหัสผ่านทันที" data-confirm-ok="รีเซ็ตรหัสผ่าน" data-confirm-danger
+                                      data-confirm="ตั้งรหัสผ่านใหม่แบบสุ่มให้ {$u['full_name']} ทันที · รหัสเดิมจะใช้ไม่ได้อีก และระบบจะแสดงรหัสใหม่ให้คุณเพียงครั้งเดียว">
+                                    <input type="hidden" name="_token" value="{$csrf}">
+                                    <button type="submit" class="btn btn-sm btn-ghost-danger">รีเซ็ตรหัสผ่าน</button>
+                                </form>
+                            {/if}
+                        </td>
+                    </tr>
+                {/foreach}
+                {if !$users}
+                    <tr><td colspan="6" class="text-muted" style="text-align:center;padding:26px">ไม่พบบัญชีตามเงื่อนไขนี้</td></tr>
+                {/if}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {if $pages > 1}
+        {var $qs = $queryString ? $queryString . '&' : ''}
+        <nav class="pager">
+            {if $pageNo > 1}
+                <a class="btn btn-sm" href="{$base}/admin/users?{$qs}page={$pageNo - 1}">← ก่อนหน้า</a>
+            {/if}
+
+            {foreach range(max(1, $pageNo - 2), min($pages, $pageNo + 2)) as $p}
+                <a href="{$base}/admin/users?{$qs}page={$p}" n:class="btn, btn-sm, $p === $pageNo ? btn-primary">{$p}</a>
+            {/foreach}
+
+            {if $pageNo < $pages}
+                <a class="btn btn-sm" href="{$base}/admin/users?{$qs}page={$pageNo + 1}">ถัดไป →</a>
+            {/if}
+
+            <span class="hint">หน้า {$pageNo} จาก {$pages}</span>
+        </nav>
+    {/if}
+{/if}
+{/block}

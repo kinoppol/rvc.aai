@@ -1,0 +1,104 @@
+{layout '../layout.latte'}
+
+{block title}กำลังร่างข้อสอบ{/block}
+
+{block content}
+<div class="wizard-page narrow" id="genRoot"
+     data-stream="{$base}/courses/{$course['id']}/quizzes/stream?{$query|noescape}"
+     data-create="{$base}/courses/{$course['id']}/quizzes/create"
+     data-settings="{$base}/settings/ai">
+    <h1>กำลังร่างข้อสอบ</h1>
+
+    <div class="card gen-status" id="genStatus">
+        <div class="gen-status-top">
+            <div class="spinner"></div>
+            <div class="grow">
+                <div class="gen-headline" id="genHeadline">กำลังเริ่มงาน…</div>
+                <div class="hint" id="genHint">อ่านใบความรู้ที่เลือกแล้วเขียนข้อสอบทีละข้อ</div>
+            </div>
+            <button type="button" class="btn btn-sm" id="cancelBtn">ยกเลิก</button>
+        </div>
+        <div class="bar" style="margin-top:16px"><span id="genBar" style="width:0%"></span></div>
+        <div class="gen-status-foot">
+            <span class="ai-chip" id="genChip">{$aiChip}</span>
+            <span class="hint">ปิดหน้านี้ได้ งานจะทำต่อและอยู่ในรายการรอตรวจ</span>
+        </div>
+    </div>
+
+    <div id="genError" hidden></div>
+
+    <div class="gen-questions" id="genQuestions"></div>
+    <div class="gen-skeleton" id="genSkeleton">
+        <div class="sk-line" style="width:72%"></div>
+        <div class="sk-line" style="width:54%"></div>
+        <div class="sk-line" style="width:38%"></div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var root = document.getElementById('genRoot');
+    var qWrap = document.getElementById('genQuestions');
+    var skeleton = document.getElementById('genSkeleton');
+    var bar = document.getElementById('genBar');
+    var headline = document.getElementById('genHeadline');
+    var total = 0, got = 0, es;
+
+    function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+    es = new EventSource(root.dataset.stream);
+
+    es.addEventListener('meta', function (e) {
+        var d = JSON.parse(e.data);
+        total = d.total || 0;
+        document.getElementById('genChip').textContent = d.chip;
+        headline.textContent = 'กำลังเขียนข้อ 1 จาก ' + total;
+    });
+
+    es.addEventListener('question', function (e) {
+        var q = JSON.parse(e.data);
+        got++;
+        headline.textContent = got >= total ? 'กำลังตรวจทานร่าง…' : ('กำลังเขียนข้อ ' + (got + 1) + ' จาก ' + total);
+        bar.style.width = Math.round(got / Math.max(total, 1) * 100) + '%';
+
+        var choices = (q.choices || []).map(function (c) {
+            return '<div class="mini-choice"><b>' + esc(c.label) + '</b> ' + esc(c.content) + '</div>';
+        }).join('');
+        var card = document.createElement('div');
+        card.className = 'gen-q';
+        card.innerHTML = '<div class="gen-q-no mono">' + String(got).padStart(2, '0') + '</div>' +
+            '<div class="gen-q-body"><div class="gen-q-text">' + esc(q.question) + '</div>' +
+            (choices ? '<div class="gen-q-choices">' + choices + '</div>' : '') + '</div>';
+        qWrap.appendChild(card);
+    });
+
+    es.addEventListener('done', function (e) {
+        var d = JSON.parse(e.data);
+        es.close();
+        skeleton.hidden = true;
+        headline.textContent = 'ร่างเสร็จแล้ว · กำลังเปิดหน้าตรวจ';
+        window.location = d.reviewUrl;
+    });
+
+    es.addEventListener('error', function (e) {
+        es.close();
+        skeleton.hidden = true;
+        document.getElementById('genStatus').hidden = true;
+        var msg = 'เกิดข้อผิดพลาดระหว่างร่างข้อสอบ', reason = '';
+        try { var d = JSON.parse(e.data); msg = d.message || msg; reason = d.reason || ''; } catch (x) {}
+        var box = document.getElementById('genError');
+        box.hidden = false;
+        box.className = 'alert alert-error';
+        box.innerHTML = '<span>✕</span><div><strong>' + esc(msg) + '</strong><br>' +
+            '<a href="' + root.dataset.create + '">กลับไปตั้งค่างานใหม่</a>' +
+            (reason === 'college_offline' || reason === 'quota_exhausted' ? ' · <a href="' + root.dataset.settings + '">เชื่อม AI ของฉัน</a>' : '') +
+            '</div>';
+    });
+
+    document.getElementById('cancelBtn').addEventListener('click', function () {
+        es.close();
+        window.location = root.dataset.create;
+    });
+})();
+</script>
+{/block}

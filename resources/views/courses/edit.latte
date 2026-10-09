@@ -1,0 +1,112 @@
+{layout '../layout.latte'}
+
+{block title}{$course ? 'แก้ไขรายวิชา' : 'เพิ่มรายวิชา'}{/block}
+
+{block content}
+{var $isNew = $course === null}
+<div class="wizard-page" style="max-width:820px">
+    <a href="{$base}/courses{if !$isNew}/{$course['id']}{/if}" class="hint">← กลับไป{$isNew ? 'รายวิชาของฉัน' : $course['name']}</a>
+    <h1 style="margin-top:10px">{$isNew ? 'เพิ่มรายวิชา' : 'แก้ไขรายวิชา'}</h1>
+    <div class="sub">
+        {if $isNew}
+            กรอกข้อมูลรายวิชาที่สอนในภาคเรียนนี้ · เพิ่มบทเรียนและแบบทดสอบได้หลังบันทึก
+        {else}
+            แก้ได้ทุกเมื่อ · การแก้ไขไม่กระทบบทเรียน แบบทดสอบ หรือคะแนนที่บันทึกไว้แล้ว
+        {/if}
+    </div>
+
+    <form method="post" action="{$base}/courses{if !$isNew}/{$course['id']}{/if}" class="card" style="margin-top:22px">
+        <input type="hidden" name="_token" value="{$csrf}">
+
+        <div class="course-form-grid">
+            <div class="field">
+                <label for="cCode">รหัสวิชา</label>
+                <input class="input mono" id="cCode" name="code" required maxlength="32"
+                       value="{$course['code'] ?? ''}" placeholder="20127-2002">
+            </div>
+            <div class="field" style="grid-column:span 2">
+                <label for="cName">ชื่อวิชา</label>
+                <input class="input" id="cName" name="name" required maxlength="191"
+                       value="{$course['name'] ?? ''}" placeholder="เมคคาทรอนิกส์เบื้องต้น">
+            </div>
+
+            <div class="field">
+                <label for="cCredits">หน่วยกิต</label>
+                <input class="input mono" id="cCredits" name="credits" type="number" step="0.5" min="0" max="9.9"
+                       value="{$course['credits'] ?? '3.0'}">
+            </div>
+            <div class="field">
+                <label for="cTheory">ชั่วโมงทฤษฎี / สัปดาห์</label>
+                <input class="input mono" id="cTheory" name="theory_hours" type="number" min="0" max="255"
+                       value="{$course['theory_hours'] ?? 1}">
+            </div>
+            <div class="field">
+                <label for="cPractice">ชั่วโมงปฏิบัติ / สัปดาห์</label>
+                <input class="input mono" id="cPractice" name="practice_hours" type="number" min="0" max="255"
+                       value="{$course['practice_hours'] ?? 2}">
+            </div>
+
+            <div class="field" style="grid-column:span 2">
+                <label for="cTerm">ภาคเรียน</label>
+                <select class="input" id="cTerm" name="term_id">
+                    <option value="0">ยังไม่ระบุ</option>
+                    {foreach $terms as $t}
+                        <option value="{$t['id']}" selected="{($course['term_id'] ?? $currentTermId) == $t['id']}">
+                            {$t['name']}{if $t['is_current']} · ภาคเรียนปัจจุบัน{/if}
+                        </option>
+                    {/foreach}
+                </select>
+            </div>
+            <div class="field">
+                <label for="cRoom">กลุ่มเรียน</label>
+                <select class="input" id="cRoom" name="classroom_id" data-combo>
+                    <option value="0">ยังไม่ระบุ</option>
+                    {foreach $classrooms as $r}
+                        <option value="{$r['id']}" selected="{($course['classroom_id'] ?? 0) == $r['id']}">
+                            {$r['name']}{if $r['department_name']} · {$r['department_name']}{/if}
+                        </option>
+                    {/foreach}
+                </select>
+            </div>
+
+            <div class="field" style="grid-column:1 / -1">
+                <label for="cDesc">คำอธิบายรายวิชา</label>
+                <textarea class="input" id="cDesc" name="description" rows="4"
+                          placeholder="ศึกษาและปฏิบัติเกี่ยวกับ…">{$course['description'] ?? ''}</textarea>
+                <div class="hint">ข้อความนี้จะแสดงในหน้าแรกสาธารณะด้วย ถ้าเปิดให้แสดงรายวิชาไว้</div>
+            </div>
+            <div class="field" style="grid-column:1 / -1">
+                <label for="cObj">จุดประสงค์รายวิชา</label>
+                <textarea class="input" id="cObj" name="objectives" rows="4"
+                          placeholder="ข้อละบรรทัด เช่น&#10;เข้าใจหลักการ…&#10;มีทักษะในการ…">{$course['objectives'] ?? ''}</textarea>
+            </div>
+            <div class="field" style="grid-column:1 / -1">
+                <label for="cComp">สมรรถนะรายวิชา</label>
+                <textarea class="input" id="cComp" name="competencies" rows="4"
+                          placeholder="ข้อละบรรทัด เช่น&#10;ประมวลความรู้เกี่ยวกับ…&#10;ปฏิบัติงาน…ตามหลักการ">{$course['competencies'] ?? ''}</textarea>
+                <div class="hint">จุดประสงค์และสมรรถนะรายวิชาใช้ในหน้า “ลักษณะรายวิชา” ของแผนการสอนที่สั่งพิมพ์</div>
+            </div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px">
+            <button type="submit" class="btn btn-primary">{$isNew ? 'เพิ่มรายวิชา' : 'บันทึกการแก้ไข'}</button>
+            <a class="btn" href="{$base}/courses{if !$isNew}/{$course['id']}{/if}">ยกเลิก</a>
+        </div>
+    </form>
+
+    {if !$isNew}
+        <div class="card" style="margin-top:18px">
+            <strong>เก็บรายวิชาเข้าคลัง</strong>
+            <div class="hint" style="margin-top:6px">
+                รายวิชาจะหายจากหน้ารายวิชาของฉันและหน้าแรกสาธารณะ แต่บทเรียน แบบทดสอบ และคะแนนของนักเรียนยังอยู่ครบ
+            </div>
+            <form method="post" action="{$base}/courses/{$course['id']}/archive" style="margin-top:12px"
+                  data-confirm-title="เก็บรายวิชาเข้าคลัง" data-confirm-ok="เก็บเข้าคลัง"
+                  data-confirm="เก็บรายวิชา {$course['name']} เข้าคลังใช่หรือไม่ · บทเรียนและแบบทดสอบยังอยู่ครบ แต่จะไม่แสดงในรายวิชาที่เปิดสอน">
+                <input type="hidden" name="_token" value="{$csrf}">
+                <button type="submit" class="btn btn-ghost-danger">เก็บเข้าคลัง</button>
+            </form>
+        </div>
+    {/if}
+</div>
+{/block}

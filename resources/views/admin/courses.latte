@@ -1,0 +1,80 @@
+{layout '../layout.latte'}
+
+{block title}รายวิชาทั้งระบบ{/block}
+
+{block content}
+<div class="page-head">
+    <div>
+        <h1>รายวิชาทั้งระบบ</h1>
+        <div class="sub">
+            แสดง {count($courses)} รายวิชา · เปิดสอนอยู่ {$activeCount}
+            {if count($courses) >= 500} · แสดงได้สูงสุด 500 รายการ ลองใช้ตัวกรองช่วย{/if}
+        </div>
+    </div>
+</div>
+
+<form method="get" action="{$base}/admin/courses" class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <input type="text" name="q" class="input" style="width:240px" value="{$query}" placeholder="ค้นรหัสวิชา ชื่อวิชา หรือชื่อครู">
+
+    <select name="teacher" class="input" style="width:220px">
+        <option value="">— ครูทุกคน —</option>
+        {foreach $teachers as $t}
+            <option value="{$t['id']}" n:attr="selected: $teacherId === (int) $t['id']">{$t['full_name']} ({$t['course_count']})</option>
+        {/foreach}
+    </select>
+
+    <select name="status" class="input" style="width:170px">
+        <option value="">— ทุกสถานะ —</option>
+        <option value="active" n:attr="selected: $status === 'active'">เปิดสอนอยู่</option>
+        <option value="archived" n:attr="selected: $status === 'archived'">เก็บเข้าคลังแล้ว</option>
+    </select>
+
+    <button type="submit" class="btn btn-primary btn-sm">กรอง</button>
+    {if $query || $teacherId || $status}
+        <a href="{$base}/admin/courses" class="btn btn-sm">ล้างตัวกรอง</a>
+    {/if}
+</form>
+
+{if !$courses}
+    <div class="empty">
+        <h3>ไม่พบรายวิชาตามเงื่อนไขนี้</h3>
+        <p>ลองล้างตัวกรอง หรือค้นด้วยรหัสวิชาเพียงบางส่วน</p>
+    </div>
+{else}
+    <div class="card" style="padding:0;overflow:hidden">
+        <div class="table-scroll">
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>รหัสวิชา</th><th>ชื่อวิชา</th><th>ครูผู้สอน</th><th>กลุ่มเรียน</th>
+                        <th>ภาคเรียน</th><th>นักเรียน</th><th>หน่วย</th><th>สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {foreach $courses as $c}
+                    <tr>
+                        <td class="mono">{$c['code']}</td>
+                        <td>
+                            <a href="{$base}/admin/courses/{$c['id']}">{$c['name']}</a>
+                            {if $c['show_on_landing']}<span class="chip chip-muted" style="margin-left:6px">หน้าแรก</span>{/if}
+                        </td>
+                        <td>{$c['teacher_name'] ?? '— ไม่มีเจ้าของ —'}</td>
+                        <td>{$c['classroom_name'] ?? '—'}</td>
+                        <td>{$c['term_name'] ?? '—'}</td>
+                        <td class="mono">{$c['student_count']}</td>
+                        <td class="mono">{$c['unit_count']}</td>
+                        <td>
+                            {if $c['status'] === 'active'}
+                                <span class="chip chip-ok">เปิดสอน</span>
+                            {else}
+                                <span class="chip chip-muted">เก็บเข้าคลัง</span>
+                            {/if}
+                        </td>
+                    </tr>
+                {/foreach}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{/if}
+{/block}

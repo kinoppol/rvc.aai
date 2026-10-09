@@ -1,0 +1,28 @@
+# ห้ามปิด DirectorySlash ที่นี่ — mod_dir จะเลิกยุ่งกับ URL ที่ตรงกับโฟลเดอร์แต่ไม่มี / ท้าย
+# (เช่น /web) ทั้งกฎ rewrite ด้านล่างและ DirectoryIndex ก็ไม่ทำงานกับ request แบบนั้น
+# ปลายทางจึงเหลือแค่ mod_autoindex คือโชว์รายชื่อไฟล์ทั้งโปรเจกต์ หรือ 403
+#
+# ที่เคยกลัวว่าเปิดไว้แล้วจะวน redirect กับ middleware ที่ตัด / ท้ายนั้นเกิดไม่ได้ เพราะ mod_rewrite
+# ทำงานก่อน mod_dir เสมอ ทุก path จึงถูกพาเข้า public/ ก่อนที่ mod_dir จะเห็นว่าเป็นโฟลเดอร์จริง
+
+# ไม่แสดงรายชื่อไฟล์ในโฟลเดอร์เด็ดขาด — กันซอร์สโค้ดรั่วเมื่อ rewrite ไม่ทำงาน
+Options -Indexes
+
+# ส่งทุก request เข้าโฟลเดอร์ public/ เพื่อให้ไฟล์ config และ storage อยู่นอกรากเว็บ
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^$ public/ [L]
+    RewriteCond %{REQUEST_URI} !^/?public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# กันไว้อีกชั้นเผื่อไม่มี mod_rewrite
+<FilesMatch "^(composer\.(json|lock|phar)|\.gitignore|\.env.*)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

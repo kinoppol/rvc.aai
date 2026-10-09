@@ -1,0 +1,78 @@
+{layout '../public-layout.latte'}
+
+{block title}{$unit['title']} · {$course['name']}{/block}
+{block description}{$unit['key_content'] ?? $course['name']}{/block}
+
+{block content}
+<section class="lp-course-head">
+    <div class="lp-wrap">
+        <a class="lp-back" href="{$base}/course/{$course['id']}">← กลับไปที่ {$course['name']}</a>
+        <div class="lp-eyebrow"><span class="mono">{$course['code']}</span> · {$course['name']}</div>
+        <h1>{$unit['title']}</h1>
+    </div>
+</section>
+
+<section class="lp-course-body">
+    <div class="lp-wrap lp-reading">
+        {if $unit['key_content'] || $unit['objectives'] || $unit['competencies']}
+            <div class="lp-unit-card">
+                <h3>บทนำ</h3>
+                {if $unit['key_content']}
+                    <div class="lp-unit-block">
+                        <h4>สาระสำคัญ</h4>
+                        <p>{$unit['key_content']}</p>
+                    </div>
+                {/if}
+                {if $unit['objectives']}
+                    <div class="lp-unit-block">
+                        <h4>จุดประสงค์การเรียนรู้</h4>
+                        <p>{$unit['objectives']}</p>
+                    </div>
+                {/if}
+                {if $unit['competencies']}
+                    <div class="lp-unit-block">
+                        <h4>สมรรถนะ</h4>
+                        <p>{$unit['competencies']}</p>
+                    </div>
+                {/if}
+            </div>
+        {/if}
+
+        {foreach $sections as $s}
+            <div class="lp-unit-card">
+                <h3>{$s['title']}</h3>
+                {if $s['type'] === 'text'}
+                    <p>{$s['content']}</p>
+                {elseif $s['type'] === 'video'}
+                    <div class="lp-video">
+                        <iframe src="{$s['video_url']}" allowfullscreen loading="lazy" title="{$s['title']}"></iframe>
+                    </div>
+                {elseif $s['type'] === 'pdf'}
+                    <div class="lp-file">
+                        <span>📄</span>
+                        <span>{$s['file_name'] ?? 'ไฟล์ PDF'} · เข้าสู่ระบบเพื่อเปิดไฟล์ประกอบ</span>
+                    </div>
+                {/if}
+            </div>
+        {/foreach}
+
+        {if !$sections && !$unit['key_content'] && !$unit['objectives']}
+            <div class="lp-empty">
+                <h3>หน่วยนี้ยังไม่มีเนื้อหา</h3>
+                <p>ครูผู้สอนกำลังจัดเตรียมอยู่</p>
+            </div>
+        {/if}
+
+        <nav class="lp-unit-nav">
+            {if $prev}
+                <a class="lp-btn" href="{$base}/course/{$course['id']}/unit/{$prev['id']}">← {$prev['title']}</a>
+            {else}
+                <span></span>
+            {/if}
+            {if $next}
+                <a class="lp-btn lp-btn-solid" href="{$base}/course/{$course['id']}/unit/{$next['id']}">{$next['title']} →</a>
+            {/if}
+        </nav>
+    </div>
+</section>
+{/block}

@@ -1,0 +1,56 @@
+{layout '../layout.latte'}
+
+{block title}{$course['name']}{/block}
+
+{block content}
+<div class="page-head">
+    <div>
+        <a class="back-link" href="{$base}/admin/courses">← กลับไปรายวิชาทั้งระบบ</a>
+        <h1>{$course['name']}</h1>
+        <div class="sub">
+            <span class="mono">{$course['code']}</span> · {$course['classroom_name'] ?? 'ไม่ระบุกลุ่มเรียน'}
+            · นักเรียน {$course['student_count']} คน · {$course['unit_count']} หน่วยการเรียน
+        </div>
+    </div>
+</div>
+
+{if $course['description']}
+    <div class="card">
+        <div class="card-sub" style="margin:0">คำอธิบายรายวิชา</div>
+        <div style="margin-top:8px;line-height:1.8">{$course['description']}</div>
+    </div>
+{/if}
+
+{if !$units}
+    <div class="empty">
+        <h3>รายวิชานี้ยังไม่มีหน่วยการเรียน</h3>
+        <p>เมื่อครูผู้สอนเพิ่มหน่วยการเรียน จะแสดงที่นี่ให้ตรวจได้ทุกสถานะ</p>
+    </div>
+{else}
+    <div class="card" style="padding:0;overflow:hidden">
+        <div class="table-scroll">
+            <table class="data">
+                <thead><tr><th>ลำดับ</th><th>ชื่อหน่วยการเรียน</th><th>หัวข้อย่อย</th><th>ที่มา</th><th>สถานะ</th><th></th></tr></thead>
+                <tbody>
+                {foreach $units as $u}
+                    <tr>
+                        <td class="mono">{$iterator->counter}</td>
+                        <td>{$u['title']}</td>
+                        <td class="mono">{$u['section_count']}</td>
+                        <td>{$u['source'] === 'ai' ? 'ผู้ช่วย AI' : 'ครูพิมพ์เอง'}</td>
+                        <td>
+                            {if $u['review_status'] === 'published'}<span class="chip chip-ok">เผยแพร่แล้ว</span>
+                            {elseif $u['review_status'] === 'pending'}<span class="chip chip-warn">รอตรวจ</span>
+                            {else}<span class="chip chip-muted">ฉบับร่าง</span>{/if}
+                        </td>
+                        <td style="text-align:right">
+                            <a class="btn btn-sm" href="{$base}/admin/courses/{$course['id']}/units/{$u['id']}">อ่านเนื้อหา</a>
+                        </td>
+                    </tr>
+                {/foreach}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{/if}
+{/block}

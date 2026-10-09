@@ -1,0 +1,13 @@
+{* ช่องกรอกรหัสเข้าร่วมรายวิชาของนักเรียน — ใช้ทั้งหน้าแรกและหน้าวิชาที่เรียน *}
+<form class="card join-card" method="post" action="{$base}/learn/join">
+    <input type="hidden" name="_token" value="{$csrf}">
+    <div class="join-card-text">
+        <h2>เข้าร่วมรายวิชา</h2>
+        <div class="card-sub">กรอกรหัสที่ครูแจก หรือวางลิงก์เข้าร่วมทั้งลิงก์ก็ได้</div>
+    </div>
+    <div class="join-card-form">
+        <input class="input mono join-code-input" name="code" required maxlength="200"
+               placeholder="เช่น K7M2QX" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button class="btn btn-primary" type="submit">เข้าร่วม</button>
+    </div>
+</form>

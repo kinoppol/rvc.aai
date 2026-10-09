@@ -1,0 +1,68 @@
+{layout '../public-layout.latte'}
+
+{block title}{$course['name']} · {$appName}{/block}
+{block description}{$course['code']} {$course['name']} — {$course['description'] ?? $college}{/block}
+
+{block content}
+<section class="lp-course-head">
+    <div class="lp-wrap">
+        <a class="lp-back" href="{$base}/#courses">← กลับไปหน้ารายวิชา</a>
+        <div class="lp-eyebrow">
+            {$course['department_name'] ?? 'รายวิชาอื่น ๆ'}
+            {if $course['term_name']} · {$course['term_name']}{/if}
+        </div>
+        <h1>{$course['name']}</h1>
+        <div class="lp-course-meta">
+            <span class="lp-tag mono">{$course['code']}</span>
+            <span>{$course['credits']} หน่วยกิต</span>
+            <span>ทฤษฎี {$course['theory_hours']} / ปฏิบัติ {$course['practice_hours']} ชม.</span>
+            <span>{$course['classroom_name'] ?? 'ไม่ระบุกลุ่มเรียน'}</span>
+            {if $course['teacher_name']}<span>ผู้สอน {$course['teacher_name']}</span>{/if}
+        </div>
+        {if $course['description']}
+            <p class="lp-course-desc">{$course['description']}</p>
+        {/if}
+    </div>
+</section>
+
+<section class="lp-course-body">
+    <div class="lp-wrap">
+        <div class="lp-section-title" style="text-align:left">
+            <h2>เนื้อหาบทเรียน</h2>
+            <p>เปิดอ่านได้เลยโดยไม่ต้องสมัครสมาชิก · {count($units)} หน่วยการเรียน</p>
+        </div>
+
+        {if $units}
+            <ol class="lp-unit-list">
+                {foreach $units as $u}
+                    <li>
+                        <a class="lp-unit" href="{$base}/course/{$course['id']}/unit/{$u['id']}">
+                            <span class="lp-unit-no mono">{sprintf('%02d', $iterator->counter)}</span>
+                            <span class="lp-unit-text">
+                                <span class="lp-unit-title">{$u['title']}</span>
+                                {if $u['key_content']}
+                                    <span class="lp-unit-sub">{mb_substr($u['key_content'], 0, 140)}{if mb_strlen($u['key_content']) > 140}…{/if}</span>
+                                {/if}
+                            </span>
+                            <span class="lp-unit-go">อ่าน →</span>
+                        </a>
+                    </li>
+                {/foreach}
+            </ol>
+        {else}
+            <div class="lp-empty">
+                <h3>ยังไม่มีหน่วยการเรียนที่เผยแพร่</h3>
+                <p>ครูผู้สอนกำลังจัดเตรียมเนื้อหา กลับมาดูใหม่ได้เร็ว ๆ นี้</p>
+            </div>
+        {/if}
+
+        <div class="lp-course-cta">
+            <div>
+                <h3>อยากทำแบบทดสอบและเก็บคะแนนด้วยไหม</h3>
+                <p>เนื้อหาบทเรียนเปิดให้อ่านฟรี ส่วนแบบทดสอบและการเก็บความก้าวหน้าต้องเข้าสู่ระบบด้วยบัญชีนักเรียน</p>
+            </div>
+            <a class="lp-btn lp-btn-solid" href="{$base}/login">เข้าสู่ระบบ</a>
+        </div>
+    </div>
+</section>
+{/block}

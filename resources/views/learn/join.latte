@@ -1,0 +1,24 @@
+{layout '../layout.latte'}
+
+{block title}เข้าร่วมรายวิชา{/block}
+
+{block content}
+<div class="dash">
+    <form class="card join-confirm" method="post" action="{$base}/learn/join">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <input type="hidden" name="code" value="{$code}">
+        <h2>เข้าร่วมรายวิชานี้?</h2>
+        <div class="card-sub">ตรวจให้แน่ใจว่าเป็นรายวิชาที่ครูให้เข้าร่วม แล้วกดยืนยัน</div>
+        <dl>
+            <dt>รหัสวิชา</dt><dd class="mono">{$course['code']}</dd>
+            <dt>ชื่อวิชา</dt><dd>{$course['name']}</dd>
+            <dt>ผู้สอน</dt><dd>{$course['teacher_name'] ?? '—'}</dd>
+            <dt>กลุ่มเรียน</dt><dd>{$course['classroom_name'] ?? 'ไม่ระบุ'}</dd>
+        </dl>
+        <div class="list-actions" style="margin-top:0">
+            <button class="btn btn-primary" type="submit">เข้าร่วมรายวิชา</button>
+            <a class="btn" href="{$base}/learn">ยกเลิก</a>
+        </div>
+    </form>
+</div>
+{/block}

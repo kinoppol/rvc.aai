@@ -1,0 +1,111 @@
+{layout '../layout.latte'}
+
+{block title}{$group['name']}{/block}
+
+{block content}
+<div class="dash">
+    <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap">
+        <div class="grow">
+            <a class="back-link" href="{$base}/board">← กระดานสนทนา</a>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px">
+                <h1 style="margin:0">{$group['name']}</h1>
+                {if $isOpen}<span class="badge badge-success" style="font-size:11px">กลุ่มเปิด</span>{/if}
+            </div>
+            {if $group['description']}<div class="sub">{$group['description']}</div>{/if}
+            <div style="font-size:13px;color:var(--ink2);margin-top:6px">สร้างโดย {$group['creator_name']}</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;flex-shrink:0">
+            {if $isCreator}
+                <a class="btn btn-sm" href="{$base}/board/{$group['id']}/members">
+                    จัดการสมาชิก
+                    {if $pendingCount > 0}
+                        <span class="badge badge-danger" style="margin-left:4px">{$pendingCount}</span>
+                    {/if}
+                </a>
+            {/if}
+            {if $membership === null && !$isCreator}
+                <form method="post" action="{$base}/board/{$group['id']}/join">
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <button class="btn btn-primary btn-sm">{$isOpen ? 'เข้าร่วมเป็นสมาชิก' : 'ขอเข้าร่วมกลุ่ม'}</button>
+                </form>
+            {elseif $membership && $membership['status'] === 'pending'}
+                <span class="btn btn-sm" style="opacity:.6;cursor:default">รออนุมัติ</span>
+            {elseif $isApprovedMember && !$isCreator}
+                <form method="post" action="{$base}/board/{$group['id']}/leave"
+                      data-confirm-title="ออกจากกลุ่ม" data-confirm-ok="ออกจากกลุ่ม" data-confirm-danger
+                      data-confirm="ออกจากกลุ่มสนทนานี้ใช่หรือไม่">
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <button class="btn btn-sm btn-ghost-danger">ออกจากกลุ่ม</button>
+                </form>
+            {/if}
+        </div>
+    </div>
+
+    {if $isOpen && $membership === null}
+        <div class="card" style="margin-top:20px;padding:16px 18px;display:flex;align-items:center;gap:12px">
+            <span style="font-size:20px">🔓</span>
+            <div style="font-size:13.5px;color:var(--ink2);line-height:1.6">
+                กลุ่มเปิด — คุณอ่านและตั้งกระทู้/ตอบกระทู้ได้ทันทีโดยไม่ต้องรออนุมัติ
+                (เข้าร่วมเป็นสมาชิกเพื่อให้ชื่อของคุณอยู่ในรายชื่อกลุ่ม)
+            </div>
+        </div>
+    {/if}
+
+    {if !$canView && $membership === null}
+        <div class="card" style="margin-top:24px;text-align:center;padding:32px">
+            <p style="color:var(--ink2);margin-bottom:16px">กลุ่มนี้ต้องการการอนุมัติจากผู้สร้างก่อนเข้าร่วม</p>
+            <form method="post" action="{$base}/board/{$group['id']}/join">
+                <input type="hidden" name="_token" value="{$csrf}">
+                <button class="btn btn-primary">ขอเข้าร่วมกลุ่ม</button>
+            </form>
+        </div>
+    {elseif !$canView && $membership['status'] === 'pending'}
+        <div class="card" style="margin-top:24px;text-align:center;padding:32px">
+            <p style="color:var(--ink2)">คำขอของคุณอยู่ระหว่างรอการอนุมัติจากผู้สร้างกลุ่ม</p>
+        </div>
+    {else}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:28px;margin-bottom:12px">
+            <div style="font-weight:600">{$total} กระทู้</div>
+            <a class="btn btn-primary btn-sm" href="{$base}/board/{$group['id']}/topics/new">+ ตั้งกระทู้ใหม่</a>
+        </div>
+
+        {if $topics}
+            <div class="list" style="border-radius:10px;overflow:hidden">
+                {foreach $topics as $t}
+                    <a class="list-row" href="{$base}/board/{$group['id']}/topics/{$t['id']}" style="color:inherit">
+                        <div class="grow">
+                            <div class="list-title">{$t['title']}</div>
+                            <div class="list-meta">โดย {$t['author_name']} · {$t['created_ago']}</div>
+                        </div>
+                        <div style="text-align:right;white-space:nowrap;font-size:13px;color:var(--ink2);flex-shrink:0">
+                            {if $t['reply_count'] > 0}
+                                <div>{$t['reply_count']} ตอบ</div>
+                                <div style="font-size:12px">อัปเดต {$t['updated_ago']}</div>
+                            {else}
+                                <div style="font-size:12px">ยังไม่มีความคิดเห็น</div>
+                            {/if}
+                        </div>
+                    </a>
+                {/foreach}
+            </div>
+
+            {if $totalPages > 1}
+                <div style="display:flex;justify-content:center;gap:8px;margin-top:20px">
+                    {if $currentPage > 1}
+                        <a class="btn btn-sm" href="?page={$currentPage - 1}">← ก่อนหน้า</a>
+                    {/if}
+                    <span style="padding:6px 12px;font-size:14px;color:var(--ink2)">หน้า {$currentPage} / {$totalPages}</span>
+                    {if $currentPage < $totalPages}
+                        <a class="btn btn-sm" href="?page={$currentPage + 1}">ถัดไป →</a>
+                    {/if}
+                </div>
+            {/if}
+        {else}
+            <div class="empty" style="margin-top:12px">
+                <h3>ยังไม่มีกระทู้</h3>
+                <p>เป็นคนแรกที่ตั้งกระทู้ในกลุ่มนี้</p>
+            </div>
+        {/if}
+    {/if}
+</div>
+{/block}

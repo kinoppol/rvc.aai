@@ -1,0 +1,51 @@
+{layout '../layout.latte'}
+
+{block title}{$topic['title']}{/block}
+
+{block content}
+<div class="form-page" style="max-width:800px">
+    <a class="back-link" href="{$base}/board/{$group['id']}">← {$group['name']}</a>
+
+    {* กระทู้หลัก *}
+    <div class="card" style="margin-top:14px;padding:22px">
+        <h1 style="font-size:20px;margin-bottom:12px">{$topic['title']}</h1>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:var(--ink2)">
+            <span style="font-weight:600;color:var(--ink)">{$topic['author_name']}</span>
+            <span>·</span>
+            <span>{$topicAgo}</span>
+        </div>
+        <div style="white-space:pre-line;line-height:1.8;font-size:15px">{$topic['body']}</div>
+    </div>
+
+    {* ความคิดเห็น *}
+    {if $replies}
+        <div id="replies" style="margin-top:24px">
+            <div style="font-weight:600;margin-bottom:12px">{count($replies)} ความคิดเห็น</div>
+            {foreach $replies as $r}
+                <div class="card" style="margin-bottom:12px;padding:18px">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;color:var(--ink2)">
+                        <span style="font-weight:600;color:var(--ink)">{$r['author_name']}</span>
+                        <span>·</span>
+                        <span>{$r['created_ago']}</span>
+                    </div>
+                    <div style="white-space:pre-line;line-height:1.8;font-size:15px">{$r['body']}</div>
+                </div>
+            {/foreach}
+        </div>
+    {/if}
+
+    {* แบบฟอร์มตอบ *}
+    <div style="margin-top:28px">
+        <div style="font-weight:600;margin-bottom:12px">แสดงความคิดเห็น</div>
+        <form method="post" action="{$base}/board/{$group['id']}/topics/{$topic['id']}/replies">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <textarea name="body" class="input" rows="5" required maxlength="10000"
+                      placeholder="เขียนความคิดเห็น..."
+                      style="height:auto;font-size:15px;line-height:1.7"></textarea>
+            <div style="margin-top:10px;text-align:right">
+                <button class="btn btn-primary">ส่งความคิดเห็น</button>
+            </div>
+        </form>
+    </div>
+</div>
+{/block}

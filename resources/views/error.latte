@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{$title} · {$appName}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="{$base}/assets/css/app.css">
+    {if isset($ui)}
+        {* สีหลักของระบบ — เขียน # ในเทมเพลตเอง เพราะ Latte จะ escape # ที่ตามด้วย ( หรือ ) ใน context ของ CSS *}
+        <style>
+            :root {
+                --brand: #{$ui['brand']};
+                --brandInk: #{$ui['brandInk']};
+                --brandSoft: #{$ui['brandSoft']};
+                --brandLine: #{$ui['brandLine']};
+            }
+            :root[data-theme="dark"] {
+                --brand: #{$ui['darkBrand']};
+                --brandInk: #{$ui['darkInk']};
+                --brandSoft: #{$ui['darkSoft']};
+                --brandLine: #{$ui['darkLine']};
+            }
+        </style>
+    {/if}
+</head>
+<body>
+<div class="center-page">
+    <div class="panel" style="max-width:520px">
+        <div class="panel-head">
+            <div class="brand-mark">RV</div>
+            <h1>{$title}</h1>
+            <div class="sub">{$message}</div>
+        </div>
+
+        {if isset($ref) && $ref}
+            <div class="error-ref">
+                <span>หมายเลขอ้างอิง</span>
+                <strong class="mono">{$ref}</strong>
+                <span class="hint">แจ้งหมายเลขนี้กับผู้ดูแลระบบเพื่อให้ตรวจสอบสาเหตุได้ตรงเหตุการณ์</span>
+            </div>
+        {/if}
+
+        {if $detail}
+            <pre class="sql">{$detail}</pre>
+        {/if}
+
+        <div class="form-actions">
+            <div class="spacer"></div>
+            <a class="btn btn-primary" href="{$base}/dashboard">กลับหน้าแรก</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

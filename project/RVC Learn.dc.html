@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+--bg:#F4F7F5;--surface:#FFFFFF;--surface2:#EDF2EF;--line:#DCE5E0;--line2:#E9EFEC;
+--ink:#16221F;--ink2:#4A5A55;--ink3:#7E8E88;
+--brand:#0E6B60;--brandInk:#FFFFFF;--brandSoft:#E3F0ED;--brandLine:#BFDCD6;
+--ok:#1F7A44;--okSoft:#E6F3EA;--warn:#9C6206;--warnSoft:#FCF2DF;--warnLine:#EBD6A8;
+--err:#B4342A;--errSoft:#FBEBE8;--shadow:0 1px 2px rgba(16,40,35,.06),0 1px 8px rgba(16,40,35,.04);
+}
+:root[data-theme="dark"]{
+--bg:#0E1513;--surface:#16211E;--surface2:#1C2925;--line:#2A3A35;--line2:#22302C;
+--ink:#E9F1EE;--ink2:#A9BAB4;--ink3:#7E8E88;
+--brand:#4FB3A4;--brandInk:#08201C;--brandSoft:#14302B;--brandLine:#26463F;
+--ok:#5FC286;--okSoft:#12301F;--warn:#E3AE55;--warnSoft:#2C2415;--warnLine:#4A3A1C;
+--err:#EC8579;--errSoft:#33201C;--shadow:0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Sarabun,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--brand);text-decoration:none}
+a:hover{color:var(--ink)}
+button{font-family:inherit}
+[contenteditable]:focus{outline:2px solid var(--brandLine);outline-offset:2px;border-radius:3px}
+@keyframes rvcIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes rvcPulse{0%,100%{opacity:.35}50%{opacity:.9}}
+@keyframes rvcSpin{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+</style>
+</helmet>
+<div style="height:100vh;overflow:hidden;background:var(--bg);display:flex;flex-direction:column">
+
+<header style="height:60px;flex:none;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;padding:0 20px;position:sticky;top:0;z-index:40">
+  <div style="display:flex;align-items:center;gap:10px;min-width:214px">
+    <div style="width:30px;height:30px;border-radius:7px;background:var(--brand);color:var(--brandInk);display:grid;place-items:center;font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:.5px">RV</div>
+    <div style="font:600 16px/1 'IBM Plex Sans Thai',sans-serif;letter-spacing:.2px">RVC Learn</div>
+  </div>
+  <div style="flex:1"></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button onClick="{{ toggleMobile }}" style="height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13px;cursor:pointer" style-hover="border-color:var(--brandLine);color:var(--brand)">{{ mobileLabel }}</button>
+    <button onClick="{{ toggleTheme }}" style="height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13px;cursor:pointer" style-hover="border-color:var(--brandLine);color:var(--brand)">{{ themeLabel }}</button>
+    <div style="width:1px;height:24px;background:var(--line);margin:0 4px"></div>
+    <div style="display:flex;align-items:center;gap:9px">
+      <div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center;font:600 12px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink2)">ธพ</div>
+      <div style="font-size:13px;color:var(--ink2)">อ.ธนพล ศรีบุญเรือง</div>
+    </div>
+  </div>
+</header>
+
+<div style="flex:1;display:flex;align-items:stretch;min-height:0">
+  <nav style="width:230px;flex:none;min-height:0;overflow:auto;border-right:1px solid var(--line);background:var(--surface);padding:18px 12px;display:flex;flex-direction:column;gap:2px">
+    <button onClick="{{ goDash }}" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border:0;border-radius:9px;background:{{ navDashBg }};color:{{ navDashInk }};font:500 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer;text-align:left" style-hover="background:var(--surface2)"><span style="font-size:15px">⌂</span>หน้าแรก</button>
+    <button onClick="{{ goCourse }}" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border:0;border-radius:9px;background:{{ navCourseBg }};color:{{ navCourseInk }};font:500 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer;text-align:left" style-hover="background:var(--surface2)"><span style="font-size:15px">▤</span>รายวิชาของฉัน</button>
+    <button onClick="{{ goReview }}" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border:0;border-radius:9px;background:{{ navReviewBg }};color:{{ navReviewInk }};font:500 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer;text-align:left" style-hover="background:var(--surface2)"><span style="font-size:15px">✓</span>รอตรวจก่อนเผยแพร่<span style="margin-left:auto;min-width:22px;height:20px;padding:0 6px;border-radius:10px;background:var(--warnSoft);color:var(--warn);font:500 11px/20px 'IBM Plex Mono',monospace;text-align:center">{{ reviewCount }}</span></button>
+    <button onClick="{{ goStudentView }}" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border:0;border-radius:9px;background:{{ navStudentBg }};color:{{ navStudentInk }};font:500 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer;text-align:left" style-hover="background:var(--surface2)"><span style="font-size:15px">◉</span>มุมมองนักเรียน</button>
+    <div style="height:1px;background:var(--line);margin:14px 8px"></div>
+    <button onClick="{{ goSettings }}" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border:0;border-radius:9px;background:{{ navSetBg }};color:{{ navSetInk }};font:500 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer;text-align:left" style-hover="background:var(--surface2)"><span style="font-size:15px">⚙</span>ตั้งค่า</button>
+    <div style="font:500 11px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink3);padding:16px 12px 8px;letter-spacing:.3px">สำหรับผู้ดูแลระบบ</div>
+    <button onClick="{{ goAdmin }}" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border:0;border-radius:9px;background:{{ navAdminBg }};color:{{ navAdminInk }};font:500 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer;text-align:left" style-hover="background:var(--surface2)"><span style="font-size:15px">▣</span>เครื่อง AI และโควตา</button>
+    <button onClick="{{ goStates }}" style="display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border:0;border-radius:9px;background:{{ navStatesBg }};color:{{ navStatesInk }};font:500 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer;text-align:left" style-hover="background:var(--surface2)"><span style="font-size:15px">△</span>ข้อความแจ้งเตือน</button>
+    <div style="flex:1"></div>
+    <div style="padding:12px;border-radius:10px;background:var(--surface2);font:400 12px/1.55 Sarabun,sans-serif;color:var(--ink3)">วิทยาลัยเทคนิคร้อยเอ็ด<br>ภาคเรียนที่ 1 / 2569</div>
+  </nav>
+
+  <main style="flex:1;min-width:0;min-height:0;overflow:auto">
+
+  <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:36px 24px;display:flex;gap:36px;justify-content:center;flex-wrap:wrap;background:var(--surface2);min-height:100%">
+      <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+        <div style="font:500 12px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink3)">แดชบอร์ดครู · มือถือ</div>
+        <div style="width:372px;height:760px;border-radius:42px;border:9px solid #131c1a;background:var(--bg);overflow:hidden;box-shadow:0 18px 40px rgba(16,40,35,.18);display:flex;flex-direction:column">
+          <div style="height:34px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font:500 11px/1 'IBM Plex Mono',monospace;color:var(--ink2)"><span>09:41</span><span>▮▮▮ ▾</span></div>
+          <div style="padding:8px 18px 14px;flex:none">
+            <div style="font:600 19px/1.3 'IBM Plex Sans Thai',sans-serif">สวัสดี อ.ธนพล</div>
+            <div style="font-size:13px;color:var(--ink3);margin-top:3px">วันนี้มีคาบสอน 3 คาบ</div>
+          </div>
+          <div style="flex:1;overflow:auto;padding:0 18px 18px;display:flex;flex-direction:column;gap:10px">
+            <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px">
+              <div style="font:500 11px/1 'IBM Plex Mono',monospace;color:var(--brand)">20127-2002</div>
+              <div style="font:600 15px/1.4 'IBM Plex Sans Thai',sans-serif;margin-top:6px">เมคคาทรอนิกส์เบื้องต้น</div>
+              <div style="font-size:12px;color:var(--ink3);margin-top:4px">ปวช.2 ช่างกลโรงงาน · 28 คน</div>
+              <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line2);font-size:12px;color:var(--ink2)">คาบถัดไป 10:20 · ห้อง ป.3</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px">
+              <div style="font:500 11px/1 'IBM Plex Mono',monospace;color:var(--brand)">20100-1005</div>
+              <div style="font:600 15px/1.4 'IBM Plex Sans Thai',sans-serif;margin-top:6px">งานไฟฟ้าและอิเล็กทรอนิกส์เบื้องต้น</div>
+              <div style="font-size:12px;color:var(--ink3);margin-top:4px">ปวช.1 ช่างยนต์ · 34 คน</div>
+              <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line2);font-size:12px;color:var(--ink2)">มีงานส่งใหม่ 6 ชิ้น</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px">
+              <div style="font:500 11px/1 'IBM Plex Mono',monospace;color:var(--brand)">30128-2003</div>
+              <div style="font:600 15px/1.4 'IBM Plex Sans Thai',sans-serif;margin-top:6px">ไมโครคอนโทรลเลอร์</div>
+              <div style="font-size:12px;color:var(--ink3);margin-top:4px">ปวส.1 ไฟฟ้ากำลัง · 22 คน</div>
+            </div>
+            <div style="background:var(--warnSoft);border:1px solid var(--warnLine);border-radius:12px;padding:13px 14px;display:flex;gap:10px;align-items:flex-start">
+              <span style="color:var(--warn);font-size:14px;line-height:1.3">✓</span>
+              <div><div style="font:600 13px/1.4 'IBM Plex Sans Thai',sans-serif;color:var(--warn)">รอตรวจก่อนเผยแพร่ 3 รายการ</div><div style="font-size:12px;color:var(--ink2);margin-top:2px">แตะเพื่อตรวจบนคอมพิวเตอร์จะสะดวกกว่า</div></div>
+            </div>
+          </div>
+          <div style="flex:none;height:60px;border-top:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:space-around;font:500 11px/1.6 'IBM Plex Sans Thai',sans-serif;color:var(--ink3)">
+            <div style="text-align:center;color:var(--brand)"><div style="font-size:16px">⌂</div>หน้าแรก</div>
+            <div style="text-align:center"><div style="font-size:16px">▤</div>รายวิชา</div>
+            <div style="text-align:center"><div style="font-size:16px">✓</div>รอตรวจ</div>
+            <div style="text-align:center"><div style="font-size:16px">⚙</div>ตั้งค่า</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+        <div style="font:500 12px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink3)">นักเรียนทำแบบทดสอบ · มือถือ</div>
+        <div style="width:372px;height:760px;border-radius:42px;border:9px solid #131c1a;background:var(--surface);overflow:hidden;box-shadow:0 18px 40px rgba(16,40,35,.18);display:flex;flex-direction:column">
+          <div style="height:34px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 20px;font:500 11px/1 'IBM Plex Mono',monospace;color:var(--ink2)"><span>09:41</span><span>▮▮▮ ▾</span></div>
+          <div style="flex:none;padding:6px 18px 12px;border-bottom:1px solid var(--line)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font:600 14px/1.3 'IBM Plex Sans Thai',sans-serif">แบบทดสอบบทที่ 3</div>
+              <div style="font:500 13px/1 'IBM Plex Mono',monospace;color:var(--brand)">{{ studentClock }}</div>
+            </div>
+            <div style="margin-top:9px;height:5px;border-radius:3px;background:var(--surface2);overflow:hidden"><div style="height:100%;background:var(--brand);width:{{ studentPct }}"></div></div>
+            <div style="font-size:12px;color:var(--ink3);margin-top:6px">ข้อ {{ studentNo }} จาก 5</div>
+          </div>
+          <div style="flex:1;overflow:auto;padding:20px 18px">
+            <div style="font:500 17px/1.6 Sarabun,sans-serif">{{ studentQText }}</div>
+            <div style="margin-top:18px;display:flex;flex-direction:column;gap:10px">
+              <sc-for list="{{ studentChoices }}" as="c" hint-placeholder-count="4">
+                <button onClick="{{ c.pick }}" style="display:flex;gap:11px;align-items:flex-start;width:100%;text-align:left;padding:15px 14px;border-radius:12px;border:1.5px solid {{ c.border }};background:{{ c.bg }};color:var(--ink);font:400 15px/1.5 Sarabun,sans-serif;cursor:pointer;min-height:56px">
+                  <span style="flex:none;width:24px;height:24px;border-radius:50%;border:1.5px solid {{ c.border }};display:grid;place-items:center;font:500 12px/1 'IBM Plex Mono',monospace;color:{{ c.markInk }};background:{{ c.markBg }}">{{ c.key }}</span>
+                  <span>{{ c.text }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="flex:none;padding:14px 18px 22px;border-top:1px solid var(--line);display:flex;gap:10px">
+            <button onClick="{{ studentPrev }}" style="height:50px;padding:0 18px;border-radius:11px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font:500 15px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">ก่อนหน้า</button>
+            <button onClick="{{ studentNext }}" style="flex:1;height:50px;border-radius:11px;border:0;background:var(--brand);color:var(--brandInk);font:600 15px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">{{ studentNextLabel }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showDash }}" hint-placeholder-val="{{ true }}">
+    <div style="max-width:1180px;margin:0 auto;padding:34px 40px 60px;animation:rvcIn .22s ease">
+      <div style="font:700 26px/1.3 'IBM Plex Sans Thai',sans-serif">สวัสดี อ.ธนพล</div>
+      <div style="font-size:14px;color:var(--ink3);margin-top:6px">ภาคเรียนที่ 1 / 2569 · สอน 4 รายวิชา · วันนี้มีคาบสอน 3 คาบ</div>
+
+      <div style="margin-top:26px;display:grid;grid-template-columns:repeat(auto-fill,minmax(276px,1fr));gap:16px">
+        <button onClick="{{ goCourse }}" style="text-align:left;padding:0;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow);cursor:pointer;overflow:hidden" style-hover="border-color:var(--brandLine)">
+          <div style="height:76px;background:var(--brand);padding:14px 16px;display:flex;flex-direction:column;justify-content:space-between">
+            <div style="font:500 11px/1 'IBM Plex Mono',monospace;color:rgba(255,255,255,.82)">20127-2002</div>
+            <div style="font:600 16px/1.3 'IBM Plex Sans Thai',sans-serif;color:#fff">เมคคาทรอนิกส์เบื้องต้น</div>
+          </div>
+          <div style="padding:14px 16px">
+            <div style="font-size:13px;color:var(--ink2)">ปวช.2 ช่างกลโรงงาน · 28 คน</div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line2);font-size:13px;color:var(--ink3)">คาบถัดไป 10:20 · ห้องปฏิบัติการ ป.3</div>
+          </div>
+        </button>
+        <div style="border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+          <div style="height:76px;background:#2D6E8E;padding:14px 16px;display:flex;flex-direction:column;justify-content:space-between">
+            <div style="font:500 11px/1 'IBM Plex Mono',monospace;color:rgba(255,255,255,.82)">20100-1005</div>
+            <div style="font:600 16px/1.3 'IBM Plex Sans Thai',sans-serif;color:#fff">งานไฟฟ้าและอิเล็กทรอนิกส์เบื้องต้น</div>
+          </div>
+          <div style="padding:14px 16px">
+            <div style="font-size:13px;color:var(--ink2)">ปวช.1 ช่างยนต์ · 34 คน</div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line2);font-size:13px;color:var(--ink3)">มีงานส่งใหม่ 6 ชิ้น</div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+          <div style="height:76px;background:#6B5B95;padding:14px 16px;display:flex;flex-direction:column;justify-content:space-between">
+            <div style="font:500 11px/1 'IBM Plex Mono',monospace;color:rgba(255,255,255,.82)">30128-2003</div>
+            <div style="font:600 16px/1.3 'IBM Plex Sans Thai',sans-serif;color:#fff">ไมโครคอนโทรลเลอร์</div>
+          </div>
+          <div style="padding:14px 16px">
+            <div style="font-size:13px;color:var(--ink2)">ปวส.1 ไฟฟ้ากำลัง · 22 คน</div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line2);font-size:13px;color:var(--ink3)">คาบถัดไป พฤหัสบดี 13:00</div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden">
+          <div style="height:76px;background:#8A5A3B;padding:14px 16px;display:flex;flex-direction:column;justify-content:space-between">
+            <div style="font:500 11px/1 'IBM Plex Mono',monospace;color:rgba(255,255,255,.82)">20127-2005</div>
+            <div style="font:600 16px/1.3 'IBM Plex Sans Thai',sans-serif;color:#fff">นิวแมติกส์และไฮดรอลิกส์</div>
+          </div>
+          <div style="padding:14px 16px">
+            <div style="font-size:13px;color:var(--ink2)">ปวช.3 ช่างกลโรงงาน · 25 คน</div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line2);font-size:13px;color:var(--ink3)">ยังไม่มีแบบทดสอบในบทที่ 4</div>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ showQuota }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:26px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:16px 18px;display:flex;align-items:center;gap:18px">
+          <div style="flex:1">
+            <div style="font:600 14px/1.3 'IBM Plex Sans Thai',sans-serif">ผู้ช่วย AI · เหลือ 42 ครั้งในเดือนนี้</div>
+            <div style="margin-top:8px;height:6px;border-radius:3px;background:var(--surface2);overflow:hidden"><div style="height:100%;width:70%;background:var(--brand)"></div></div>
+          </div>
+          <button onClick="{{ goSettings }}" style="height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13px;cursor:pointer">จัดการ</button>
+        </div>
+      </sc-if>
+
+      <div style="margin-top:34px;display:flex;align-items:baseline;justify-content:space-between">
+        <div style="font:600 16px/1.3 'IBM Plex Sans Thai',sans-serif">งานที่สร้างล่าสุด</div>
+        <button onClick="{{ goReview }}" style="border:0;background:transparent;color:var(--brand);font-size:13px;cursor:pointer;padding:0">ดูรายการรอตรวจ ({{ reviewCount }})</button>
+      </div>
+      <div style="margin-top:6px;border-top:1px solid var(--line)">
+        <sc-for list="{{ recent }}" as="r" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:16px;padding:15px 4px;border-bottom:1px solid var(--line)">
+            <div style="flex:1;min-width:0">
+              <div style="font:500 14px/1.4 Sarabun,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }}</div>
+              <div style="font-size:12.5px;color:var(--ink3);margin-top:3px">{{ r.meta }}</div>
+            </div>
+            <div style="flex:none;font:500 11.5px/20px 'IBM Plex Sans Thai',sans-serif;padding:0 9px;border-radius:6px;background:{{ r.tagBg }};color:{{ r.tagInk }}">{{ r.tag }}</div>
+            <div style="flex:none;font:400 12px/1 'IBM Plex Mono',monospace;color:var(--ink3);width:88px;text-align:right">{{ r.time }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showCourse }}" hint-placeholder-val="{{ false }}">
+    <div style="animation:rvcIn .22s ease">
+      <div style="background:var(--surface);border-bottom:1px solid var(--line);padding:26px 40px 0">
+        <div style="max-width:1180px;margin:0 auto">
+          <div style="display:flex;align-items:flex-start;gap:20px">
+            <div style="flex:1;min-width:0">
+              <div style="font:500 12px/1 'IBM Plex Mono',monospace;color:var(--ink3)">20127-2002 · ปวช.2 ช่างกลโรงงาน</div>
+              <div style="font:700 24px/1.3 'IBM Plex Sans Thai',sans-serif;margin-top:8px">เมคคาทรอนิกส์เบื้องต้น</div>
+              <div style="font-size:13.5px;color:var(--ink3);margin-top:6px">28 นักเรียน · 8 บทเรียน · แบบทดสอบ 5 ชุด</div>
+            </div>
+            <div style="flex:none;position:relative">
+              <button onClick="{{ toggleAiMenu }}" style="height:38px;padding:0 15px;border-radius:9px;border:1px solid var(--brandLine);background:var(--surface);color:var(--brand);font:500 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px" style-hover="background:var(--brandSoft)"><span style="font-size:13px">✦</span>{{ aiHelpLabel }}<span style="font-size:10px;opacity:.7">▾</span></button>
+              <sc-if value="{{ aiMenuOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;right:0;top:44px;width:288px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(16,40,35,.16);padding:6px;z-index:30">
+                  <button onClick="{{ goSetup }}" style="display:block;width:100%;text-align:left;padding:11px 12px;border:0;border-radius:8px;background:transparent;cursor:pointer;color:var(--ink)" style-hover="background:var(--surface2)">
+                    <div style="font:500 14px/1.3 'IBM Plex Sans Thai',sans-serif">ออกข้อสอบจากบทเรียน</div>
+                    <div style="font-size:12px;color:var(--ink3);margin-top:2px">เลือกบทเรียนแล้วให้ร่างข้อสอบให้</div>
+                  </button>
+                  <button onClick="{{ goPlan }}" style="display:block;width:100%;text-align:left;padding:11px 12px;border:0;border-radius:8px;background:transparent;cursor:pointer;color:var(--ink)" style-hover="background:var(--surface2)">
+                    <div style="font:500 14px/1.3 'IBM Plex Sans Thai',sans-serif">ทำแผนการจัดการเรียนรู้</div>
+                    <div style="font-size:12px;color:var(--ink3);margin-top:2px">ร่างตามแบบฟอร์ม สอศ.</div>
+                  </button>
+                  <button style="display:block;width:100%;text-align:left;padding:11px 12px;border:0;border-radius:8px;background:transparent;cursor:pointer;color:var(--ink)" style-hover="background:var(--surface2)">
+                    <div style="font:500 14px/1.3 'IBM Plex Sans Thai',sans-serif">สรุปใบความรู้เป็นภาษาที่ง่ายขึ้น</div>
+                    <div style="font-size:12px;color:var(--ink3);margin-top:2px">สำหรับนักเรียนที่ตามไม่ทัน</div>
+                  </button>
+                  <div style="height:1px;background:var(--line);margin:6px 8px"></div>
+                  <div style="padding:4px 12px 8px;font-size:11.5px;color:var(--ink3);line-height:1.5">ผลลัพธ์ทุกชิ้นจะอยู่ในสถานะรอครูตรวจก่อนเผยแพร่</div>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+          <div style="display:flex;gap:26px;margin-top:22px">
+            <button onClick="{{ tabLessons }}" style="border:0;background:transparent;padding:0 2px 12px;font:500 14px/1 'IBM Plex Sans Thai',sans-serif;color:{{ tabLessonsInk }};border-bottom:2px solid {{ tabLessonsLine }};cursor:pointer">เนื้อหาบทเรียน</button>
+            <button onClick="{{ tabQuiz }}" style="border:0;background:transparent;padding:0 2px 12px;font:500 14px/1 'IBM Plex Sans Thai',sans-serif;color:{{ tabQuizInk }};border-bottom:2px solid {{ tabQuizLine }};cursor:pointer">แบบทดสอบ</button>
+            <button onClick="{{ tabStudents }}" style="border:0;background:transparent;padding:0 2px 12px;font:500 14px/1 'IBM Plex Sans Thai',sans-serif;color:{{ tabStudentsInk }};border-bottom:2px solid {{ tabStudentsLine }};cursor:pointer">นักเรียน</button>
+            <button onClick="{{ tabScores }}" style="border:0;background:transparent;padding:0 2px 12px;font:500 14px/1 'IBM Plex Sans Thai',sans-serif;color:{{ tabScoresInk }};border-bottom:2px solid {{ tabScoresLine }};cursor:pointer">คะแนน</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="max-width:1180px;margin:0 auto;padding:24px 40px 60px">
+        <sc-if value="{{ tabIsLessons }}" hint-placeholder-val="{{ true }}">
+          <div style="border-top:1px solid var(--line)">
+            <sc-for list="{{ lessons }}" as="l" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:16px;padding:16px 4px;border-bottom:1px solid var(--line)">
+                <div style="flex:none;width:34px;font:500 13px/1 'IBM Plex Mono',monospace;color:var(--ink3)">{{ l.no }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font:500 14.5px/1.4 Sarabun,sans-serif">{{ l.title }}</div>
+                  <div style="font-size:12.5px;color:var(--ink3);margin-top:3px">{{ l.meta }}</div>
+                </div>
+                <div style="flex:none;font:500 11.5px/20px 'IBM Plex Sans Thai',sans-serif;padding:0 9px;border-radius:6px;background:{{ l.tagBg }};color:{{ l.tagInk }}">{{ l.tag }}</div>
+                <button style="flex:none;height:32px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13px;cursor:pointer" style-hover="border-color:var(--brandLine);color:var(--brand)">แก้ไข</button>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top:18px;display:flex;gap:10px">
+            <button style="height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">+ เพิ่มบทเรียน</button>
+            <button style="height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">อัปโหลดไฟล์ใบความรู้</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ tabIsQuiz }}" hint-placeholder-val="{{ false }}">
+          <div style="border-top:1px solid var(--line)">
+            <sc-for list="{{ quizzes }}" as="q" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:16px;padding:16px 4px;border-bottom:1px solid var(--line)">
+                <div style="flex:1;min-width:0">
+                  <div style="font:500 14.5px/1.4 Sarabun,sans-serif">{{ q.title }}</div>
+                  <div style="font-size:12.5px;color:var(--ink3);margin-top:3px">{{ q.meta }}</div>
+                </div>
+                <div style="flex:none;font:500 11.5px/20px 'IBM Plex Sans Thai',sans-serif;padding:0 9px;border-radius:6px;background:{{ q.tagBg }};color:{{ q.tagInk }}">{{ q.tag }}</div>
+                <div style="flex:none;font:400 12px/1 'IBM Plex Mono',monospace;color:var(--ink3);width:76px;text-align:right">{{ q.time }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ tabIsStudents }}" hint-placeholder-val="{{ false }}">
+          <div style="border-top:1px solid var(--line)">
+            <sc-for list="{{ students }}" as="s" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:16px;padding:14px 4px;border-bottom:1px solid var(--line)">
+                <div style="flex:none;width:32px;height:32px;border-radius:50%;background:var(--surface2);border:1px solid var(--line);display:grid;place-items:center;font:500 11px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink2)">{{ s.ini }}</div>
+                <div style="flex:none;font:400 12px/1 'IBM Plex Mono',monospace;color:var(--ink3);width:100px">{{ s.id }}</div>
+                <div style="flex:1;font:500 14px/1.4 Sarabun,sans-serif">{{ s.name }}</div>
+                <div style="flex:none;font-size:12.5px;color:var(--ink3)">{{ s.status }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ tabIsScores }}" hint-placeholder-val="{{ false }}">
+          <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)">
+            <div style="display:flex;padding:12px 16px;background:var(--surface2);font:500 12.5px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink2)">
+              <div style="flex:1">นักเรียน</div><div style="width:120px;text-align:right">บทที่ 2 (10)</div><div style="width:120px;text-align:right">บทที่ 3 (10)</div><div style="width:120px;text-align:right">รวม</div>
+            </div>
+            <sc-for list="{{ scores }}" as="s" hint-placeholder-count="6">
+              <div style="display:flex;padding:13px 16px;border-top:1px solid var(--line2);font-size:13.5px;align-items:center">
+                <div style="flex:1">{{ s.name }}</div>
+                <div style="width:120px;text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums">{{ s.a }}</div>
+                <div style="width:120px;text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums">{{ s.b }}</div>
+                <div style="width:120px;text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;color:var(--brand);font-weight:500">{{ s.t }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showSetup }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1100px;margin:0 auto;padding:28px 40px 60px;animation:rvcIn .22s ease">
+      <button onClick="{{ goCourse }}" style="border:0;background:transparent;color:var(--ink3);font-size:13px;cursor:pointer;padding:0 0 14px">← กลับไปที่ เมคคาทรอนิกส์เบื้องต้น</button>
+      <div style="font:700 22px/1.3 'IBM Plex Sans Thai',sans-serif">ออกข้อสอบจากบทเรียน</div>
+      <div style="font-size:13.5px;color:var(--ink3);margin-top:6px">ร่างที่ได้จะยังไม่เผยแพร่ให้นักเรียน จนกว่าครูจะตรวจและยืนยัน</div>
+
+      <div style="margin-top:24px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px;align-items:start">
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 24px">
+          <div style="font:600 14px/1 'IBM Plex Sans Thai',sans-serif">1 · เลือกบทเรียนที่ใช้เป็นแหล่งข้อมูล</div>
+          <div style="margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden">
+            <sc-for list="{{ srcLessons }}" as="s" hint-placeholder-count="4">
+              <button onClick="{{ s.toggle }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:13px 14px;border:0;border-top:1px solid var(--line2);background:{{ s.bg }};cursor:pointer;color:var(--ink)">
+                <span style="flex:none;width:18px;height:18px;border-radius:5px;border:1.5px solid {{ s.mark }};background:{{ s.markBg }};color:var(--brandInk);display:grid;place-items:center;font-size:11px">{{ s.check }}</span>
+                <span style="font:400 14px/1.4 Sarabun,sans-serif;flex:1">{{ s.title }}</span>
+                <span style="font:400 12px/1 'IBM Plex Mono',monospace;color:var(--ink3)">{{ s.pages }}</span>
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="height:1px;background:var(--line);margin:22px 0"></div>
+          <div style="font:600 14px/1 'IBM Plex Sans Thai',sans-serif">2 · จำนวนข้อ</div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <sc-for list="{{ counts }}" as="c" hint-placeholder-count="4">
+              <button onClick="{{ c.pick }}" style="height:38px;min-width:64px;padding:0 14px;border-radius:9px;border:1.5px solid {{ c.border }};background:{{ c.bg }};color:{{ c.ink }};font:500 14px/1 'IBM Plex Mono',monospace;cursor:pointer">{{ c.n }}</button>
+            </sc-for>
+          </div>
+
+          <div style="height:1px;background:var(--line);margin:22px 0"></div>
+          <div style="font:600 14px/1 'IBM Plex Sans Thai',sans-serif">3 · ชนิดข้อสอบ</div>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+            <sc-for list="{{ types }}" as="t" hint-placeholder-count="3">
+              <button onClick="{{ t.pick }}" style="height:38px;padding:0 16px;border-radius:19px;border:1.5px solid {{ t.border }};background:{{ t.bg }};color:{{ t.ink }};font:500 13.5px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">{{ t.label }}</button>
+            </sc-for>
+          </div>
+
+          <div style="height:1px;background:var(--line);margin:22px 0"></div>
+          <div style="font:600 14px/1 'IBM Plex Sans Thai',sans-serif">4 · ระดับความยาก</div>
+          <div style="margin-top:12px;display:flex;gap:10px">
+            <sc-for list="{{ levels }}" as="l" hint-placeholder-count="3">
+              <button onClick="{{ l.pick }}" style="flex:1;text-align:left;padding:13px 14px;border-radius:11px;border:1.5px solid {{ l.border }};background:{{ l.bg }};cursor:pointer;color:var(--ink)">
+                <div style="font:500 14px/1.2 'IBM Plex Sans Thai',sans-serif">{{ l.label }}</div>
+                <div style="font-size:12px;color:var(--ink3);margin-top:4px;line-height:1.45">{{ l.hint }}</div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;position:sticky;top:16px">
+          <div style="font:600 14px/1 'IBM Plex Sans Thai',sans-serif">สรุปงานที่จะสร้าง</div>
+          <div style="margin-top:14px;display:flex;flex-direction:column;gap:9px;font-size:13.5px;color:var(--ink2)">
+            <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3)">บทเรียน</span><span style="text-align:right">{{ sumLessons }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3)">จำนวนข้อ</span><span style="font-family:'IBM Plex Mono',monospace">{{ sumCount }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3)">ชนิดข้อ</span><span style="text-align:right">{{ sumTypes }}</span></div>
+            <div style="display:flex;justify-content:space-between;gap:10px"><span style="color:var(--ink3)">ความยาก</span><span>{{ sumLevel }}</span></div>
+          </div>
+          <div style="height:1px;background:var(--line);margin:16px 0"></div>
+          <div style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 10px;border-radius:13px;background:var(--brandSoft);border:1px solid var(--brandLine);font:500 12px/1 'IBM Plex Sans Thai',sans-serif;color:var(--brand)"><span style="width:6px;height:6px;border-radius:50%;background:var(--brand)"></span>{{ aiChip }}</div>
+          <div style="font-size:12.5px;color:var(--ink3);margin-top:10px;line-height:1.6">{{ aiWait }}</div>
+          <button onClick="{{ startGen }}" style="margin-top:16px;width:100%;height:44px;border-radius:10px;border:0;background:var(--brand);color:var(--brandInk);font:600 15px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">เริ่มสร้างร่างข้อสอบ</button>
+          <button onClick="{{ goSettings }}" style="margin-top:8px;width:100%;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13px;cursor:pointer">{{ altSourceLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showRunning }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:900px;margin:0 auto;padding:28px 40px 60px;animation:rvcIn .22s ease">
+      <div style="font:700 22px/1.3 'IBM Plex Sans Thai',sans-serif">กำลังร่างข้อสอบ</div>
+      <div style="margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:22px;height:22px;border-radius:50%;border:2.5px solid var(--brandLine);border-top-color:var(--brand);animation:rvcSpin .9s linear infinite"></div>
+          <div style="flex:1">
+            <div style="font:600 15px/1.3 'IBM Plex Sans Thai',sans-serif">กำลังเขียนข้อ {{ genNo }} จาก {{ genTotal }}</div>
+            <div style="font-size:12.5px;color:var(--ink3);margin-top:3px">{{ genHint }}</div>
+          </div>
+          <button onClick="{{ cancelGen }}" style="height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13px;cursor:pointer" style-hover="border-color:var(--err);color:var(--err)">ยกเลิก</button>
+        </div>
+        <div style="margin-top:16px;height:6px;border-radius:3px;background:var(--surface2);overflow:hidden"><div style="height:100%;background:var(--brand);width:{{ genPct }};transition:width .5s ease"></div></div>
+        <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+          <div style="display:inline-flex;align-items:center;gap:7px;height:24px;padding:0 9px;border-radius:12px;background:var(--brandSoft);border:1px solid var(--brandLine);font:500 11.5px/1 'IBM Plex Sans Thai',sans-serif;color:var(--brand)"><span style="width:6px;height:6px;border-radius:50%;background:var(--brand)"></span>{{ aiChip }}</div>
+          <div style="font-size:12px;color:var(--ink3)">ปิดหน้านี้ได้ งานจะทำต่อและแจ้งเตือนเมื่อเสร็จ</div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{ genQs }}" as="q" hint-placeholder-count="2">
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;animation:rvcIn .28s ease">
+            <div style="display:flex;gap:12px">
+              <div style="flex:none;font:500 13px/1.6 'IBM Plex Mono',monospace;color:var(--ink3)">{{ q.no }}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font:400 14.5px/1.65 Sarabun,sans-serif">{{ q.text }}</div>
+                <div style="margin-top:8px;font-size:13px;color:var(--ink2);line-height:1.7">{{ q.short }}</div>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+        <div style="background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:9px">
+          <div style="height:12px;border-radius:6px;background:var(--surface2);width:72%;animation:rvcPulse 1.3s ease-in-out infinite"></div>
+          <div style="height:12px;border-radius:6px;background:var(--surface2);width:54%;animation:rvcPulse 1.3s ease-in-out .2s infinite"></div>
+          <div style="height:12px;border-radius:6px;background:var(--surface2);width:38%;animation:rvcPulse 1.3s ease-in-out .4s infinite"></div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showResult }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:940px;margin:0 auto;padding:28px 40px 110px;animation:rvcIn .22s ease">
+      <div style="display:flex;align-items:flex-start;gap:16px">
+        <div style="flex:1">
+          <div style="font:700 22px/1.3 'IBM Plex Sans Thai',sans-serif">ร่างข้อสอบ · เมคคาทรอนิกส์เบื้องต้น บทที่ 3–4</div>
+          <div style="font-size:13.5px;color:var(--ink3);margin-top:6px">{{ resultMeta }}</div>
+        </div>
+        <div style="flex:none;display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 10px;border-radius:13px;background:var(--brandSoft);border:1px solid var(--brandLine);font:500 12px/1 'IBM Plex Sans Thai',sans-serif;color:var(--brand)"><span style="width:6px;height:6px;border-radius:50%;background:var(--brand)"></span>{{ aiChip }}</div>
+      </div>
+
+      <div style="margin-top:18px;background:var(--warnSoft);border:1px solid var(--warnLine);border-radius:12px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+        <div style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--warn);color:var(--warnSoft);display:grid;place-items:center;font:600 13px/1 'IBM Plex Sans Thai',sans-serif">!</div>
+        <div style="flex:1">
+          <div style="font:600 14px/1.4 'IBM Plex Sans Thai',sans-serif;color:var(--warn)">เนื้อหานี้สร้างโดย AI กรุณาตรวจสอบความถูกต้องก่อนเผยแพร่</div>
+          <div style="font-size:13px;color:var(--ink2);margin-top:4px;line-height:1.6">แก้ข้อความและเฉลยได้ทันทีในหน้านี้ ยังไม่มีนักเรียนคนใดเห็นร่างนี้</div>
+        </div>
+        <div style="flex:none;font:500 11.5px/22px 'IBM Plex Sans Thai',sans-serif;padding:0 10px;border-radius:6px;background:var(--surface);color:var(--warn);border:1px solid var(--warnLine)">สถานะ: รอครูตรวจ</div>
+      </div>
+
+      <div style="margin-top:18px;display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{ resultQs }}" as="q" hint-placeholder-count="5">
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="font:500 13px/1 'IBM Plex Mono',monospace;color:var(--ink3)">ข้อ {{ q.no }}</div>
+              <div style="font:500 11.5px/20px 'IBM Plex Sans Thai',sans-serif;padding:0 8px;border-radius:6px;background:var(--surface2);color:var(--ink2)">{{ q.kind }}</div>
+              <div style="flex:1"></div>
+              <button onClick="{{ q.regen }}" style="height:30px;padding:0 11px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:12.5px;cursor:pointer" style-hover="border-color:var(--brandLine);color:var(--brand)">สร้างข้อนี้ใหม่</button>
+              <button onClick="{{ q.del }}" style="height:30px;padding:0 11px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink3);font-size:12.5px;cursor:pointer" style-hover="border-color:var(--err);color:var(--err)">ลบ</button>
+            </div>
+            <div contentEditable="true" suppressContentEditableWarning="{{ true }}" style="margin-top:12px;font:400 15px/1.7 Sarabun,sans-serif;padding:2px">{{ q.text }}</div>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+              <sc-for list="{{ q.choices }}" as="c" hint-placeholder-count="4">
+                <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:8px;background:{{ c.bg }}">
+                  <div style="flex:none;font:500 12.5px/1.6 'IBM Plex Mono',monospace;color:{{ c.ink }}">{{ c.key }}</div>
+                  <div contentEditable="true" suppressContentEditableWarning="{{ true }}" style="flex:1;font:400 14px/1.6 Sarabun,sans-serif;color:{{ c.ink }}">{{ c.text }}</div>
+                  <div style="flex:none;font:500 11px/1.6 'IBM Plex Sans Thai',sans-serif;color:var(--ok)">{{ c.badge }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);display:flex;gap:10px;align-items:flex-start">
+              <div style="flex:none;font:500 12px/1.7 'IBM Plex Sans Thai',sans-serif;color:var(--ink3)">เหตุผลของเฉลย</div>
+              <div contentEditable="true" suppressContentEditableWarning="{{ true }}" style="flex:1;font:400 13.5px/1.7 Sarabun,sans-serif;color:var(--ink2)">{{ q.why }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="position:sticky;bottom:0;margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 -2px 18px rgba(16,40,35,.06)">
+        <div style="flex:1;font-size:13px;color:var(--ink3)">{{ resultFooter }}</div>
+        <button onClick="{{ regenAll }}" style="height:40px;padding:0 15px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">ลองใหม่อีกแบบ</button>
+        <button onClick="{{ saveDraft }}" style="height:40px;padding:0 15px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">เก็บไว้ตรวจภายหลัง</button>
+        <button onClick="{{ publishQuiz }}" style="height:40px;padding:0 20px;border-radius:9px;border:0;background:var(--brand);color:var(--brandInk);font:600 14.5px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">ยืนยันและบันทึกเป็นแบบทดสอบ</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showReview }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1000px;margin:0 auto;padding:34px 40px 60px;animation:rvcIn .22s ease">
+      <div style="font:700 22px/1.3 'IBM Plex Sans Thai',sans-serif">รอตรวจก่อนเผยแพร่</div>
+      <div style="font-size:13.5px;color:var(--ink3);margin-top:6px">เนื้อหาที่ผู้ช่วย AI ร่างไว้และยังไม่ได้ยืนยัน นักเรียนยังไม่เห็นทั้งหมด</div>
+
+      <sc-for list="{{ reviewGroups }}" as="g" hint-placeholder-count="2">
+        <div style="margin-top:26px">
+          <div style="display:flex;align-items:baseline;gap:10px">
+            <div style="font:600 15px/1.3 'IBM Plex Sans Thai',sans-serif">{{ g.course }}</div>
+            <div style="font:400 12px/1 'IBM Plex Mono',monospace;color:var(--ink3)">{{ g.code }}</div>
+          </div>
+          <div style="margin-top:8px;border-top:1px solid var(--line)">
+            <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:14px;padding:16px 4px;border-bottom:1px solid var(--line)">
+                <div style="flex:1;min-width:0">
+                  <div style="font:500 14.5px/1.4 Sarabun,sans-serif">{{ it.title }}</div>
+                  <div style="font-size:12.5px;color:var(--ink3);margin-top:4px">{{ it.meta }}</div>
+                </div>
+                <div style="flex:none;display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:12px;background:var(--surface2);font:500 11.5px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink2)"><span style="width:5px;height:5px;border-radius:50%;background:var(--ink3)"></span>{{ it.src }}</div>
+                <button onClick="{{ it.open }}" style="flex:none;height:34px;padding:0 14px;border-radius:9px;border:1px solid var(--brandLine);background:var(--surface);color:var(--brand);font:500 13.5px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer" style-hover="background:var(--brandSoft)">ตรวจ</button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showSettings }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1000px;margin:0 auto;padding:34px 40px 60px;animation:rvcIn .22s ease">
+      <div style="font:700 22px/1.3 'IBM Plex Sans Thai',sans-serif">ผู้ช่วย AI ของฉัน</div>
+      <div style="font-size:13.5px;color:var(--ink3);margin-top:6px">เลือกได้ว่าจะให้ผู้ช่วยทำงานด้วยเครื่องของวิทยาลัย หรือด้วยบริการที่ครูเชื่อมเอง</div>
+
+      <div style="margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">
+        <div style="background:var(--surface);border:1.5px solid var(--brand);border-radius:14px;padding:22px;box-shadow:var(--shadow)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font:500 11.5px/22px 'IBM Plex Sans Thai',sans-serif;padding:0 9px;border-radius:6px;background:var(--brand);color:var(--brandInk)">แนะนำ · ใช้อยู่</div>
+          </div>
+          <div style="font:600 18px/1.3 'IBM Plex Sans Thai',sans-serif;margin-top:14px">AI ของวิทยาลัย</div>
+          <div style="font-size:13.5px;color:var(--ink2);margin-top:8px;line-height:1.7">เครื่องที่ตั้งอยู่ในห้องเซิร์ฟเวอร์ของวิทยาลัย ใช้ได้ทันทีโดยไม่ต้องตั้งค่า ข้อมูลและไฟล์ไม่ออกนอกวิทยาลัย</div>
+          <div style="margin-top:16px;display:flex;flex-direction:column;gap:9px;font-size:13.5px;color:var(--ink2)">
+            <div style="display:flex;gap:9px"><span style="color:var(--ok)">✓</span>ใช้ได้เลย ไม่ต้องกรอกอะไร</div>
+            <div style="display:flex;gap:9px"><span style="color:var(--ok)">✓</span>ข้อมูลอยู่ในวิทยาลัย</div>
+            <div style="display:flex;gap:9px"><span style="color:var(--ink3)">•</span>ช้ากว่าเมื่อมีครูใช้พร้อมกันหลายคน</div>
+          </div>
+          <div style="margin-top:18px;padding:14px;border-radius:11px;background:var(--surface2)">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--ink2)"><span>โควตาเดือนนี้</span><span style="font-family:'IBM Plex Mono',monospace">เหลือ 42 จาก 60 ครั้ง</span></div>
+            <div style="margin-top:9px;height:6px;border-radius:3px;background:var(--line);overflow:hidden"><div style="height:100%;width:70%;background:var(--brand)"></div></div>
+            <div style="font-size:12px;color:var(--ink3);margin-top:8px">โควตารีเซ็ตทุกวันที่ 1 ของเดือน</div>
+          </div>
+          <div style="margin-top:14px;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink2)">
+            <span style="width:8px;height:8px;border-radius:50%;background:var(--ok)"></span>ตอนนี้พร้อมใช้งาน · มีคิวรอ 2 งาน · ประมาณ 20 วินาที
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px">
+          <div style="font:500 11.5px/22px 'IBM Plex Sans Thai',sans-serif;padding:0 9px;border-radius:6px;background:var(--surface2);color:var(--ink3);display:inline-block">{{ myAiBadge }}</div>
+          <div style="font:600 18px/1.3 'IBM Plex Sans Thai',sans-serif;margin-top:14px">AI ของฉัน</div>
+          <div style="font-size:13.5px;color:var(--ink2);margin-top:8px;line-height:1.7">ครูที่มีบัญชีบริการ AI ของตัวเองอยู่แล้ว เอามาเชื่อมได้ ระบบจะใช้ของครูก่อนเสมอ</div>
+          <div style="margin-top:16px;display:flex;flex-direction:column;gap:9px;font-size:13.5px;color:var(--ink2)">
+            <div style="display:flex;gap:9px"><span style="color:var(--ok)">✓</span>ได้ผลเร็วขึ้น ไม่ต้องรอคิว</div>
+            <div style="display:flex;gap:9px"><span style="color:var(--ok)">✓</span>ไม่ใช้โควตาของวิทยาลัย</div>
+            <div style="display:flex;gap:9px"><span style="color:var(--ink3)">•</span>ค่าใช้บริการเป็นของครูเอง</div>
+          </div>
+          <sc-if value="{{ myAiOn }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:18px;padding:14px;border-radius:11px;background:var(--okSoft);border:1px solid var(--ok)">
+              <div style="font:600 13.5px/1.4 'IBM Plex Sans Thai',sans-serif;color:var(--ok)">เชื่อมแล้ว · {{ myAiName }}</div>
+              <div style="font-size:12.5px;color:var(--ink2);margin-top:5px">ทดสอบล่าสุดวันนี้ 08:52 · ใช้ได้ทั้งโหมดเร็วและโหมดคุณภาพสูง</div>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:9px">
+              <button onClick="{{ openWizard }}" style="flex:1;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">แก้การเชื่อมต่อ</button>
+              <button onClick="{{ disconnect }}" style="height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink3);font-size:13.5px;cursor:pointer" style-hover="border-color:var(--err);color:var(--err)">ยกเลิกการเชื่อม</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ myAiOff }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ openWizard }}" style="margin-top:18px;width:100%;height:44px;border-radius:10px;border:1.5px solid var(--brand);background:var(--surface);color:var(--brand);font:600 15px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer" style-hover="background:var(--brandSoft)">เชื่อมต่อ AI ของฉัน</button>
+            <div style="font-size:12px;color:var(--ink3);margin-top:10px;line-height:1.6">ใช้เวลาประมาณ 3 นาที มีขั้นตอนบอกทีละหน้าจอ ถ้าไม่เชื่อมก็ใช้ AI ของวิทยาลัยได้ตามปกติ</div>
+          </sc-if>
+        </div>
+      </div>
+
+      <div style="margin-top:26px;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:18px 20px">
+        <div style="font:600 14px/1.3 'IBM Plex Sans Thai',sans-serif">คุณภาพของผลลัพธ์</div>
+        <div style="margin-top:12px;display:flex;gap:10px">
+          <sc-for list="{{ modes }}" as="m" hint-placeholder-count="2">
+            <button onClick="{{ m.pick }}" style="flex:1;text-align:left;padding:14px 15px;border-radius:11px;border:1.5px solid {{ m.border }};background:{{ m.bg }};cursor:pointer;color:var(--ink)">
+              <div style="font:500 14px/1.2 'IBM Plex Sans Thai',sans-serif">{{ m.label }}</div>
+              <div style="font-size:12.5px;color:var(--ink3);margin-top:5px;line-height:1.5">{{ m.hint }}</div>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showStudent }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:34px 40px 60px;animation:rvcIn .22s ease">
+      <div style="max-width:820px;margin:0 auto">
+        <div style="font:500 12px/1 'IBM Plex Mono',monospace;color:var(--ink3)">20100-1005 · งานไฟฟ้าและอิเล็กทรอนิกส์เบื้องต้น</div>
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-top:8px">
+          <div style="font:700 22px/1.3 'IBM Plex Sans Thai',sans-serif">แบบทดสอบบทที่ 3 · วงจรไฟฟ้าเบื้องต้น</div>
+          <div style="font:500 20px/1 'IBM Plex Mono',monospace;color:var(--brand);font-variant-numeric:tabular-nums">{{ studentClock }}</div>
+        </div>
+        <div style="margin-top:14px;height:6px;border-radius:3px;background:var(--surface2);overflow:hidden"><div style="height:100%;background:var(--brand);width:{{ studentPct }};transition:width .3s ease"></div></div>
+        <div style="font-size:13px;color:var(--ink3);margin-top:8px">ข้อ {{ studentNo }} จาก 5 · ตอบแล้ว {{ studentAnswered }} ข้อ</div>
+
+        <sc-if value="{{ studentDone }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:26px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:40px;text-align:center">
+            <div style="width:52px;height:52px;margin:0 auto;border-radius:50%;background:var(--okSoft);color:var(--ok);display:grid;place-items:center;font-size:22px">✓</div>
+            <div style="font:600 19px/1.3 'IBM Plex Sans Thai',sans-serif;margin-top:16px">ส่งคำตอบเรียบร้อยแล้ว</div>
+            <div style="font-size:14px;color:var(--ink2);margin-top:8px;line-height:1.7">ครูจะตรวจและประกาศคะแนนในหน้าเดิม<br>ตอบครบ 5 ข้อ ใช้เวลา 6 นาที 12 วินาที</div>
+            <button onClick="{{ studentRestart }}" style="margin-top:22px;height:42px;padding:0 20px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:14px;cursor:pointer">ทำอีกครั้ง (ตัวอย่าง)</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ studentActive }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-top:22px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:30px 32px">
+            <div style="font:400 19px/1.7 Sarabun,sans-serif">{{ studentQText }}</div>
+            <div style="margin-top:22px;display:flex;flex-direction:column;gap:11px">
+              <sc-for list="{{ studentChoices }}" as="c" hint-placeholder-count="4">
+                <button onClick="{{ c.pick }}" style="display:flex;gap:13px;align-items:flex-start;width:100%;text-align:left;padding:16px 18px;border-radius:12px;border:1.5px solid {{ c.border }};background:{{ c.bg }};color:var(--ink);font:400 15.5px/1.6 Sarabun,sans-serif;cursor:pointer" style-hover="border-color:var(--brandLine)">
+                  <span style="flex:none;width:26px;height:26px;border-radius:50%;border:1.5px solid {{ c.border }};display:grid;place-items:center;font:500 12.5px/1 'IBM Plex Mono',monospace;color:{{ c.markInk }};background:{{ c.markBg }}">{{ c.key }}</span>
+                  <span style="padding-top:2px">{{ c.text }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="margin-top:16px;display:flex;align-items:center;gap:12px">
+            <button onClick="{{ studentPrev }}" style="height:44px;padding:0 18px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:14px;cursor:pointer">ข้อก่อนหน้า</button>
+            <div style="flex:1;font-size:13px;color:var(--ink3)">คำตอบถูกบันทึกอัตโนมัติทุกครั้งที่เลือก</div>
+            <button onClick="{{ studentNext }}" style="height:44px;padding:0 22px;border-radius:10px;border:0;background:var(--brand);color:var(--brandInk);font:600 15px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">{{ studentNextLabel }}</button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showPlan }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1140px;margin:0 auto;padding:28px 40px 60px;animation:rvcIn .22s ease">
+      <button onClick="{{ goCourse }}" style="border:0;background:transparent;color:var(--ink3);font-size:13px;cursor:pointer;padding:0 0 14px">← กลับไปที่ เมคคาทรอนิกส์เบื้องต้น</button>
+      <div style="font:700 22px/1.3 'IBM Plex Sans Thai',sans-serif">แผนการจัดการเรียนรู้</div>
+      <div style="font-size:13.5px;color:var(--ink3);margin-top:6px">กรอกหน่วยการเรียนรู้และสมรรถนะ แล้วให้ผู้ช่วยร่างเอกสารตามแบบฟอร์มของ สอศ.</div>
+
+      <div style="margin-top:24px;display:grid;grid-template-columns:330px minmax(0,1fr);gap:24px;align-items:start">
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px;position:sticky;top:16px">
+          <div style="font:600 14px/1 'IBM Plex Sans Thai',sans-serif">ข้อมูลของหน่วย</div>
+          <div style="margin-top:16px;display:flex;flex-direction:column;gap:14px">
+            <div>
+              <div style="font:500 12.5px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink2)">ชื่อหน่วยการเรียนรู้</div>
+              <div contentEditable="true" suppressContentEditableWarning="{{ true }}" style="margin-top:7px;min-height:42px;border:1px solid var(--line);border-radius:9px;background:var(--surface2);padding:11px 12px;font:400 14px/1.5 Sarabun,sans-serif">หน่วยที่ 4 ระบบนิวแมติกส์เบื้องต้น</div>
+            </div>
+            <div>
+              <div style="font:500 12.5px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink2)">สมรรถนะประจำหน่วย</div>
+              <div contentEditable="true" suppressContentEditableWarning="{{ true }}" style="margin-top:7px;min-height:76px;border:1px solid var(--line);border-radius:9px;background:var(--surface2);padding:11px 12px;font:400 14px/1.6 Sarabun,sans-serif">ต่อวงจรลมควบคุมกระบอกสูบสองทางด้วยวาล์ว 5/2 ได้ถูกต้องตามหลักความปลอดภัย</div>
+            </div>
+            <div style="display:flex;gap:12px">
+              <div style="flex:1">
+                <div style="font:500 12.5px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink2)">จำนวนชั่วโมง</div>
+                <div contentEditable="true" suppressContentEditableWarning="{{ true }}" style="margin-top:7px;height:42px;border:1px solid var(--line);border-radius:9px;background:var(--surface2);padding:11px 12px;font:400 14px/1.5 'IBM Plex Mono',monospace">6</div>
+              </div>
+              <div style="flex:1">
+                <div style="font:500 12.5px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink2)">สัปดาห์ที่</div>
+                <div contentEditable="true" suppressContentEditableWarning="{{ true }}" style="margin-top:7px;height:42px;border:1px solid var(--line);border-radius:9px;background:var(--surface2);padding:11px 12px;font:400 14px/1.5 'IBM Plex Mono',monospace">7–8</div>
+              </div>
+            </div>
+            <div>
+              <div style="font:500 12.5px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink2)">รูปแบบการสอนที่ต้องการ</div>
+              <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+                <sc-for list="{{ planStyles }}" as="p" hint-placeholder-count="3">
+                  <button onClick="{{ p.pick }}" style="height:34px;padding:0 13px;border-radius:17px;border:1.5px solid {{ p.border }};background:{{ p.bg }};color:{{ p.ink }};font:500 13px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">{{ p.label }}</button>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="height:1px;background:var(--line);margin:18px 0"></div>
+          <div style="display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 10px;border-radius:13px;background:var(--brandSoft);border:1px solid var(--brandLine);font:500 12px/1 'IBM Plex Sans Thai',sans-serif;color:var(--brand)"><span style="width:6px;height:6px;border-radius:50%;background:var(--brand)"></span>{{ aiChip }}</div>
+          <button onClick="{{ makePlan }}" style="margin-top:14px;width:100%;height:44px;border-radius:10px;border:0;background:var(--brand);color:var(--brandInk);font:600 15px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">{{ planBtnLabel }}</button>
+        </div>
+
+        <div>
+          <sc-if value="{{ planEmpty }}" hint-placeholder-val="{{ true }}">
+            <div style="border:1px dashed var(--line);border-radius:14px;background:var(--surface);padding:60px 40px;text-align:center">
+              <div style="font:600 16px/1.4 'IBM Plex Sans Thai',sans-serif">ยังไม่มีร่างเอกสาร</div>
+              <div style="font-size:13.5px;color:var(--ink3);margin-top:8px;line-height:1.7">ตรวจข้อมูลด้านซ้ายให้ตรงก่อน แล้วกดปุ่มร่างเอกสาร<br>ร่างที่ได้จะแก้ไขได้ทุกบรรทัดในหน้านี้</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ planReady }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--warnSoft);border:1px solid var(--warnLine);border-radius:12px;padding:13px 15px;display:flex;gap:12px;align-items:flex-start">
+              <div style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--warn);color:var(--warnSoft);display:grid;place-items:center;font:600 13px/1 'IBM Plex Sans Thai',sans-serif">!</div>
+              <div style="flex:1">
+                <div style="font:600 14px/1.4 'IBM Plex Sans Thai',sans-serif;color:var(--warn)">เอกสารนี้สร้างโดย AI กรุณาตรวจสอบก่อนส่งฝ่ายวิชาการ</div>
+                <div style="font-size:13px;color:var(--ink2);margin-top:4px;line-height:1.6">แก้ได้ทุกบรรทัดในหน้านี้ · สถานะปัจจุบัน: รอครูตรวจ</div>
+              </div>
+            </div>
+            <div style="margin-top:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:32px 36px">
+              <div style="text-align:center;border-bottom:1px solid var(--line);padding-bottom:16px">
+                <div style="font:600 16px/1.4 'IBM Plex Sans Thai',sans-serif">แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะอาชีพ</div>
+                <div style="font-size:13px;color:var(--ink2);margin-top:5px">วิชาเมคคาทรอนิกส์เบื้องต้น รหัส 20127-2002 · วิทยาลัยเทคนิคร้อยเอ็ด</div>
+                <div style="font-size:12.5px;color:var(--ink3);margin-top:4px">หน่วยที่ 4 ระบบนิวแมติกส์เบื้องต้น · 6 ชั่วโมง · สัปดาห์ที่ 7–8</div>
+              </div>
+              <sc-for list="{{ planSections }}" as="s" hint-placeholder-count="5">
+                <div style="padding:18px 0;border-bottom:1px solid var(--line2)">
+                  <div style="font:600 14px/1.4 'IBM Plex Sans Thai',sans-serif;color:var(--brand)">{{ s.head }}</div>
+                  <div contentEditable="true" suppressContentEditableWarning="{{ true }}" style="margin-top:8px;font:400 14.5px/1.85 Sarabun,sans-serif;color:var(--ink2);white-space:pre-line">{{ s.body }}</div>
+                </div>
+              </sc-for>
+              <div style="padding-top:18px;display:flex;justify-content:space-between;font-size:13px;color:var(--ink3)">
+                <div>ผู้สอน: อ.ธนพล ศรีบุญเรือง</div>
+                <div style="font-family:'IBM Plex Mono',monospace">ร่างเมื่อ 9 ก.ย. 2569</div>
+              </div>
+            </div>
+            <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
+              <button onClick="{{ makePlan }}" style="height:40px;padding:0 15px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">ลองใหม่อีกแบบ</button>
+              <div style="flex:1"></div>
+              <button onClick="{{ exportDoc }}" style="height:40px;padding:0 15px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">ส่งออกเป็นไฟล์เอกสาร</button>
+              <button onClick="{{ exportPdf }}" style="height:40px;padding:0 15px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">ส่งออกเป็นไฟล์ PDF</button>
+              <button onClick="{{ confirmPlan }}" style="height:40px;padding:0 20px;border-radius:9px;border:0;background:var(--brand);color:var(--brandInk);font:600 14.5px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">ยืนยันและบันทึกแผน</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showAdmin }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1180px;margin:0 auto;padding:34px 40px 60px;animation:rvcIn .22s ease">
+      <div style="font:700 22px/1.3 'IBM Plex Sans Thai',sans-serif">เครื่อง AI และโควตา</div>
+      <div style="font-size:13.5px;color:var(--ink3);margin-top:6px">สถานะเครื่องในห้องเซิร์ฟเวอร์ · ครูนำร่อง 20 คน · ภาคเรียนที่ 1 / 2569</div>
+
+      <div style="margin-top:22px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;align-items:start">
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="width:9px;height:9px;border-radius:50%;background:var(--ok)"></span>
+            <div style="font:600 15px/1 'IBM Plex Sans Thai',sans-serif">เครื่องประมวลผล GPU · ออนไลน์</div>
+            <div style="flex:1"></div>
+            <div style="font:400 12px/1 'IBM Plex Mono',monospace;color:var(--ink3)">ทำงานต่อเนื่อง 12 วัน 4 ชม.</div>
+          </div>
+          <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <sc-for list="{{ gpuStats }}" as="g" hint-placeholder-count="4">
+              <div>
+                <div style="font-size:12.5px;color:var(--ink3)">{{ g.label }}</div>
+                <div style="font:500 20px/1.2 'IBM Plex Mono',monospace;margin-top:5px;font-variant-numeric:tabular-nums">{{ g.value }}</div>
+                <div style="margin-top:8px;height:5px;border-radius:3px;background:var(--surface2);overflow:hidden"><div style="height:100%;width:{{ g.pct }};background:{{ g.color }}"></div></div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="height:1px;background:var(--line);margin:20px 0"></div>
+          <div style="font:600 13.5px/1 'IBM Plex Sans Thai',sans-serif">โมเดลที่โหลดอยู่</div>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ models }}" as="m" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:10px;background:var(--surface2)">
+                <div style="flex:1;font:400 13.5px/1.4 'IBM Plex Mono',monospace">{{ m.name }}</div>
+                <div style="font:500 11.5px/20px 'IBM Plex Sans Thai',sans-serif;padding:0 9px;border-radius:6px;background:var(--surface);color:var(--ink2);border:1px solid var(--line)">{{ m.role }}</div>
+                <div style="font:400 12px/1 'IBM Plex Mono',monospace;color:var(--ink3);width:64px;text-align:right">{{ m.vram }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px">
+            <div style="font:600 14px/1 'IBM Plex Sans Thai',sans-serif">คิวงานปัจจุบัน</div>
+            <div style="display:flex;align-items:baseline;gap:10px;margin-top:12px">
+              <div style="font:500 34px/1 'IBM Plex Mono',monospace;color:var(--brand)">2</div>
+              <div style="font-size:13px;color:var(--ink3)">งานรออยู่ · รอโดยประมาณ 20 วินาที</div>
+            </div>
+            <div style="margin-top:14px;border-top:1px solid var(--line2);padding-top:12px;display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ queueJobs }}" as="j" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:10px;font-size:13px">
+                  <div style="flex:1;color:var(--ink2)">{{ j.who }}</div>
+                  <div style="color:var(--ink3);font-size:12.5px">{{ j.what }}</div>
+                  <div style="font:400 12px/1 'IBM Plex Mono',monospace;color:var(--ink3);width:52px;text-align:right">{{ j.age }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between">
+              <div style="font:600 14px/1 'IBM Plex Sans Thai',sans-serif">การใช้งาน 7 วันที่ผ่านมา</div>
+              <div style="font:400 12px/1 'IBM Plex Mono',monospace;color:var(--ink3)">รวม 214 ครั้ง</div>
+            </div>
+            <div style="margin-top:18px;display:flex;align-items:flex-end;gap:10px;height:120px">
+              <sc-for list="{{ chart }}" as="c" hint-placeholder-count="7">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:7px">
+                  <div style="font:400 11px/1 'IBM Plex Mono',monospace;color:var(--ink3)">{{ c.n }}</div>
+                  <div style="width:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;height:82px">
+                    <div style="width:100%;height:{{ c.ownH }};background:var(--brandLine);border-radius:3px 3px 0 0"></div>
+                    <div style="width:100%;height:{{ c.colH }};background:var(--brand);border-radius:0 0 3px 3px"></div>
+                  </div>
+                  <div style="font:400 11px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink3)">{{ c.day }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="margin-top:14px;display:flex;gap:18px;font-size:12.5px;color:var(--ink3)">
+              <div style="display:flex;align-items:center;gap:7px"><span style="width:10px;height:10px;border-radius:3px;background:var(--brand)"></span>AI ของวิทยาลัย</div>
+              <div style="display:flex;align-items:center;gap:7px"><span style="width:10px;height:10px;border-radius:3px;background:var(--brandLine)"></span>คีย์ของครูเอง</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:22px;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:12px">
+          <div style="font:600 14px/1 'IBM Plex Sans Thai',sans-serif">การใช้งานรายครู · เดือนกันยายน</div>
+          <div style="font-size:12.5px;color:var(--ink3)">เรียงตามจำนวนครั้งที่ใช้ AI ของวิทยาลัย</div>
+        </div>
+        <div style="display:flex;padding:11px 20px;background:var(--surface2);font:500 12.5px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink2)">
+          <div style="flex:1">ครู</div><div style="width:150px">รายวิชาหลัก</div><div style="width:120px;text-align:right">AI วิทยาลัย</div><div style="width:120px;text-align:right">คีย์ของตัวเอง</div><div style="width:130px;text-align:right">โควตาคงเหลือ</div>
+        </div>
+        <sc-for list="{{ usage }}" as="u" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;padding:13px 20px;border-top:1px solid var(--line2);font-size:13.5px">
+            <div style="flex:1">{{ u.name }}</div>
+            <div style="width:150px;color:var(--ink3);font-size:12.5px">{{ u.subject }}</div>
+            <div style="width:120px;text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums">{{ u.college }}</div>
+            <div style="width:120px;text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;color:var(--ink3)">{{ u.own }}</div>
+            <div style="width:130px;text-align:right;font-family:'IBM Plex Mono',monospace;color:{{ u.leftInk }}">{{ u.left }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="margin-top:22px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 22px">
+        <div style="font:600 14px/1 'IBM Plex Sans Thai',sans-serif">เพดานโควตาต่อครูต่อเดือน</div>
+        <div style="font-size:13px;color:var(--ink3);margin-top:6px">ครูที่ใช้คีย์ของตัวเองจะไม่ถูกนับในโควตานี้</div>
+        <div style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <sc-for list="{{ caps }}" as="c" hint-placeholder-count="4">
+            <button onClick="{{ c.pick }}" style="height:40px;min-width:78px;padding:0 16px;border-radius:10px;border:1.5px solid {{ c.border }};background:{{ c.bg }};color:{{ c.ink }};font:500 14px/1 'IBM Plex Mono',monospace;cursor:pointer">{{ c.label }}</button>
+          </sc-for>
+          <div style="flex:1"></div>
+          <button onClick="{{ saveCap }}" style="height:40px;padding:0 18px;border-radius:10px;border:0;background:var(--brand);color:var(--brandInk);font:600 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">บันทึกเพดานโควตา</button>
+        </div>
+        <div style="margin-top:14px;padding:13px 15px;border-radius:10px;background:var(--surface2);font-size:13px;color:var(--ink2);line-height:1.65">ที่เพดาน {{ capNow }} ครั้ง/เดือน ครูนำร่อง 20 คนใช้รวมกันได้ประมาณ {{ capTotal }} ครั้ง ซึ่งเครื่องปัจจุบันรับได้สบายในช่วงเวลาทำการ</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showStates }}" hint-placeholder-val="{{ false }}">
+    <div style="max-width:1100px;margin:0 auto;padding:34px 40px 60px;animation:rvcIn .22s ease">
+      <div style="font:700 22px/1.3 'IBM Plex Sans Thai',sans-serif">ข้อความแจ้งเตือน 4 กรณี</div>
+      <div style="font-size:13.5px;color:var(--ink3);margin-top:6px">ทุกกรณีบอกว่าเกิดอะไรขึ้น และครูทำอะไรต่อได้ โดยไม่โทษผู้ใช้</div>
+
+      <div style="margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:18px">
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden">
+          <div style="padding:12px 18px;background:var(--surface2);font:500 12px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink3)">ก · AI ของวิทยาลัยออฟไลน์</div>
+          <div style="padding:20px 22px">
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <span style="flex:none;width:10px;height:10px;border-radius:50%;background:var(--err);margin-top:6px"></span>
+              <div>
+                <div style="font:600 16px/1.4 'IBM Plex Sans Thai',sans-serif">ตอนนี้เครื่อง AI ของวิทยาลัยปิดอยู่</div>
+                <div style="font-size:13.5px;color:var(--ink2);margin-top:7px;line-height:1.7">ฝ่าย IT แจ้งว่ากำลังปรับปรุงเครื่อง คาดว่าใช้ได้อีกครั้งประมาณ 15:30 งานที่ครูร่างไว้ยังอยู่ครบ ไม่หายไปไหน</div>
+              </div>
+            </div>
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:9px">
+              <button style="height:42px;border-radius:10px;border:1.5px solid var(--brand);background:var(--surface);color:var(--brand);font:600 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">เชื่อม AI ของฉันเพื่อทำงานต่อเลย</button>
+              <button style="height:42px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">แจ้งเตือนฉันเมื่อเครื่องกลับมา</button>
+            </div>
+            <div style="margin-top:12px;font-size:12.5px;color:var(--ink3);line-height:1.6">ระหว่างนี้ยังเปิดรายวิชา แก้ใบความรู้ และตรวจงานนักเรียนได้ทุกอย่าง</div>
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden">
+          <div style="padding:12px 18px;background:var(--surface2);font:500 12px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink3)">ข · คิวยาวกว่าปกติ</div>
+          <div style="padding:20px 22px">
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <span style="flex:none;width:10px;height:10px;border-radius:50%;background:var(--warn);margin-top:6px"></span>
+              <div>
+                <div style="font:600 16px/1.4 'IBM Plex Sans Thai',sans-serif">มีครูใช้งานพร้อมกันหลายคน · คิวรออยู่ 6 งาน</div>
+                <div style="font-size:13.5px;color:var(--ink2);margin-top:7px;line-height:1.7">ถ้าเริ่มตอนนี้จะได้ผลประมาณ 2 นาที 40 วินาที เข้าคิวไว้แล้วปิดหน้านี้ได้ ระบบจะแจ้งเตือนเมื่อร่างเสร็จ</div>
+              </div>
+            </div>
+            <div style="margin-top:16px;padding:13px 15px;border-radius:10px;background:var(--warnSoft);border:1px solid var(--warnLine);font-size:13px;color:var(--ink2);line-height:1.6">ช่วงที่ว่างที่สุดของวันคือ 07:30–09:00 และหลัง 16:00</div>
+            <div style="margin-top:14px;display:flex;flex-direction:column;gap:9px">
+              <button style="height:42px;border-radius:10px;border:0;background:var(--brand);color:var(--brandInk);font:600 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">เข้าคิวไว้ แล้วแจ้งเตือนฉัน</button>
+              <button style="height:42px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">ลดจำนวนข้อจาก 20 เหลือ 8 ข้อ เพื่อให้เร็วขึ้น</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden">
+          <div style="padding:12px 18px;background:var(--surface2);font:500 12px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink3)">ค · โควตาเดือนนี้หมด</div>
+          <div style="padding:20px 22px">
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <span style="flex:none;width:10px;height:10px;border-radius:50%;background:var(--warn);margin-top:6px"></span>
+              <div>
+                <div style="font:600 16px/1.4 'IBM Plex Sans Thai',sans-serif">ใช้ครบ 60 ครั้งของเดือนกันยายนแล้ว</div>
+                <div style="font-size:13.5px;color:var(--ink2);margin-top:7px;line-height:1.7">โควตาจะรีเซ็ตอีกครั้งวันที่ 1 ตุลาคม (อีก 22 วัน) งานทั้ง 41 ชิ้นที่ร่างไว้เดือนนี้ยังใช้และแก้ได้ตามปกติ</div>
+              </div>
+            </div>
+            <div style="margin-top:16px;height:6px;border-radius:3px;background:var(--surface2);overflow:hidden"><div style="height:100%;width:100%;background:var(--warn)"></div></div>
+            <div style="font-size:12.5px;color:var(--ink3);margin-top:8px">ใช้ไป 60 จาก 60 ครั้ง</div>
+            <div style="margin-top:14px;display:flex;flex-direction:column;gap:9px">
+              <button style="height:42px;border-radius:10px;border:1.5px solid var(--brand);background:var(--surface);color:var(--brand);font:600 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">ใช้ AI ของฉันต่อ (ไม่นับโควตา)</button>
+              <button style="height:42px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">ขอเพิ่มโควตาจากฝ่าย IT</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden">
+          <div style="padding:12px 18px;background:var(--surface2);font:500 12px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink3)">ง · คีย์ของครูใช้ไม่ได้แล้ว</div>
+          <div style="padding:20px 22px">
+            <div style="display:flex;gap:12px;align-items:flex-start">
+              <span style="flex:none;width:10px;height:10px;border-radius:50%;background:var(--err);margin-top:6px"></span>
+              <div>
+                <div style="font:600 16px/1.4 'IBM Plex Sans Thai',sans-serif">รหัสเชื่อมต่อของครูใช้ไม่ได้ · สลับมาใช้ AI ของวิทยาลัยให้แล้ว</div>
+                <div style="font-size:13.5px;color:var(--ink2);margin-top:7px;line-height:1.7">รหัสมีวันหมดอายุได้เป็นเรื่องปกติ งานที่กำลังร่างไม่สะดุด ระบบทำต่อด้วยเครื่องของวิทยาลัยตั้งแต่ 08:52</div>
+              </div>
+            </div>
+            <div style="margin-top:16px;padding:13px 15px;border-radius:10px;background:var(--errSoft);border:1px solid var(--err)">
+              <div style="font:600 13px/1.4 'IBM Plex Sans Thai',sans-serif;color:var(--err)">วิธีแก้ใช้เวลาไม่ถึง 2 นาที</div>
+              <div style="font-size:13px;color:var(--ink2);margin-top:6px;line-height:1.7">เข้าหน้าของผู้ให้บริการ กดสร้างรหัสใหม่ แล้ววางแทนรหัสเดิมในหน้าตั้งค่า</div>
+            </div>
+            <div style="margin-top:14px;display:flex;flex-direction:column;gap:9px">
+              <button onClick="{{ goSettings }}" style="height:42px;border-radius:10px;border:0;background:var(--brand);color:var(--brandInk);font:600 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">ไปวางรหัสใหม่</button>
+              <button style="height:42px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">ใช้ AI ของวิทยาลัยไปก่อน</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  </main>
+</div>
+
+<sc-if value="{{ wizardOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;background:rgba(10,24,21,.45);z-index:60;display:grid;place-items:center;padding:24px">
+    <div style="width:100%;max-width:560px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 60px rgba(8,24,20,.34);overflow:hidden;animation:rvcIn .2s ease">
+      <div style="padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px">
+        <div style="flex:1">
+          <div style="font:600 16px/1.3 'IBM Plex Sans Thai',sans-serif">เชื่อม AI ของฉัน</div>
+          <div style="font-size:12.5px;color:var(--ink3);margin-top:3px">ขั้นที่ {{ wizardStep }} จาก 3 · {{ wizardStepName }}</div>
+        </div>
+        <button onClick="{{ closeWizard }}" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);cursor:pointer;font-size:14px">✕</button>
+      </div>
+      <div style="height:3px;background:var(--surface2)"><div style="height:100%;background:var(--brand);width:{{ wizardPct }};transition:width .3s ease"></div></div>
+
+      <div style="padding:22px">
+        <sc-if value="{{ wiz1 }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size:13.5px;color:var(--ink2);line-height:1.7">เลือกบริการที่ครูมีบัญชีอยู่แล้ว ถ้าไม่มีเลย ข้ามขั้นตอนนี้ไปใช้ AI ของวิทยาลัยได้</div>
+          <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ providers }}" as="p" hint-placeholder-count="3">
+              <button onClick="{{ p.pick }}" style="display:flex;gap:14px;align-items:center;text-align:left;padding:15px 16px;border-radius:12px;border:1.5px solid {{ p.border }};background:{{ p.bg }};cursor:pointer;color:var(--ink)">
+                <div style="flex:none;width:36px;height:36px;border-radius:9px;background:var(--surface2);display:grid;place-items:center;font:500 13px/1 'IBM Plex Mono',monospace;color:var(--ink2)">{{ p.mark }}</div>
+                <div style="flex:1">
+                  <div style="font:500 14.5px/1.3 'IBM Plex Sans Thai',sans-serif">{{ p.name }}</div>
+                  <div style="font-size:12.5px;color:var(--ink3);margin-top:3px">{{ p.hint }}</div>
+                </div>
+                <div style="flex:none;font-size:14px;color:{{ p.tickInk }}">✓</div>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ wiz2 }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:13.5px;color:var(--ink2);line-height:1.7">เปิดหน้าเว็บของ {{ providerName }} แล้วทำตาม 3 ขั้นนี้ จากนั้นกลับมาวางรหัสที่ได้ในขั้นถัดไป</div>
+          <div style="margin-top:16px;border:1px solid var(--line);border-radius:12px;overflow:hidden">
+            <sc-for list="{{ keySteps }}" as="s" hint-placeholder-count="3">
+              <div style="display:flex;gap:14px;padding:15px 16px;border-top:1px solid var(--line2);align-items:flex-start">
+                <div style="flex:none;width:24px;height:24px;border-radius:50%;background:var(--brandSoft);color:var(--brand);display:grid;place-items:center;font:500 12px/1 'IBM Plex Mono',monospace">{{ s.no }}</div>
+                <div style="flex:1;font:400 13.5px/1.65 Sarabun,sans-serif;color:var(--ink2)">{{ s.text }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top:14px;height:132px;border-radius:12px;border:1px dashed var(--line);background:var(--surface2);display:grid;place-items:center;text-align:center;padding:16px">
+            <div style="font-size:12.5px;color:var(--ink3);line-height:1.6">พื้นที่ภาพประกอบหน้าจอจริงของ {{ providerName }}<br>(รอภาพหน้าจอจากทีมพัฒนา)</div>
+          </div>
+          <button style="margin-top:14px;width:100%;height:42px;border-radius:10px;border:1px solid var(--brandLine);background:var(--brandSoft);color:var(--brand);font:500 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">เปิดหน้าขอรหัสของ {{ providerName }} ↗</button>
+        </sc-if>
+
+        <sc-if value="{{ wiz3 }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:13.5px;color:var(--ink2);line-height:1.7">วางรหัสที่คัดลอกมาในช่องนี้ ระบบเก็บรหัสไว้เฉพาะบัญชีของครู และไม่แสดงให้ผู้อื่นเห็น</div>
+          <div style="margin-top:14px;font:500 13px/1 'IBM Plex Sans Thai',sans-serif;color:var(--ink2)">รหัสเชื่อมต่อจาก {{ providerName }}</div>
+          <div style="margin-top:8px;display:flex;gap:9px">
+            <div style="flex:1;height:44px;border-radius:10px;border:1.5px solid {{ keyBorder }};background:var(--surface2);display:flex;align-items:center;padding:0 14px;font:400 14px/1 'IBM Plex Mono',monospace;color:var(--ink2);overflow:hidden">{{ keyMask }}</div>
+            <button onClick="{{ testKey }}" style="height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--brandLine);background:var(--surface);color:var(--brand);font:500 14px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer;white-space:nowrap">{{ testLabel }}</button>
+          </div>
+
+          <sc-if value="{{ keyOk }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:14px;padding:15px 16px;border-radius:12px;background:var(--okSoft);border:1px solid var(--ok)">
+              <div style="font:600 14px/1.4 'IBM Plex Sans Thai',sans-serif;color:var(--ok)">เชื่อมต่อได้ · ทดสอบเมื่อสักครู่</div>
+              <div style="font-size:13px;color:var(--ink2);margin-top:6px;line-height:1.7">ใช้ได้ทั้ง <b>โหมดเร็ว</b> (ตอบไว เหมาะกับร่างข้อสอบทั่วไป) และ <b>โหมดคุณภาพสูง</b> (ช้ากว่า เหมาะกับแผนการสอน)</div>
+              <div style="font-size:12.5px;color:var(--ink3);margin-top:6px">ต่อจากนี้ระบบจะใช้ AI ของครูก่อน และสลับไปใช้ AI ของวิทยาลัยเองถ้ารหัสใช้ไม่ได้</div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ keyErr }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:14px;padding:15px 16px;border-radius:12px;background:var(--errSoft);border:1px solid var(--err)">
+              <div style="font:600 14px/1.4 'IBM Plex Sans Thai',sans-serif;color:var(--err)">ยังเชื่อมไม่ได้ · รหัสนี้ถูกปิดการใช้งานไปแล้ว</div>
+              <div style="font-size:13px;color:var(--ink2);margin-top:6px;line-height:1.7">ไม่ใช่ความผิดของครู รหัสมีวันหมดอายุได้ ลองทำอย่างใดอย่างหนึ่งนี้</div>
+              <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px;font-size:13px;color:var(--ink2)">
+                <div style="display:flex;gap:9px"><span style="color:var(--err)">1</span>กลับไปที่หน้า {{ providerName }} แล้วกดสร้างรหัสใหม่</div>
+                <div style="display:flex;gap:9px"><span style="color:var(--err)">2</span>คัดลอกทั้งบรรทัด ไม่ต้องเว้นวรรคหน้า–หลัง</div>
+                <div style="display:flex;gap:9px"><span style="color:var(--err)">3</span>ระหว่างนี้ใช้ AI ของวิทยาลัยทำงานต่อได้เลย</div>
+              </div>
+              <button onClick="{{ testKey }}" style="margin-top:12px;height:38px;padding:0 14px;border-radius:9px;border:1px solid var(--err);background:var(--surface);color:var(--err);font-size:13.5px;cursor:pointer">ทดสอบอีกครั้ง</button>
+            </div>
+          </sc-if>
+          <button onClick="{{ toggleErrDemo }}" style="margin-top:12px;border:0;background:transparent;color:var(--ink3);font-size:12px;cursor:pointer;padding:0;text-decoration:underline">{{ errDemoLabel }}</button>
+        </sc-if>
+      </div>
+
+      <div style="padding:16px 22px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px;background:var(--surface)">
+        <button onClick="{{ wizardBack }}" style="height:40px;padding:0 15px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink2);font-size:13.5px;cursor:pointer">{{ wizardBackLabel }}</button>
+        <div style="flex:1"></div>
+        <button onClick="{{ closeWizard }}" style="height:40px;padding:0 14px;border-radius:9px;border:0;background:transparent;color:var(--ink3);font-size:13.5px;cursor:pointer">ทำภายหลัง</button>
+        <button onClick="{{ wizardNext }}" style="height:40px;padding:0 20px;border-radius:9px;border:0;background:{{ wizardNextBg }};color:var(--brandInk);font:600 14.5px/1 'IBM Plex Sans Thai',sans-serif;cursor:pointer">{{ wizardNextLabel }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:70;background:var(--ink);color:var(--bg);padding:13px 20px;border-radius:11px;font:500 14px/1 'IBM Plex Sans Thai',sans-serif;box-shadow:0 10px 30px rgba(8,24,20,.3);animation:rvcIn .2s ease">{{ toastText }}</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;startTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;สว่าง&quot;,&quot;มืด&quot;],&quot;default&quot;:&quot;สว่าง&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;ทั่วไป&quot;},&quot;brandColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;options&quot;:[&quot;#0E6B60&quot;,&quot;#2D6E8E&quot;,&quot;#1F5F3F&quot;,&quot;#6B4E8E&quot;],&quot;default&quot;:&quot;#0E6B60&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;ทั่วไป&quot;},&quot;showQuotaOnDashboard&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;ผู้ช่วย AI&quot;},&quot;aiHelpLabel&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;ให้ AI ช่วย&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;ผู้ช่วย AI&quot;}}">
+const QBANK = [
+  {kind:'ปรนัย',text:'อุปกรณ์ใดในระบบเมคคาทรอนิกส์ทำหน้าที่เปลี่ยนสัญญาณสั่งงานทางไฟฟ้าให้เป็นการเคลื่อนที่ของชิ้นงาน',
+   choices:['เซนเซอร์ตรวจจับตำแหน่ง','ตัวขับเคลื่อน เช่น กระบอกสูบลมหรือมอเตอร์','หน่วยประมวลผลสัญญาณ','แหล่งจ่ายไฟกระแสตรง'],ans:1,
+   why:'ตัวขับเคลื่อนคือส่วนที่แปลงพลังงานไฟฟ้าหรือลมอัดให้เป็นการเคลื่อนที่ ส่วนเซนเซอร์ทำหน้าที่ตรวจวัดเท่านั้น',
+   short:'เฉลย ข · ตัวขับเคลื่อนคือส่วนที่ทำให้เกิดการเคลื่อนที่'},
+  {kind:'ปรนัย',text:'พร็อกซิมิตีเซนเซอร์ชนิดเหนี่ยวนำ (inductive) เหมาะกับการตรวจจับวัตถุประเภทใดมากที่สุด',
+   choices:['วัตถุที่เป็นโลหะ','แผ่นแก้วใส','ถุงพลาสติก','ระดับน้ำในถัง'],ans:0,
+   why:'เซนเซอร์ชนิดเหนี่ยวนำอาศัยการเปลี่ยนแปลงสนามแม่เหล็กที่เกิดกับโลหะ จึงตรวจจับได้เฉพาะวัตถุโลหะ',
+   short:'เฉลย ก · ทำงานกับสนามแม่เหล็กจึงจับได้เฉพาะโลหะ'},
+  {kind:'ปรนัย',text:'หน่วยวัดความดันลมที่ใช้กันทั่วไปในระบบนิวแมติกส์ของโรงงานคือข้อใด',
+   choices:['ลูกบาศก์เมตรต่อนาที','บาร์','นิวตันเมตร','แรงม้า'],ans:1,
+   why:'บาร์เป็นหน่วยความดัน โดยระบบลมอัดในโรงงานทั่วไปใช้งานราว 6 บาร์ ส่วนลูกบาศก์เมตรต่อนาทีเป็นหน่วยอัตราการไหล',
+   short:'เฉลย ข · ระบบลมในโรงงานใช้งานราว 6 บาร์'},
+  {kind:'ปรนัย',text:'วาล์วควบคุมทิศทางแบบ 5/2 หมายถึงวาล์วที่มีลักษณะตามข้อใด',
+   choices:['5 ช่องทางลม 2 ตำแหน่งการทำงาน','5 ตำแหน่งการทำงาน 2 ช่องทางลม','ทนความดันได้ 5 บาร์ ใช้ไฟ 2 โวลต์','ต่อกระบอกสูบได้ 5 ตัว 2 วงจร'],ans:0,
+   why:'ตัวเลขตัวหน้าคือจำนวนช่องทางลม ตัวหลังคือจำนวนตำแหน่งการทำงานของวาล์ว',
+   short:'เฉลย ก · ตัวเลขหน้าคือช่องทาง ตัวหลังคือตำแหน่ง'},
+  {kind:'ปรนัย',text:'ในระบบควบคุมแบบวงปิด ส่วนใดทำหน้าที่ส่งค่าที่วัดได้จริงกลับไปเปรียบเทียบกับค่าที่ตั้งไว้',
+   choices:['ตัวขับเคลื่อน','อุปกรณ์ตรวจวัดที่ป้อนสัญญาณกลับ','สวิตช์เปิดปิดเครื่อง','ชุดกรองลม'],ans:1,
+   why:'อุปกรณ์ตรวจวัดที่ป้อนสัญญาณกลับทำให้ระบบรู้ผลลัพธ์จริงและปรับการทำงานได้ ซึ่งเป็นหัวใจของการควบคุมแบบวงปิด',
+   short:'เฉลย ข · วงปิดต้องมีการป้อนค่าที่วัดได้กลับ'},
+  {kind:'ปรนัย',text:'กระบอกสูบลมแบบสองทาง (double acting) ต่างจากแบบทางเดียว (single acting) อย่างไร',
+   choices:['ใช้ลมอัดดันได้ทั้งจังหวะออกและจังหวะกลับ','ใช้ลมได้เฉพาะจังหวะออก','ไม่ต้องใช้ลมอัดเลย','ใช้กับงานยกของหนักไม่ได้'],ans:0,
+   why:'แบบสองทางมีช่องลมสองด้าน จึงควบคุมแรงและความเร็วได้ทั้งสองจังหวะ ส่วนแบบทางเดียวใช้สปริงดันกลับ',
+   short:'เฉลย ก · มีช่องลมสองด้าน ควบคุมได้ทั้งสองจังหวะ'},
+  {kind:'อัตนัย',text:'อธิบายหน้าที่ของชุดปรับปรุงคุณภาพลม (กรองลม ปรับความดัน จ่ายน้ำมันหล่อลื่น) ในระบบนิวแมติกส์ และบอกผลเสียที่เกิดขึ้นถ้าไม่ติดตั้ง',
+   choices:[],ans:-1,
+   why:'แนวคำตอบ: กรองสิ่งสกปรกและความชื้นออกจากลมอัด ปรับความดันให้คงที่ตามที่ต้องการ และจ่ายน้ำมันหล่อลื่นให้ชิ้นส่วนที่เคลื่อนที่ ถ้าไม่ติดตั้งจะทำให้วาล์วและกระบอกสูบสึกหรอเร็ว เกิดสนิม ทำงานติดขัด และความดันไม่สม่ำเสมอ',
+   short:'เกณฑ์ให้คะแนน 3 ข้อ: หน้าที่ของแต่ละส่วน · ผลเสีย · ตัวอย่างอาการเสีย'},
+  {kind:'ปรนัย',text:'มอเตอร์สเต็ปเปอร์เหมาะกับงานลักษณะใดมากที่สุด',
+   choices:['งานที่ต้องหมุนเร็วต่อเนื่องตลอดวัน','งานที่ต้องกำหนดตำแหน่งเป็นองศาอย่างแม่นยำ','งานยกของหนักมาก','งานที่ต้องการแรงบิดสูงที่ความเร็วสูง'],ans:1,
+   why:'มอเตอร์สเต็ปเปอร์หมุนเป็นขั้นละเท่า ๆ กัน จึงกำหนดตำแหน่งได้แม่นยำโดยไม่ต้องมีอุปกรณ์วัดตำแหน่งเพิ่ม',
+   short:'เฉลย ข · หมุนเป็นขั้นเท่ากัน กำหนดตำแหน่งแม่นยำ'}
+];
+
+const SBANK = [
+  {q:'ถ้าต่อความต้านทาน 2 ตัว ขนาด 100 โอห์ม และ 200 โอห์ม แบบอนุกรม ความต้านทานรวมมีค่าเท่าไร',c:['100 โอห์ม','200 โอห์ม','300 โอห์ม','66.7 โอห์ม']},
+  {q:'ตามกฎของโอห์ม ถ้าแรงดัน 12 โวลต์ และความต้านทาน 4 โอห์ม กระแสไฟฟ้าที่ไหลมีค่าเท่าไร',c:['3 แอมแปร์','4 แอมแปร์','8 แอมแปร์','48 แอมแปร์']},
+  {q:'เครื่องมือใดใช้วัดกระแสไฟฟ้าโดยไม่ต้องตัดวงจร',c:['มัลติมิเตอร์แบบเข็ม','แคลมป์มิเตอร์','เมกโอห์มมิเตอร์','ไขควงวัดไฟ']},
+  {q:'สายดินในระบบไฟฟ้าภายในบ้านมีหน้าที่หลักตามข้อใด',c:['ทำให้หลอดไฟสว่างขึ้น','นำกระแสรั่วลงดินเพื่อความปลอดภัย','ลดค่าไฟฟ้า','เพิ่มแรงดันไฟฟ้า']},
+  {q:'อุปกรณ์ใดทำหน้าที่ตัดวงจรอัตโนมัติเมื่อมีกระแสเกินพิกัด',c:['เบรกเกอร์','สวิตช์ทางเดียว','เต้ารับ','บัลลาสต์']}
+];
+
+class Component extends DCLogic {
+  state = {
+    route:'dash', tab:'lessons', theme:'light', mobile:false, aiMenu:false,
+    srcSel:[true,true,false,false], count:8, types:['ปรนัย'], level:'กลาง',
+    genQs:[], genIdx:0, resultQs:[], reviewCount:3,
+    wizard:0, provider:null, keyState:'idle', errDemo:false, myAi:false,
+    mode:'เร็ว', sQ:0, sAns:[null,null,null,null,null], sDone:false, toast:'',
+    planStyle:'ปฏิบัติในโรงฝึกงาน', planReady:false, cap:60
+  };
+
+  componentDidMount(){
+    const t = this.props.startTheme === 'มืด' ? 'dark' : 'light';
+    this.setState({theme:t});
+    document.documentElement.setAttribute('data-theme', t);
+    if(this.props.brandColor) document.documentElement.style.setProperty('--brand', this.props.brandColor);
+    this._clock = setInterval(()=>this.forceUpdate(), 1000);
+    this._t0 = Date.now();
+  }
+  componentWillUnmount(){ clearInterval(this._clock); clearInterval(this._gen); clearTimeout(this._toast); clearTimeout(this._test); }
+
+  go(route){ this.setState({route, aiMenu:false, mobile:false}); }
+  flash(text){ clearTimeout(this._toast); this.setState({toast:text}); this._toast = setTimeout(()=>this.setState({toast:''}), 2600); }
+
+  startGen(){
+    clearInterval(this._gen);
+    this.setState({route:'running', genQs:[], genIdx:0});
+    this._gen = setInterval(()=>{
+      const i = this.state.genQs.length;
+      if(i >= 5){
+        clearInterval(this._gen);
+        this.setState({route:'result', resultQs: QBANK.slice(0,6).map((q,n)=>({...q, id:'q'+n}))});
+        return;
+      }
+      const q = QBANK[i];
+      this.setState(s=>({genQs:[...s.genQs, {no:String(i+1).padStart(2,'0'), text:q.text, short:q.short}]}));
+    }, 1100);
+  }
+  cancelGen(){ clearInterval(this._gen); this.setState({route:'setup'}); this.flash('ยกเลิกแล้ว ไม่มีการบันทึกร่าง'); }
+
+  testKey(){
+    clearTimeout(this._test);
+    this.setState({keyState:'testing'});
+    this._test = setTimeout(()=>{
+      const ok = !this.state.errDemo;
+      this.setState({keyState: ok ? 'ok' : 'error'});
+    }, 1300);
+  }
+
+  renderVals(){
+    const S = this.state, P = this.props;
+    const A = (on)=> on ? 'var(--brand)' : 'var(--line)';
+    const bg = (on)=> on ? 'var(--brandSoft)' : 'var(--surface)';
+    const nav = (r)=>({bg: S.route===r ? 'var(--brandSoft)' : 'transparent', ink: S.route===r ? 'var(--brand)' : 'var(--ink2)'});
+    const nd = nav('dash'), nc = nav('course'), nr = nav('review'), ns = nav('settings'), nst = nav('student');
+    const nadm = nav('admin'), nsta = nav('states');
+    const srcTitles = ['บทที่ 3 · เซนเซอร์และอุปกรณ์ตรวจจับ','บทที่ 4 · ระบบนิวแมติกส์เบื้องต้น','บทที่ 5 · ตัวขับเคลื่อนและมอเตอร์','บทที่ 6 · การควบคุมด้วยตัวควบคุมเชิงตรรกะ'];
+    const selTitles = srcTitles.filter((_,i)=>S.srcSel[i]).map(t=>t.split(' · ')[0]);
+
+    const elapsed = Math.floor((Date.now() - (this._t0||Date.now()))/1000);
+    const left = Math.max(0, 20*60 - elapsed);
+    const clock = String(Math.floor(left/60)).padStart(2,'0') + ':' + String(left%60).padStart(2,'0');
+    const sq = SBANK[S.sQ];
+    const keys = ['ก','ข','ค','ง'];
+
+    const aiChip = S.myAi ? 'AI ของฉัน · โหมด' + S.mode : 'AI วิทยาลัย · คิว 2 งาน';
+
+    return {
+      themeLabel: S.theme==='dark' ? 'โหมดสว่าง' : 'โหมดมืด',
+      mobileLabel: S.mobile ? 'จอคอมพิวเตอร์' : 'ดูหน้ามือถือ',
+      toggleTheme: ()=>{ const t = S.theme==='dark'?'light':'dark'; this.setState({theme:t}); document.documentElement.setAttribute('data-theme', t); },
+      toggleMobile: ()=> this.setState({mobile:!S.mobile, aiMenu:false}),
+      isMobile: S.mobile,
+      aiHelpLabel: P.aiHelpLabel || 'ให้ AI ช่วย',
+      showQuota: !!P.showQuotaOnDashboard,
+
+      goDash: ()=>this.go('dash'), goCourse: ()=>this.go('course'), goReview: ()=>this.go('review'),
+      goSettings: ()=>this.go('settings'), goSetup: ()=>this.go('setup'), goStudentView: ()=>this.go('student'),
+      navDashBg:nd.bg, navDashInk:nd.ink, navCourseBg:nc.bg, navCourseInk:nc.ink,
+      navReviewBg:nr.bg, navReviewInk:nr.ink, navSetBg:ns.bg, navSetInk:ns.ink,
+      navStudentBg:nst.bg, navStudentInk:nst.ink,
+      reviewCount: S.reviewCount,
+
+      showDash: !S.mobile && S.route==='dash',
+      showCourse: !S.mobile && S.route==='course',
+      showSetup: !S.mobile && S.route==='setup',
+      showRunning: !S.mobile && S.route==='running',
+      showResult: !S.mobile && S.route==='result',
+      showReview: !S.mobile && S.route==='review',
+      showSettings: !S.mobile && S.route==='settings',
+      showStudent: !S.mobile && S.route==='student',
+
+      recent: [
+        {title:'แบบทดสอบบทที่ 3 · เซนเซอร์และอุปกรณ์ตรวจจับ', meta:'เมคคาทรอนิกส์เบื้องต้น · 8 ข้อ', tag:'รอครูตรวจ', tagBg:'var(--warnSoft)', tagInk:'var(--warn)', time:'วันนี้ 09:14'},
+        {title:'แผนการจัดการเรียนรู้ หน่วยที่ 4 · ระบบนิวแมติกส์', meta:'เมคคาทรอนิกส์เบื้องต้น · 6 หน้า', tag:'รอครูตรวจ', tagBg:'var(--warnSoft)', tagInk:'var(--warn)', time:'เมื่อวาน 16:02'},
+        {title:'ใบงานที่ 5 · การต่อวงจรควบคุมกระบอกสูบสองทาง', meta:'นิวแมติกส์และไฮดรอลิกส์ · เผยแพร่แล้ว', tag:'เผยแพร่แล้ว', tagBg:'var(--okSoft)', tagInk:'var(--ok)', time:'7 ก.ย. 11:40'},
+        {title:'แบบทดสอบก่อนเรียน บทที่ 1 · ความปลอดภัยในงานไฟฟ้า', meta:'งานไฟฟ้าและอิเล็กทรอนิกส์เบื้องต้น · 10 ข้อ', tag:'เผยแพร่แล้ว', tagBg:'var(--okSoft)', tagInk:'var(--ok)', time:'5 ก.ย. 08:20'}
+      ],
+
+      toggleAiMenu: ()=>this.setState({aiMenu:!S.aiMenu}),
+      aiMenuOpen: S.aiMenu,
+      tabLessons: ()=>this.setState({tab:'lessons'}), tabQuiz: ()=>this.setState({tab:'quiz'}),
+      tabStudents: ()=>this.setState({tab:'students'}), tabScores: ()=>this.setState({tab:'scores'}),
+      tabIsLessons: S.tab==='lessons', tabIsQuiz: S.tab==='quiz', tabIsStudents: S.tab==='students', tabIsScores: S.tab==='scores',
+      tabLessonsInk: S.tab==='lessons'?'var(--brand)':'var(--ink3)', tabLessonsLine: S.tab==='lessons'?'var(--brand)':'transparent',
+      tabQuizInk: S.tab==='quiz'?'var(--brand)':'var(--ink3)', tabQuizLine: S.tab==='quiz'?'var(--brand)':'transparent',
+      tabStudentsInk: S.tab==='students'?'var(--brand)':'var(--ink3)', tabStudentsLine: S.tab==='students'?'var(--brand)':'transparent',
+      tabScoresInk: S.tab==='scores'?'var(--brand)':'var(--ink3)', tabScoresLine: S.tab==='scores'?'var(--brand)':'transparent',
+
+      lessons: [
+        {no:'01', title:'ความรู้เบื้องต้นเกี่ยวกับระบบเมคคาทรอนิกส์', meta:'ใบความรู้ 1 ไฟล์ · ปรับล่าสุด 12 มิ.ย.', tag:'เผยแพร่แล้ว', tagBg:'var(--okSoft)', tagInk:'var(--ok)'},
+        {no:'02', title:'ระบบไฟฟ้าและการควบคุมพื้นฐาน', meta:'ใบความรู้ 2 ไฟล์ · ใบงาน 1 ชุด', tag:'เผยแพร่แล้ว', tagBg:'var(--okSoft)', tagInk:'var(--ok)'},
+        {no:'03', title:'เซนเซอร์และอุปกรณ์ตรวจจับ', meta:'ใบความรู้ 3 ไฟล์ · วิดีโอสาธิต 1 คลิป', tag:'เผยแพร่แล้ว', tagBg:'var(--okSoft)', tagInk:'var(--ok)'},
+        {no:'04', title:'ระบบนิวแมติกส์เบื้องต้น', meta:'ใบความรู้ 2 ไฟล์ · ปรับล่าสุดเมื่อวาน', tag:'เผยแพร่แล้ว', tagBg:'var(--okSoft)', tagInk:'var(--ok)'},
+        {no:'05', title:'ตัวขับเคลื่อนและมอเตอร์ไฟฟ้า', meta:'ใบความรู้ 1 ไฟล์ · ยังไม่มีใบงาน', tag:'ฉบับร่าง', tagBg:'var(--surface2)', tagInk:'var(--ink2)'},
+        {no:'06', title:'การควบคุมด้วยตัวควบคุมเชิงตรรกะ', meta:'ยังไม่มีไฟล์ประกอบ', tag:'ฉบับร่าง', tagBg:'var(--surface2)', tagInk:'var(--ink2)'}
+      ],
+      quizzes: [
+        {title:'แบบทดสอบบทที่ 3 · เซนเซอร์และอุปกรณ์ตรวจจับ', meta:'8 ข้อ · เวลา 20 นาที · ส่งแล้ว 0 คน', tag:'รอครูตรวจ', tagBg:'var(--warnSoft)', tagInk:'var(--warn)', time:'วันนี้'},
+        {title:'แบบทดสอบบทที่ 2 · ระบบไฟฟ้าและการควบคุมพื้นฐาน', meta:'10 ข้อ · ส่งแล้ว 26 จาก 28 คน', tag:'เผยแพร่แล้ว', tagBg:'var(--okSoft)', tagInk:'var(--ok)', time:'2 ก.ย.'},
+        {title:'แบบทดสอบบทที่ 1 · ความรู้เบื้องต้น', meta:'10 ข้อ · ส่งแล้ว 28 จาก 28 คน', tag:'ปิดแล้ว', tagBg:'var(--surface2)', tagInk:'var(--ink2)', time:'25 ส.ค.'},
+        {title:'แบบทดสอบก่อนเรียน · วัดพื้นฐานผู้เรียน', meta:'15 ข้อ · ส่งแล้ว 28 จาก 28 คน', tag:'ปิดแล้ว', tagBg:'var(--surface2)', tagInk:'var(--ink2)', time:'18 พ.ค.'}
+      ],
+      students: [
+        {ini:'ณว', id:'66201001', name:'ณัฐวุฒิ แสนสุข', status:'ส่งงานครบ'},
+        {ini:'ปด', id:'66201002', name:'ปิยะดา วงศ์อามาตย์', status:'ส่งงานครบ'},
+        {ini:'อภ', id:'66201003', name:'อภิสิทธิ์ ไชยโพธิ์', status:'ค้าง 1 ชิ้น'},
+        {ini:'สม', id:'66201004', name:'สมฤทัย บุตรพรม', status:'ส่งงานครบ'},
+        {ini:'ธน', id:'66201005', name:'ธนกฤต โพธิ์ศรี', status:'ค้าง 2 ชิ้น'},
+        {ini:'กน', id:'66201006', name:'กนกวรรณ ทองจันทร์', status:'ส่งงานครบ'}
+      ],
+      scores: [
+        {name:'ณัฐวุฒิ แสนสุข', a:'9', b:'8', t:'17'},
+        {name:'ปิยะดา วงศ์อามาตย์', a:'10', b:'9', t:'19'},
+        {name:'อภิสิทธิ์ ไชยโพธิ์', a:'7', b:'—', t:'7'},
+        {name:'สมฤทัย บุตรพรม', a:'8', b:'8', t:'16'},
+        {name:'ธนกฤต โพธิ์ศรี', a:'6', b:'7', t:'13'},
+        {name:'กนกวรรณ ทองจันทร์', a:'9', b:'10', t:'19'}
+      ],
+
+      srcLessons: srcTitles.map((t,i)=>({
+        title:t, pages:[3,2,1,0][i] + ' ไฟล์',
+        check: S.srcSel[i] ? '✓' : '',
+        bg: S.srcSel[i] ? 'var(--brandSoft)' : 'var(--surface)',
+        mark: S.srcSel[i] ? 'var(--brand)' : 'var(--line)',
+        markBg: S.srcSel[i] ? 'var(--brand)' : 'transparent',
+        toggle: ()=>{ const n=[...S.srcSel]; n[i]=!n[i]; this.setState({srcSel:n}); }
+      })),
+      counts: [5,8,10,20].map(n=>({n:String(n), pick:()=>this.setState({count:n}),
+        border:A(S.count===n), bg:bg(S.count===n), ink: S.count===n?'var(--brand)':'var(--ink2)'})),
+      types: ['ปรนัย','อัตนัย','จับคู่'].map(l=>{
+        const on = S.types.includes(l);
+        return {label:l, border:A(on), bg:bg(on), ink:on?'var(--brand)':'var(--ink2)',
+          pick:()=>this.setState({types: on ? S.types.filter(x=>x!==l) : [...S.types,l]})};
+      }),
+      levels: [
+        {label:'ง่าย', hint:'เน้นความจำและคำศัพท์พื้นฐาน'},
+        {label:'กลาง', hint:'ความเข้าใจและการนำไปใช้ในงานจริง'},
+        {label:'ยาก', hint:'วิเคราะห์อาการเสียและแก้ปัญหา'}
+      ].map(l=>({...l, border:A(S.level===l.label), bg:bg(S.level===l.label), pick:()=>this.setState({level:l.label})})),
+      sumLessons: selTitles.length ? selTitles.join(', ') : 'ยังไม่ได้เลือก',
+      sumCount: S.count + ' ข้อ',
+      sumTypes: S.types.length ? S.types.join(', ') : 'ยังไม่ได้เลือก',
+      sumLevel: S.level,
+      aiChip,
+      aiWait: S.myAi ? 'ประมาณ 8 วินาที · ไม่ใช้โควตาของวิทยาลัย' : 'มีคิวรออยู่ 2 งาน · ประมาณ 20 วินาที',
+      altSourceLabel: S.myAi ? 'สลับไปใช้ AI ของวิทยาลัย' : 'อยากได้เร็วขึ้น? เชื่อม AI ของฉัน',
+      startGen: ()=>this.startGen(),
+
+      genNo: String(Math.min(S.genQs.length+1, 5)),
+      genTotal: '5',
+      genPct: (S.genQs.length/5*100) + '%',
+      genHint: S.myAi ? 'อ่านใบความรู้บทที่ 3–4 แล้วเขียนข้อสอบทีละข้อ' : 'อ่านใบความรู้บทที่ 3–4 แล้วเขียนข้อสอบทีละข้อ · ทำงานอยู่บนเครื่องของวิทยาลัย',
+      genQs: S.genQs,
+      cancelGen: ()=>this.cancelGen(),
+
+      resultMeta: 'ร่างเมื่อสักครู่ · ' + S.resultQs.length + ' ข้อ · ยังไม่เผยแพร่ให้นักเรียน',
+      resultFooter: 'ตรวจแล้ว ' + S.resultQs.length + ' ข้อ · บันทึกเป็นแบบทดสอบแล้วจึงตั้งเวลาเปิดให้นักเรียนได้',
+      resultQs: S.resultQs.map((q,i)=>({
+        no: String(i+1), kind: q.kind, text: q.text, why: q.why, id: q.id,
+        choices: q.choices.map((c,ci)=>({
+          key: keys[ci], text: c,
+          bg: ci===q.ans ? 'var(--okSoft)' : 'transparent',
+          ink: ci===q.ans ? 'var(--ok)' : 'var(--ink2)',
+          badge: ci===q.ans ? 'เฉลย' : ''
+        })),
+        del: ()=>this.setState({resultQs: S.resultQs.filter((_,x)=>x!==i)}),
+        regen: ()=>{ const n=[...S.resultQs]; n[i] = {...QBANK[(QBANK.indexOf(QBANK.find(z=>z.text===q.text))+3)%QBANK.length], id:q.id+'r'}; this.setState({resultQs:n}); this.flash('ร่างข้อ ' + (i+1) + ' ใหม่แล้ว'); }
+      })),
+      regenAll: ()=>{ this.startGen(); },
+      saveDraft: ()=>{ this.setState({route:'review', reviewCount:S.reviewCount+1}); this.flash('เก็บไว้ในรายการรอตรวจแล้ว'); },
+      publishQuiz: ()=>{ this.setState({route:'course', tab:'quiz'}); this.flash('บันทึกเป็นแบบทดสอบแล้ว · ตั้งเวลาเปิดได้ในแท็บแบบทดสอบ'); },
+
+      reviewGroups: [
+        {course:'เมคคาทรอนิกส์เบื้องต้น', code:'20127-2002', items:[
+          {title:'แบบทดสอบบทที่ 3 · เซนเซอร์และอุปกรณ์ตรวจจับ (8 ข้อ)', meta:'ร่างวันนี้ 09:14 · ยังไม่มีนักเรียนเห็น', src:'AI วิทยาลัย', open:()=>this.setState({route:'result', resultQs: QBANK.slice(0,6).map((q,n)=>({...q,id:'r'+n}))})},
+          {title:'แผนการจัดการเรียนรู้ หน่วยที่ 4 · ระบบนิวแมติกส์', meta:'ร่างเมื่อวาน 16:02 · 6 หน้า', src:'AI วิทยาลัย', open:()=>this.flash('หน้าตรวจแผนการสอนอยู่ในรอบถัดไป')}
+        ]},
+        {course:'งานไฟฟ้าและอิเล็กทรอนิกส์เบื้องต้น', code:'20100-1005', items:[
+          {title:'ใบความรู้ฉบับอ่านง่าย · ความปลอดภัยในงานไฟฟ้า', meta:'ร่างเมื่อวาน 10:31 · ปรับจากใบความรู้เดิม', src:'AI ของฉัน · โหมดเร็ว', open:()=>this.flash('หน้าตรวจใบความรู้อยู่ในรอบถัดไป')}
+        ]}
+      ],
+
+      myAiOn: S.myAi, myAiOff: !S.myAi,
+      myAiBadge: S.myAi ? 'เชื่อมแล้ว' : 'ยังไม่ได้เชื่อม',
+      myAiName: S.provider || 'Google AI Studio',
+      openWizard: ()=>this.setState({wizard:1, keyState:'idle'}),
+      disconnect: ()=>{ this.setState({myAi:false, provider:null, keyState:'idle'}); this.flash('ยกเลิกการเชื่อมแล้ว · กลับไปใช้ AI ของวิทยาลัย'); },
+      modes: [
+        {label:'โหมดประหยัด', hint:'ตอบไว เหมาะกับร่างข้อสอบและสรุปสั้น'},
+        {label:'โหมดคุณภาพสูง', hint:'ใช้เวลามากกว่า เหมาะกับแผนการสอนและเอกสารส่งฝ่ายวิชาการ'}
+      ].map(m=>({...m, border:A((S.mode==='เร็ว')===(m.label==='โหมดประหยัด')), bg:bg((S.mode==='เร็ว')===(m.label==='โหมดประหยัด')),
+        pick:()=>this.setState({mode: m.label==='โหมดประหยัด' ? 'เร็ว' : 'คุณภาพสูง'})})),
+
+      wizardOpen: S.wizard>0,
+      wizardStep: String(S.wizard),
+      wizardPct: (S.wizard/3*100) + '%',
+      wizardStepName: ['','เลือกบริการ','ไปขอรหัส','วางรหัสและทดสอบ'][S.wizard] || '',
+      wiz1: S.wizard===1, wiz2: S.wizard===2, wiz3: S.wizard===3,
+      providers: [
+        {name:'Google AI Studio', hint:'ขอรหัสฟรีได้ด้วยบัญชี Google', mark:'GA'},
+        {name:'OpenRouter', hint:'เลือกได้หลายผู้ให้บริการในบัญชีเดียว', mark:'OR'},
+        {name:'บริการอื่นที่กรอกที่อยู่เองได้', hint:'สำหรับครูที่มีระบบของตัวเองอยู่แล้ว', mark:'···'}
+      ].map(p=>({...p, border:A(S.provider===p.name), bg:bg(S.provider===p.name),
+        tickInk: S.provider===p.name ? 'var(--brand)' : 'transparent',
+        pick:()=>this.setState({provider:p.name})})),
+      providerName: S.provider || 'Google AI Studio',
+      keySteps: [
+        {no:'1', text:'ลงชื่อเข้าใช้ด้วยบัญชีของครู แล้วมองหาเมนู “รหัสสำหรับเชื่อมต่อ” (API key)'},
+        {no:'2', text:'กดสร้างรหัสใหม่ ระบบจะแสดงข้อความยาว ๆ หนึ่งบรรทัด'},
+        {no:'3', text:'กดคัดลอกทั้งบรรทัด แล้วกลับมาที่หน้านี้เพื่อวางในขั้นถัดไป'}
+      ],
+      keyMask: S.keyState==='idle' ? 'วางรหัสที่คัดลอกมาที่นี่' : '••••••••••••••••••••••••  AIza…7fQ',
+      keyBorder: S.keyState==='ok' ? 'var(--ok)' : (S.keyState==='error' ? 'var(--err)' : 'var(--line)'),
+      testLabel: S.keyState==='testing' ? 'กำลังทดสอบ…' : 'ทดสอบการเชื่อมต่อ',
+      keyOk: S.keyState==='ok', keyErr: S.keyState==='error',
+      testKey: ()=>this.testKey(),
+      errDemo: S.errDemo,
+      errDemoLabel: S.errDemo ? 'ดูตัวอย่างกรณีเชื่อมสำเร็จ' : 'ดูตัวอย่างข้อความเมื่อรหัสใช้ไม่ได้',
+      toggleErrDemo: ()=>this.setState({errDemo:!S.errDemo, keyState:'idle'}),
+      wizardBackLabel: S.wizard===1 ? 'ปิด' : 'ย้อนกลับ',
+      wizardBack: ()=> S.wizard===1 ? this.setState({wizard:0}) : this.setState({wizard:S.wizard-1}),
+      wizardNextLabel: S.wizard===3 ? (S.keyState==='ok' ? 'เสร็จสิ้น ใช้ AI ของฉัน' : 'ทดสอบก่อนจึงบันทึกได้') : 'ถัดไป',
+      wizardNextBg: (S.wizard===3 && S.keyState!=='ok') ? 'var(--ink3)' : 'var(--brand)',
+      wizardNext: ()=>{
+        if(S.wizard===1){ this.setState({wizard:2, provider:S.provider||'Google AI Studio'}); return; }
+        if(S.wizard===2){ this.setState({wizard:3}); return; }
+        if(S.keyState!=='ok'){ this.testKey(); return; }
+        this.setState({wizard:0, myAi:true});
+        this.flash('เชื่อม AI ของฉันแล้ว · ระบบจะใช้ของครูก่อนเสมอ');
+      },
+      closeWizard: ()=>this.setState({wizard:0}),
+
+      studentClock: clock,
+      studentNo: String(S.sQ+1),
+      studentPct: ((S.sQ+1)/5*100) + '%',
+      studentQText: sq.q,
+      studentAnswered: String(S.sAns.filter(a=>a!==null).length),
+      studentDone: S.sDone, studentActive: !S.sDone,
+      studentChoices: sq.c.map((t,i)=>{
+        const on = S.sAns[S.sQ]===i;
+        return {key:keys[i], text:t, border:A(on), bg:bg(on),
+          markInk: on ? 'var(--brandInk)' : 'var(--ink3)', markBg: on ? 'var(--brand)' : 'transparent',
+          pick:()=>{ const n=[...S.sAns]; n[S.sQ]=i; this.setState({sAns:n}); }};
+      }),
+      studentNextLabel: S.sQ===4 ? 'ส่งคำตอบ' : 'ข้อถัดไป',
+      studentNext: ()=> S.sQ===4 ? this.setState({sDone:true}) : this.setState({sQ:S.sQ+1}),
+      studentPrev: ()=> this.setState({sQ: Math.max(0, S.sQ-1)}),
+      studentRestart: ()=> this.setState({sDone:false, sQ:0, sAns:[null,null,null,null,null]}),
+
+      showPlan: !S.mobile && S.route==='plan',
+      showAdmin: !S.mobile && S.route==='admin',
+      showStates: !S.mobile && S.route==='states',
+      goPlan: ()=>this.go('plan'), goAdmin: ()=>this.go('admin'), goStates: ()=>this.go('states'),
+      navAdminBg: nadm.bg, navAdminInk: nadm.ink, navStatesBg: nsta.bg, navStatesInk: nsta.ink,
+
+      planStyles: ['ปฏิบัติในโรงฝึกงาน','บรรยายและสาธิต','เรียนรู้จากปัญหา'].map(l=>({
+        label:l, border:A(S.planStyle===l), bg:bg(S.planStyle===l), ink: S.planStyle===l?'var(--brand)':'var(--ink2)',
+        pick:()=>this.setState({planStyle:l})})),
+      planEmpty: !S.planReady, planReady: S.planReady,
+      planBtnLabel: S.planReady ? 'ร่างเอกสารใหม่' : 'ร่างเอกสารให้ฉัน',
+      makePlan: ()=>{ this.setState({planReady:true}); this.flash('ร่างแผนการสอนเสร็จ · อยู่ในสถานะรอครูตรวจ'); },
+      planSections: [
+        {head:'1. สมรรถนะประจำหน่วย', body:'ต่อวงจรลมควบคุมกระบอกสูบสองทางด้วยวาล์ว 5/2 ได้ถูกต้องตามหลักความปลอดภัย และตรวจสอบความผิดปกติของวงจรลมเบื้องต้นได้'},
+        {head:'2. จุดประสงค์เชิงพฤติกรรม', body:'2.1 บอกหน้าที่ของชุดปรับปรุงคุณภาพลม วาล์วควบคุมทิศทาง และกระบอกสูบได้ถูกต้อง\n2.2 อ่านสัญลักษณ์วงจรลมตามมาตรฐานและเขียนวงจรควบคุมกระบอกสูบสองทางได้\n2.3 ต่อวงจรตามแบบและทดลองเดินระบบได้โดยไม่เกิดอันตราย\n2.4 มีวินัยในการเก็บเครื่องมือและปิดวาล์วลมทุกครั้งหลังปฏิบัติงาน'},
+        {head:'3. สาระการเรียนรู้', body:'3.1 องค์ประกอบของระบบลมอัด: ปั๊มลม ถังพักลม ชุดกรองลม–ปรับความดัน–จ่ายน้ำมันหล่อลื่น\n3.2 วาล์วควบคุมทิศทางแบบ 3/2 และ 5/2 การอ่านตัวเลขและสัญลักษณ์\n3.3 กระบอกสูบทางเดียวและสองทาง การควบคุมความเร็วด้วยวาล์วปรับปริมาณลม\n3.4 ความปลอดภัยในการทำงานกับลมอัดความดัน 6 บาร์'},
+        {head:'4. กิจกรรมการเรียนรู้ (6 ชั่วโมง)', body:'ขั้นนำ 30 นาที — ให้นักเรียนดูการทำงานของแขนจับชิ้นงานในโรงฝึก แล้วตั้งคำถามว่าลมทำให้เกิดการเคลื่อนที่ได้อย่างไร\nขั้นสอน 90 นาที — สาธิตชุดกรองลมและวาล์ว 5/2 จริงที่โต๊ะปฏิบัติการ พร้อมเขียนวงจรบนกระดาน\nขั้นปฏิบัติ 180 นาที — แบ่งกลุ่ม 4 คน ต่อวงจรควบคุมกระบอกสูบสองทางตามใบงานที่ 5 ครูเดินตรวจทีละกลุ่ม\nขั้นสรุป 60 นาที — แต่ละกลุ่มนำเสนอปัญหาที่พบและวิธีแก้ ครูสรุปข้อควรระวังเรื่องความดันและการเก็บอุปกรณ์'},
+        {head:'5. สื่อและแหล่งการเรียนรู้', body:'ชุดฝึกนิวแมติกส์ 6 ชุด · ใบความรู้หน่วยที่ 4 · ใบงานที่ 5 · คลิปสาธิตการต่อวงจร 8 นาที · แผ่นสัญลักษณ์วงจรลมติดผนังโรงฝึก'},
+        {head:'6. การวัดและประเมินผล', body:'ประเมินการปฏิบัติจากใบงานที่ 5 (50 คะแนน) · แบบทดสอบท้ายหน่วย 10 ข้อ (20 คะแนน) · สังเกตพฤติกรรมความปลอดภัยและการทำงานกลุ่ม (30 คะแนน) · เกณฑ์ผ่านคือได้คะแนนรวมไม่น้อยกว่าร้อยละ 60'},
+        {head:'7. บันทึกหลังการสอน', body:'(ครูกรอกหลังจัดการเรียนการสอนจริง)'}
+      ],
+      exportDoc: ()=>this.flash('ส่งออกเป็นไฟล์เอกสารตามแบบฟอร์ม สอศ. แล้ว'),
+      exportPdf: ()=>this.flash('ส่งออกเป็นไฟล์ PDF แล้ว'),
+      confirmPlan: ()=>{ this.setState({route:'course'}); this.flash('บันทึกแผนการสอนหน่วยที่ 4 แล้ว'); },
+
+      gpuStats: [
+        {label:'หน่วยความจำของการ์ดที่ใช้อยู่', value:'17.2 / 24 GB', pct:'72%', color:'var(--brand)'},
+        {label:'อุณหภูมิ', value:'68 °C', pct:'55%', color:'var(--ok)'},
+        {label:'การใช้งานตัวประมวลผล', value:'46 %', pct:'46%', color:'var(--brand)'},
+        {label:'คำขอวันนี้', value:'38 ครั้ง', pct:'63%', color:'var(--brand)'}
+      ],
+      models: [
+        {name:'qwen2.5:14b-instruct', role:'โหมดคุณภาพสูง', vram:'11.4 GB'},
+        {name:'typhoon2-8b-instruct', role:'โหมดประหยัด', vram:'5.8 GB'}
+      ],
+      queueJobs: [
+        {who:'อ.สุนิสา จันทร์เพ็ง', what:'ออกข้อสอบ 10 ข้อ', age:'12 วิ.'},
+        {who:'อ.วีระชัย นาคำ', what:'สรุปใบความรู้', age:'4 วิ.'}
+      ],
+      chart: [
+        {day:'พ', n:'22', colH:'62%', ownH:'10%'},
+        {day:'อ', n:'31', colH:'74%', ownH:'14%'},
+        {day:'พ', n:'27', colH:'66%', ownH:'12%'},
+        {day:'พฤ', n:'44', colH:'86%', ownH:'14%'},
+        {day:'ศ', n:'36', colH:'78%', ownH:'12%'},
+        {day:'ส', n:'12', colH:'34%', ownH:'6%'},
+        {day:'อา', n:'42', colH:'80%', ownH:'20%'}
+      ],
+      usage: [
+        {name:'อ.ธนพล ศรีบุญเรือง', subject:'เมคคาทรอนิกส์', college:'18', own:'0', left:'42 ครั้ง', leftInk:'var(--ink2)'},
+        {name:'อ.สุนิสา จันทร์เพ็ง', subject:'ไฟฟ้ากำลัง', college:'27', own:'14', left:'33 ครั้ง', leftInk:'var(--ink2)'},
+        {name:'อ.วีระชัย นาคำ', subject:'ช่างยนต์', college:'31', own:'0', left:'29 ครั้ง', leftInk:'var(--ink2)'},
+        {name:'อ.พัชรี โคตรสมบัติ', subject:'การบัญชี', college:'59', own:'2', left:'1 ครั้ง', leftInk:'var(--warn)'},
+        {name:'อ.อนุชา ภูมิเพ็ง', subject:'เทคนิคพื้นฐาน', college:'12', own:'21', left:'48 ครั้ง', leftInk:'var(--ink2)'},
+        {name:'อ.กมลชนก ศรีสุธรรม', subject:'คอมพิวเตอร์ธุรกิจ', college:'60', own:'0', left:'หมดแล้ว', leftInk:'var(--err)'}
+      ],
+      caps: [40,60,80,'ไม่จำกัด'].map(v=>({
+        label: typeof v==='number' ? String(v) : v,
+        border:A(S.cap===v), bg:bg(S.cap===v), ink: S.cap===v?'var(--brand)':'var(--ink2)',
+        pick:()=>this.setState({cap:v})})),
+      capNow: typeof S.cap==='number' ? String(S.cap) : 'ไม่จำกัด',
+      capTotal: typeof S.cap==='number' ? String(S.cap*20) : 'ไม่จำกัดจำนวน',
+      saveCap: ()=>this.flash('บันทึกเพดานโควตาแล้ว · มีผลกับครูทุกคนในเดือนถัดไป'),
+
+      toast: !!S.toast, toastText: S.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

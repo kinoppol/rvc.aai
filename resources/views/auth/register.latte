@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>สมัครเข้าใช้ระบบ · {$appName}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="{$base}/assets/css/app.css">
+    {if isset($ui)}
+        {* สีหลักของระบบ (ค่าเริ่มต้นของเว็บ — ยังไม่รู้ว่าใครล็อกอินอยู่) เขียน # ในเทมเพลตเอง
+           เพราะ Latte จะ escape # ที่ตามด้วย ( หรือ ) ใน context ของ CSS *}
+        <style>
+            :root {
+                --brand: #{$ui['brand']};
+                --brandInk: #{$ui['brandInk']};
+                --brandSoft: #{$ui['brandSoft']};
+                --brandLine: #{$ui['brandLine']};
+            }
+            :root[data-theme="dark"] {
+                --brand: #{$ui['darkBrand']};
+                --brandInk: #{$ui['darkInk']};
+                --brandSoft: #{$ui['darkSoft']};
+                --brandLine: #{$ui['darkLine']};
+            }
+        </style>
+    {/if}
+</head>
+<body>
+<div class="center-page">
+    <form class="panel panel-wide" method="post" action="{$base}/register" autocomplete="off">
+        <div class="panel-head">
+            <a href="{$base}/" class="brand-mark" title="ไปหน้าแรกของเว็บ">RV</a>
+            <h1>สมัครเข้าใช้ระบบสำหรับครู</h1>
+            <div class="sub">{$college} · บัญชีจะใช้งานได้หลังผู้ดูแลระบบอนุมัติ</div>
+        </div>
+
+        {foreach $flash as $message}
+            <div class="alert alert-{$message['type']}">{$message['message']}</div>
+        {/foreach}
+
+        <input type="hidden" name="_token" value="{$csrf}">
+
+        <div class="register-form-grid">
+            <div class="field">
+                <label for="username">ชื่อผู้ใช้</label>
+                <input class="input" type="text" id="username" name="username" value="{$username}"
+                       autocomplete="username" placeholder="a-z 0-9 . _ -" required>
+            </div>
+            <div class="field">
+                <label for="full_name">ชื่อ-สกุล</label>
+                <input class="input" type="text" id="full_name" name="full_name" value="{$full_name}" required>
+            </div>
+
+            <div class="field">
+                <label for="email">อีเมล</label>
+                <input class="input" type="email" id="email" name="email" value="{$email}"
+                       autocomplete="email" required>
+            </div>
+            <div class="field">
+                <label for="phone">เบอร์โทรศัพท์ (ถ้ามี)</label>
+                <input class="input" type="tel" id="phone" name="phone" value="{$phone}" autocomplete="tel">
+            </div>
+
+            <div class="field">
+                <label for="subject_area">สาขาวิชาที่สอน</label>
+                <input class="input" type="text" id="subject_area" name="subject_area" value="{$subject_area}"
+                       placeholder="เช่น ช่างยนต์, การตลาด" required>
+            </div>
+            <div class="field">
+                <label for="institution_id">สถานศึกษาที่สังกัด</label>
+                <select class="input" id="institution_id" name="institution_id" required
+                        onchange="document.getElementById('institution_new_field').hidden = this.value !== '__new__'">
+                    <option value="">— เลือกสถานศึกษา —</option>
+                    {foreach $institutions as $inst}
+                        <option value="{$inst['id']}" n:attr="selected: (string) $inst['id'] === $institution_id">{$inst['name']}</option>
+                    {/foreach}
+                    <option value="__new__" n:attr="selected: $institution_id === '__new__'">อื่นๆ (ระบุชื่อสถานศึกษาใหม่)</option>
+                </select>
+            </div>
+            <div class="field" id="institution_new_field" n:attr="hidden: $institution_id !== '__new__'">
+                <label for="institution_new">ชื่อสถานศึกษาใหม่</label>
+                <input class="input" type="text" id="institution_new" name="institution_new" value="{$institution_new}"
+                       placeholder="เช่น วิทยาลัยเทคนิคร้อยเอ็ด">
+            </div>
+
+            <div class="field">
+                <label for="password">รหัสผ่าน</label>
+                <input class="input" type="password" id="password" name="password"
+                       autocomplete="new-password" minlength="8" required>
+                <div class="hint">อย่างน้อย 8 ตัวอักษร มีทั้งตัวอักษรและตัวเลข</div>
+            </div>
+            <div class="field">
+                <label for="password_confirm">ยืนยันรหัสผ่าน</label>
+                <input class="input" type="password" id="password_confirm" name="password_confirm"
+                       autocomplete="new-password" minlength="8" required>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px">
+            ส่งคำขอสมัครสมาชิก
+        </button>
+
+        <div class="sub text-muted mt-16" style="text-align:center;font-size:12.5px">
+            มีบัญชีอยู่แล้ว? <a href="{$base}/login">เข้าสู่ระบบ</a>
+        </div>
+        <div class="panel-foot-link">
+            <a href="{$base}/">← กลับหน้าแรกของเว็บ · ดูรายวิชาที่เปิดสอน</a>
+        </div>
+    </form>
+</div>
+</body>
+</html>

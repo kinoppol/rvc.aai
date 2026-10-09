@@ -1,0 +1,13 @@
+{* แถวแบบทดสอบฝั่งนักเรียน — ส่ง q: มาจากหน้าที่ include *}
+<div class="list-row quiz-row">
+    <div class="quiz-row-icon" aria-hidden="true">✎</div>
+    <div class="list-main">
+        <div class="list-title">{$q['title']}</div>
+        <div class="list-meta">แบบทดสอบ{$q['kind_label']} · {$q['meta']}</div>
+    </div>
+    <span class="tag tag-{$q['state_kind']}">{$q['state']}</span>
+    <form method="post" action="{$base}/learn/quizzes/{$q['id']}/start">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <button n:class="btn, btn-sm, $q['action'] !== 'ทำอีกครั้ง' ? btn-primary" type="submit">{$q['action']}</button>
+    </form>
+</div>

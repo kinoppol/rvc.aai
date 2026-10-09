@@ -1,0 +1,63 @@
+{*
+    โครงหน้าสำหรับผู้เยี่ยมชมที่ยังไม่ได้เข้าสู่ระบบ (หน้าแรก + หน้ารายวิชาที่ครูเผยแพร่)
+    ใช้จานสี --lp-* ของ landing.css ซึ่งแยกจากธีมของระบบหลังบ้านโดยตั้งใจ
+*}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{block title}{$appName}{/block}</title>
+    <meta name="description" content="{block description}{$college}{/block}">
+    <link rel="stylesheet" href="{$base}/assets/css/landing.css">
+</head>
+<body>
+<div class="lp">
+    <header class="lp-header">
+        <div class="lp-wrap">
+            <a href="{$base}/" class="lp-logo">
+                <span class="lp-logo-mark">RV</span>
+                <span class="lp-logo-name">{$appName}</span>
+            </a>
+            <nav class="lp-nav">
+                <a href="{$base}/#features">จุดเด่น</a>
+                <a href="{$base}/#courses">รายวิชา</a>
+                <a href="{$base}/register">สมัครเป็นครูผู้สอน</a>
+                <a href="{$base}/login" class="lp-btn lp-btn-solid lp-btn-sm">เข้าสู่ระบบ</a>
+            </nav>
+        </div>
+    </header>
+
+    {include content}
+
+    <footer class="lp-footer">
+        <div class="lp-wrap">
+            <div class="lp-footer-col">
+                <div class="lp-footer-brand">
+                    <span class="lp-logo-mark">RV</span>
+                    <h4 style="margin:0">{$appName}</h4>
+                </div>
+                <p>ระบบจัดการเรียนรู้ที่ผสาน AI เข้ากับการเรียนการสอน นำร่องที่สาขาการตลาด/ธุรกิจค้าปลีกของ{$college}</p>
+            </div>
+            <div class="lp-footer-col">
+                <h4>เมนู</h4>
+                <p>
+                    <a href="{$base}/#features">จุดเด่นของหลักสูตร</a><br>
+                    <a href="{$base}/#courses">รายวิชาที่เปิดสอน</a><br>
+                    <a href="{$base}/register">สมัครเป็นครูผู้สอน</a><br>
+                    <a href="{$base}/login">เข้าสู่ระบบ</a>
+                </p>
+            </div>
+            <div class="lp-footer-col">
+                <h4>ติดต่อ</h4>
+                <p>{$college}</p>
+            </div>
+        </div>
+        <div class="lp-footer-bottom">
+            Copyright &copy; <script>document.write(new Date().getFullYear());</script>
+            &nbsp;·&nbsp; ออกแบบต่อยอดจากแม่แบบ Education ของ <a href="https://colorlib.com" target="_blank" rel="noopener">Colorlib</a>
+        </div>
+    </footer>
+</div>
+</body>
+</html>

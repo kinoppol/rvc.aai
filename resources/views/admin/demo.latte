@@ -1,0 +1,68 @@
+{layout '../layout.latte'}
+
+{block title}ใส่ข้อมูลตัวอย่าง{/block}
+
+{block content}
+<div class="page-head">
+    <div>
+        <h1>ใส่ข้อมูลตัวอย่าง</h1>
+        <div class="sub">สร้างสาขาวิชา ครูนำร่อง นักเรียน รายวิชา และบทเรียนตามหลักสูตร ปวช./ปวส. จริง เพื่อทดลองใช้งาน</div>
+    </div>
+</div>
+
+{if $result}
+    <div class="card">
+        <h2>ผลการทำงานล่าสุด</h2>
+        <ul class="log">
+            {foreach $result as $line}
+                <li><span class="log-mark ok">✓</span><div style="flex:1">{$line}</div></li>
+            {/foreach}
+        </ul>
+    </div>
+{/if}
+
+<div class="card">
+    <h2>บัญชีสำหรับทดลองใช้งาน</h2>
+    <div class="card-sub">ทุกบัญชีตัวอย่างใช้รหัสผ่านเดียวกัน</div>
+    <div class="table-scroll">
+        <table class="data">
+            <thead><tr><th>บทบาท</th><th>ชื่อผู้ใช้</th><th>รหัสผ่าน</th></tr></thead>
+            <tbody>
+            <tr><td>ครูผู้สอน (มีรายวิชาครบ)</td><td class="mono">thanaphon</td><td class="mono">{$demoPassword}</td></tr>
+            <tr><td>ครูผู้สอนคนอื่น</td><td class="mono">sunisa, weerachai, patcharee, anucha, kamonchanok</td><td class="mono">{$demoPassword}</td></tr>
+            <tr><td>นักเรียน</td><td class="mono">66201001 – 66201028</td><td class="mono">{$demoPassword}</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2>{if $alreadySeeded}ใส่ข้อมูลตัวอย่างใหม่{else}เริ่มใส่ข้อมูลตัวอย่าง{/if}</h2>
+    <div class="card-sub">
+        {if $alreadySeeded}
+            ระบบมีข้อมูลตัวอย่างอยู่แล้ว การทำซ้ำจะ<strong>ล้างข้อมูลการเรียนการสอนเดิมทั้งหมด</strong>
+            (รายวิชา บทเรียน แบบทดสอบ ครู และนักเรียนตัวอย่าง) แล้วสร้างใหม่ · ไม่แตะบัญชีผู้ดูแลระบบ
+        {else}
+            จะสร้างข้อมูลใหม่ทั้งหมด ไม่กระทบบัญชีผู้ดูแลระบบที่มีอยู่
+        {/if}
+    </div>
+
+    {if $alreadySeeded}
+        <div class="alert alert-warning">
+            <span>△</span>
+            <div>ข้อมูลการเรียนการสอนเดิมจะถูกลบและกู้คืนไม่ได้ ควรใช้เฉพาะบนเครื่องทดสอบ</div>
+        </div>
+    {/if}
+
+    <form method="post" action="{$base}/admin/demo/seed" data-busy="กำลังสร้างข้อมูลตัวอย่าง…">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <div class="field">
+            <label for="confirm">พิมพ์คำว่า <strong>ใส่ข้อมูลตัวอย่าง</strong> เพื่อยืนยัน</label>
+            <input class="input" type="text" id="confirm" name="confirm" autocomplete="off" required>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">ดำเนินการ</button>
+        </div>
+    </form>
+</div>
+{/block}

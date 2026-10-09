@@ -1,0 +1,161 @@
+{layout '../layout.latte'}
+
+{block title}ออกข้อสอบจากหน่วยการเรียน{/block}
+
+{block content}
+<div class="wizard-page" id="quizSetup"
+     data-course="{$course['id']}" data-base="{$base}"
+     data-unit="{$preselectedUnitId ?? ''}" data-kind="{$preselectedKind ?? 'posttest'}">
+    <a class="back-link" href="{$base}/courses/{$course['id']}">← กลับไปที่ {$course['name']}</a>
+    <h1>ออกข้อสอบจากหน่วยการเรียน</h1>
+    <div class="sub">ร่างที่ได้จะยังไม่เผยแพร่ให้นักเรียน จนกว่าครูจะตรวจและยืนยัน</div>
+
+    {if $aiError}
+        <div style="margin-top:18px">
+            {include '../_partials/ai-state.latte', reason: $aiError['reason'], message: null}
+        </div>
+    {/if}
+
+    <div class="wizard-grid">
+        <div class="card">
+            <div class="step-label">1 · เลือกหน่วยการเรียนที่ใช้เป็นแหล่งข้อมูล</div>
+            {if $units}
+                <div class="pick-list">
+                    {foreach $units as $u}
+                        <label class="pick-row">
+                            <input type="radio" name="unit_id" value="{$u['id']}" data-title="{$u['title']}"
+                                n:attr="checked: $preselectedUnitId == $u['id']">
+                            <span class="pick-box">●</span>
+                            <span class="pick-title">{$u['title']}</span>
+                            <span class="pick-tag mono">{$u['review_status'] === 'published' ? 'เผยแพร่แล้ว' : 'ร่าง'}</span>
+                        </label>
+                    {/foreach}
+                </div>
+            {else}
+                <div class="hint">ยังไม่มีหน่วยการเรียนในรายวิชานี้ กรุณาเพิ่มหน่วยการเรียนก่อน</div>
+            {/if}
+
+            <div class="hr"></div>
+            <div class="step-label">2 · ประเภทแบบทดสอบ</div>
+            <div class="pill-row" data-group="kind">
+                <button type="button" data-value="posttest" n:class="pill, $preselectedKind === 'posttest' ? is-on">แบบทดสอบหลังเรียน</button>
+                <button type="button" data-value="pretest" n:class="pill, $preselectedKind === 'pretest' ? is-on">แบบทดสอบก่อนเรียน</button>
+            </div>
+
+            <div class="hr"></div>
+            <div class="step-label">3 · จำนวนข้อ</div>
+            <div class="pill-row" data-group="count">
+                {foreach $countOptions as $n}
+                    <button type="button" data-value="{$n}" n:class="pill, mono, $n === 10 ? is-on">{$n}</button>
+                {/foreach}
+            </div>
+
+            <div class="hr"></div>
+            <div class="step-label">4 · ชนิดข้อสอบ</div>
+            <div class="pill-row" data-group="types" data-multi>
+                {foreach $typeOptions as $t}
+                    <button type="button" data-value="{$t}" n:class="pill, $t === 'ปรนัย' ? is-on">{$t}</button>
+                {/foreach}
+            </div>
+
+            <div class="hr"></div>
+            <div class="step-label">5 · ระดับความยาก</div>
+            <div class="level-row" data-group="level">
+                {foreach $levels as $key => $desc}
+                    <button type="button" data-value="{$key}" n:class="level-card, $key === 'กลาง' ? is-on">
+                        <div class="level-name">{$key}</div>
+                        <div class="level-desc">{$desc}</div>
+                    </button>
+                {/foreach}
+            </div>
+        </div>
+
+        <aside class="card wizard-summary">
+            <div class="step-label">สรุปงานที่จะสร้าง</div>
+            <dl class="summary-list">
+                <div><dt>หน่วยการเรียน</dt><dd id="sumUnit">ยังไม่ได้เลือก</dd></div>
+                <div><dt>ประเภท</dt><dd id="sumKind">แบบทดสอบหลังเรียน</dd></div>
+                <div><dt>จำนวนข้อ</dt><dd class="mono" id="sumCount">10 ข้อ</dd></div>
+                <div><dt>ชนิดข้อ</dt><dd id="sumTypes">ปรนัย</dd></div>
+                <div><dt>ความยาก</dt><dd id="sumLevel">กลาง</dd></div>
+            </dl>
+            <div class="hr"></div>
+            <div class="ai-chip">{$aiChip}</div>
+            <div class="hint" style="margin-top:10px">{$aiWait}</div>
+            <button type="button" class="btn btn-primary btn-block" id="startBtn" style="margin-top:16px" n:attr="disabled: !$units">
+                เริ่มสร้างร่างข้อสอบ
+            </button>
+            <a class="btn btn-block" href="{$base}/settings/ai" style="margin-top:8px">อยากได้เร็วขึ้น? เชื่อม AI ของฉัน</a>
+        </aside>
+    </div>
+</div>
+
+<script>
+(function () {
+    var root = document.getElementById('quizSetup');
+    var base = root.dataset.base, courseId = root.dataset.course;
+    var kindLabels = { posttest: 'แบบทดสอบหลังเรียน', pretest: 'แบบทดสอบก่อนเรียน' };
+    var state = {
+        unit_id: root.dataset.unit || null,
+        unitTitle: null,
+        kind: root.dataset.kind || 'posttest',
+        count: 10,
+        types: ['ปรนัย'],
+        level: 'กลาง'
+    };
+
+    function refresh() {
+        var radio = root.querySelector('input[name=unit_id]:checked');
+        state.unit_id = radio ? radio.value : null;
+        state.unitTitle = radio ? radio.dataset.title : null;
+        document.getElementById('sumUnit').textContent = state.unitTitle || 'ยังไม่ได้เลือก';
+        document.getElementById('sumKind').textContent = kindLabels[state.kind] || state.kind;
+        document.getElementById('sumCount').textContent = state.count + ' ข้อ';
+        document.getElementById('sumTypes').textContent = state.types.length ? state.types.join(', ') : 'ยังไม่ได้เลือก';
+        document.getElementById('sumLevel').textContent = state.level;
+        document.getElementById('startBtn').disabled = !state.unit_id || state.types.length === 0;
+    }
+
+    root.querySelectorAll('input[name=unit_id]').forEach(function (i) { i.addEventListener('change', refresh); });
+
+    root.querySelectorAll('.pill-row').forEach(function (row) {
+        var group = row.dataset.group, multi = row.hasAttribute('data-multi');
+        row.querySelectorAll('.pill').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var v = btn.dataset.value;
+                if (multi) {
+                    btn.classList.toggle('is-on');
+                    state[group] = Array.prototype.slice.call(row.querySelectorAll('.pill.is-on')).map(function (b) { return b.dataset.value; });
+                } else {
+                    row.querySelectorAll('.pill').forEach(function (b) { b.classList.remove('is-on'); });
+                    btn.classList.add('is-on');
+                    state[group] = group === 'count' ? parseInt(v, 10) : v;
+                }
+                refresh();
+            });
+        });
+    });
+
+    root.querySelectorAll('.level-card').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            root.querySelectorAll('.level-card').forEach(function (b) { b.classList.remove('is-on'); });
+            btn.classList.add('is-on');
+            state.level = btn.dataset.value;
+            refresh();
+        });
+    });
+
+    document.getElementById('startBtn').addEventListener('click', function () {
+        var qs = new URLSearchParams();
+        if (state.unit_id) qs.set('unit_id', state.unit_id);
+        qs.set('kind', state.kind);
+        state.types.forEach(function (t) { qs.append('types', t); });
+        qs.set('count', state.count);
+        qs.set('level', state.level);
+        window.location = base + '/courses/' + courseId + '/quizzes/workspace?' + qs.toString();
+    });
+
+    refresh();
+})();
+</script>
+{/block}

@@ -1,0 +1,33 @@
+{layout '../layout.latte'}
+
+{block title}หน้าแรก{/block}
+
+{block content}
+<div class="dash">
+    <div class="dash-greeting">สวัสดี {$firstName}</div>
+    <div class="dash-sub">{$term ?? ''} · เรียน {count($courses)} รายวิชา</div>
+
+    {include '../_partials/join-form.latte'}
+
+    {if $courses}
+        <div class="course-grid">
+            {foreach $courses as $c}
+                <a class="course-card" href="{$base}/learn/{$c['id']}">
+                    <div class="course-card-head" style="background: var(--brand)">
+                        <div class="code">{$c['code']}</div>
+                        <div class="name">{$c['name']}</div>
+                    </div>
+                    <div class="course-card-body">
+                        <div class="meta">ผู้สอน: {$c['teacher_name'] ?? '—'}</div>
+                    </div>
+                </a>
+            {/foreach}
+        </div>
+    {else}
+        <div class="empty" style="margin-top:26px">
+            <h3>ยังไม่ได้ลงทะเบียนในรายวิชาใด</h3>
+            <p>ขอรหัสหรือลิงก์เข้าร่วมจากครูประจำวิชา แล้วกรอกในช่องด้านบน</p>
+        </div>
+    {/if}
+</div>
+{/block}

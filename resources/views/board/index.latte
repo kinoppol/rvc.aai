@@ -1,0 +1,52 @@
+{layout '../layout.latte'}
+
+{block title}กระดานสนทนาครู{/block}
+
+{block content}
+<div class="dash">
+    <div class="courses-head">
+        <div class="grow">
+            <div class="dash-greeting">กระดานสนทนาครู</div>
+            <div class="dash-sub">แลกเปลี่ยนความคิดเห็นด้านการพัฒนาระบบ การสอน และเรื่องทั่วไป</div>
+        </div>
+        <a class="btn btn-primary" href="{$base}/board/new">+ สร้างกลุ่มใหม่</a>
+    </div>
+
+    {if $totalGroups === 0}
+        <div class="empty" style="margin-top:32px">
+            <h3>ยังไม่มีกลุ่มสนทนา</h3>
+            <p>กดปุ่ม "สร้างกลุ่มใหม่" เพื่อเริ่มกลุ่มแรก</p>
+        </div>
+    {else}
+        {foreach $byCategory as $cat}
+            {if $cat['groups']}
+                <div class="section-label" style="margin-top:28px;margin-bottom:10px">{$cat['label']}</div>
+                <div class="list" style="border-radius:10px;overflow:hidden">
+                    {foreach $cat['groups'] as $g}
+                        <a class="list-row" href="{$base}/board/{$g['id']}" style="color:inherit">
+                            <div class="grow">
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                                    <div class="list-title">{$g['name']}</div>
+                                    {if $g['is_open']}
+                                        <span class="badge badge-success" style="font-size:11px">🔓 กลุ่มเปิด</span>
+                                    {/if}
+                                    {if $g['my_status'] === 'approved'}
+                                        <span class="badge badge-success" style="font-size:11px">สมาชิก</span>
+                                    {elseif $g['my_status'] === 'pending'}
+                                        <span class="badge" style="font-size:11px;background:var(--brandSoft);color:var(--brand)">รออนุมัติ</span>
+                                    {/if}
+                                </div>
+                                {if $g['description']}<div class="list-meta" style="margin-top:2px">{$g['description']}</div>{/if}
+                            </div>
+                            <div style="text-align:right;white-space:nowrap;font-size:13px;color:var(--ink2);flex-shrink:0">
+                                <div>{$g['member_count']} คน · {$g['topic_count']} กระทู้</div>
+                                <div style="margin-top:2px;font-size:12px">โดย {$g['creator_name']}</div>
+                            </div>
+                        </a>
+                    {/foreach}
+                </div>
+            {/if}
+        {/foreach}
+    {/if}
+</div>
+{/block}

@@ -1,0 +1,28 @@
+{layout '../layout.latte'}
+
+{block title}ตั้งค่าระบบ{/block}
+
+{block content}
+<div class="wizard-page" style="max-width:720px">
+    <h1>ตั้งค่าระบบ</h1>
+    <div class="sub">ชื่อระบบและชื่อวิทยาลัยที่แสดงทั่วทั้งเว็บ — หัวเว็บ แถบด้านข้าง และหน้าแรกสาธารณะ</div>
+
+    <form method="post" action="{$base}/admin/settings" class="card" style="margin-top:22px">
+        <input type="hidden" name="_token" value="{$csrf}">
+
+        <div class="step-label">ชื่อระบบ</div>
+        <input type="text" name="site_name" class="input" style="margin-top:8px" maxlength="120" required value="{$siteName}">
+        <div class="hint" style="margin-top:6px">แสดงที่หัวเว็บ, ป้ายชื่อในแถบด้านข้าง และหัวข้อของทุกหน้า</div>
+
+        <div class="hr" style="margin:20px 0"></div>
+
+        <div class="step-label">ชื่อวิทยาลัย</div>
+        <input type="text" name="college_name" class="input" style="margin-top:8px" maxlength="200" value="{$collegeName}">
+        <div class="hint" style="margin-top:6px">แสดงท้ายแถบด้านข้างและหน้าแรกสาธารณะ</div>
+
+        <div style="margin-top:22px">
+            <button type="submit" class="btn btn-primary">บันทึก</button>
+        </div>
+    </form>
+</div>
+{/block}

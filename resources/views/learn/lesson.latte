@@ -1,0 +1,34 @@
+{layout '../layout.latte'}
+
+{block title}{$lesson['title']}{/block}
+
+{block content}
+<div class="form-page">
+    <a class="back-link" href="{$base}/learn/{$course['id']}">← กลับไปที่ {$course['name']}</a>
+    <h1>{$lesson['title']}</h1>
+    {if $lesson['summary']}<div class="sub">{$lesson['summary']}</div>{/if}
+
+    {if $lesson['content']}
+        <div class="card" style="margin-top:18px;white-space:pre-line;line-height:1.8;font-size:15px">{$lesson['content']}</div>
+    {/if}
+
+    {if $files}
+        <div class="card" style="margin-top:16px">
+            <h2>ไฟล์ใบความรู้</h2>
+            <div class="list" style="border-top:1px solid var(--line)">
+                {foreach $files as $f}
+                    <div class="list-row">
+                        <div class="list-main"><div class="list-title">{$f['original_name']}</div>
+                            <div class="list-meta mono">{round($f['size_bytes']/1024)} KB</div>
+                        </div>
+                    </div>
+                {/foreach}
+            </div>
+        </div>
+    {/if}
+
+    {if !$lesson['content'] && !$files}
+        <div class="empty" style="margin-top:18px"><h3>ครูยังไม่ได้ใส่เนื้อหาในบทเรียนนี้</h3></div>
+    {/if}
+</div>
+{/block}

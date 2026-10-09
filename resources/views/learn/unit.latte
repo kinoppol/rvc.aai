@@ -1,0 +1,75 @@
+{layout '../layout.latte'}
+
+{block title}{$unit['title']}{/block}
+
+{block content}
+<div class="form-page">
+    <a class="back-link" href="{$base}/learn/{$course['id']}">← กลับไปที่ {$course['name']}</a>
+    <h1>{$unit['title']}</h1>
+
+    {* บทนำ *}
+    {if $unit['key_content'] || $unit['objectives'] || $unit['competencies']}
+        <div class="card" style="margin-top:18px">
+            <h2 style="font:600 15px/1.4 var(--sans);margin-bottom:12px">บทนำ</h2>
+            {if $unit['key_content']}
+                <div style="margin-bottom:10px">
+                    <div style="font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:4px">สาระสำคัญ</div>
+                    <div style="white-space:pre-line;line-height:1.7;font-size:15px">{$unit['key_content']}</div>
+                </div>
+            {/if}
+            {if $unit['objectives']}
+                <div style="margin-bottom:10px">
+                    <div style="font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:4px">จุดประสงค์การเรียนรู้</div>
+                    <div style="white-space:pre-line;line-height:1.7;font-size:15px">{$unit['objectives']}</div>
+                </div>
+            {/if}
+            {if $unit['competencies']}
+                <div>
+                    <div style="font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:4px">สมรรถนะ</div>
+                    <div style="white-space:pre-line;line-height:1.7;font-size:15px">{$unit['competencies']}</div>
+                </div>
+            {/if}
+        </div>
+    {/if}
+
+    {if $pretests}
+        <h2 class="learn-section-title">แบบทดสอบก่อนเรียน</h2>
+        <div class="list">
+            {foreach $pretests as $q}{include '../_partials/quiz-row.latte', q: $q}{/foreach}
+        </div>
+    {/if}
+
+    {* เนื้อหา *}
+    {if $sections}
+        <div style="margin-top:24px">
+            <h2 style="font:600 15px/1.4 var(--sans);margin-bottom:12px">เนื้อหา</h2>
+            {foreach $sections as $s}
+                <div class="card" style="margin-bottom:14px">
+                    <div style="font-weight:600;margin-bottom:10px">{$s['title']}</div>
+                    {if $s['type'] === 'text'}
+                        <div style="white-space:pre-line;line-height:1.8;font-size:15px">{$s['content']}</div>
+                    {elseif $s['type'] === 'video'}
+                        <div style="aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden">
+                            <iframe src="{$s['video_url']}" style="width:100%;height:100%;border:0" allowfullscreen loading="lazy"></iframe>
+                        </div>
+                    {elseif $s['type'] === 'pdf'}
+                        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px">
+                            <span style="font-size:22px">📄</span>
+                            <span style="font-size:14px">{$s['file_name'] ?? 'ไฟล์ PDF'}</span>
+                        </div>
+                    {/if}
+                </div>
+            {/foreach}
+        </div>
+    {elseif !$unit['key_content'] && !$unit['objectives'] && !$pretests && !$posttests}
+        <div class="empty" style="margin-top:18px"><h3>ครูยังไม่ได้ใส่เนื้อหาในหน่วยนี้</h3></div>
+    {/if}
+
+    {if $posttests}
+        <h2 class="learn-section-title">แบบทดสอบหลังเรียน</h2>
+        <div class="list">
+            {foreach $posttests as $q}{include '../_partials/quiz-row.latte', q: $q}{/foreach}
+        </div>
+    {/if}
+</div>
+{/block}

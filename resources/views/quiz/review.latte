@@ -1,0 +1,147 @@
+{layout '../layout.latte'}
+
+{block title}ตรวจร่างข้อสอบ{/block}
+
+{block content}
+<div class="wizard-page mid" id="reviewRoot"
+     data-base="{$base}" data-course="{$course['id']}" data-quiz="{$quiz['id']}" data-token="{$csrf}">
+
+    <div class="review-head">
+        <div class="grow">
+            <h1>{$quiz['title']}</h1>
+            <div class="sub">ร่าง{$createdAgo} · <span id="qCount">{count($questions)}</span> ข้อ · ยังไม่เผยแพร่ให้นักเรียน</div>
+        </div>
+        <span class="ai-chip">{$aiChip}</span>
+    </div>
+
+    <div class="alert alert-warning review-warn">
+        <div class="warn-mark">!</div>
+        <div class="grow">
+            <strong>เนื้อหานี้สร้างโดย AI กรุณาตรวจสอบความถูกต้องก่อนเผยแพร่</strong><br>
+            แก้ข้อความและเฉลยได้ทันทีในหน้านี้ ยังไม่มีนักเรียนคนใดเห็นร่างนี้
+        </div>
+        <span class="tag tag-warn">สถานะ: รอครูตรวจ</span>
+    </div>
+
+    <div class="field" style="margin-top:16px">
+        <label for="quizTitle">ชื่อแบบทดสอบ</label>
+        <input class="input" type="text" id="quizTitle" value="{$quiz['title']}">
+    </div>
+
+    <div id="questionList">
+        {foreach $questions as $q}
+            <div class="q-card" data-qid="{$q['id']}" data-type="{$q['type']}">
+                <div class="q-card-top">
+                    <span class="mono q-no">ข้อ {$iterator->counter}</span>
+                    <span class="tag">{$q['type'] === 'short_answer' ? 'อัตนัย' : ($q['type'] === 'matching' ? 'จับคู่' : 'ปรนัย')}</span>
+                    <div class="grow"></div>
+                    <button type="button" class="btn btn-sm" data-regen>สร้างข้อนี้ใหม่</button>
+                    <button type="button" class="btn btn-sm btn-ghost-danger" data-del>ลบ</button>
+                </div>
+                <div class="q-text" contenteditable="true" data-field="question">{$q['question']}</div>
+                {if $q['choices']}
+                    <div class="q-choices">
+                        {foreach $q['choices'] as $c}
+                            <div n:class="q-choice, $c['is_correct'] ? is-correct" data-cid="{$c['id']}">
+                                <span class="mono q-choice-key">{$c['label']}</span>
+                                <span class="q-choice-text" contenteditable="true" data-field="choice">{$c['content']}</span>
+                                {if $c['is_correct']}<span class="q-choice-badge">เฉลย</span>{/if}
+                            </div>
+                        {/foreach}
+                    </div>
+                {/if}
+                <div class="q-why">
+                    <span class="q-why-label">{$q['type'] === 'short_answer' ? 'แนวคำตอบและเกณฑ์' : 'เหตุผลของเฉลย'}</span>
+                    <span class="q-why-text" contenteditable="true" data-field="explanation">{$q['explanation']}</span>
+                </div>
+            </div>
+        {/foreach}
+    </div>
+
+    <form method="post" action="{$base}/courses/{$course['id']}/quizzes/{$quiz['id']}" class="review-footer" id="saveForm">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <input type="hidden" name="payload" id="payloadField">
+        <input type="hidden" name="title" id="titleField">
+        <div class="grow hint" id="footHint">ตรวจแล้ว {count($questions)} ข้อ</div>
+        {if $regenQuery}
+            <a class="btn" href="{$base}/courses/{$course['id']}/quizzes/workspace?{$regenQuery|noescape}">ลองใหม่อีกแบบ</a>
+        {/if}
+        <button type="submit" name="action" value="draft" class="btn">เก็บไว้ตรวจภายหลัง</button>
+        <button type="submit" name="action" value="publish" class="btn btn-primary">ยืนยันและบันทึกเป็นแบบทดสอบ</button>
+    </form>
+</div>
+
+<script>
+(function () {
+    var root = document.getElementById('reviewRoot');
+    var base = root.dataset.base, courseId = root.dataset.course, quizId = root.dataset.quiz, token = root.dataset.token;
+
+    function collect() {
+        return Array.prototype.slice.call(document.querySelectorAll('.q-card')).map(function (card) {
+            return {
+                id: parseInt(card.dataset.qid, 10),
+                question: card.querySelector('[data-field=question]').innerText.trim(),
+                explanation: card.querySelector('[data-field=explanation]').innerText.trim(),
+                choices: Array.prototype.slice.call(card.querySelectorAll('.q-choice')).map(function (ch) {
+                    return { id: parseInt(ch.dataset.cid, 10), content: ch.querySelector('[data-field=choice]').innerText.trim() };
+                })
+            };
+        });
+    }
+    function updateCounts() {
+        var n = document.querySelectorAll('.q-card').length;
+        document.getElementById('qCount').textContent = n;
+        document.getElementById('footHint').textContent = 'ตรวจแล้ว ' + n + ' ข้อ';
+        document.querySelectorAll('.q-no').forEach(function (el, i) { el.textContent = 'ข้อ ' + (i + 1); });
+    }
+
+    document.getElementById('saveForm').addEventListener('submit', function () {
+        document.getElementById('payloadField').value = JSON.stringify(collect());
+        document.getElementById('titleField').value = document.getElementById('quizTitle').value;
+    });
+
+    document.getElementById('questionList').addEventListener('click', function (e) {
+        var card = e.target.closest('.q-card');
+        if (!card) return;
+
+        if (e.target.matches('[data-del]')) {
+            rvcConfirm({
+                title: 'ลบข้อนี้',
+                message: 'ลบข้อนี้ออกจากร่างแบบทดสอบใช่หรือไม่',
+                confirmText: 'ลบข้อนี้',
+                danger: true
+            }).then(function (ok) {
+                if (!ok) return;
+                fetch(base + '/courses/' + courseId + '/quizzes/' + quizId + '/questions/' + card.dataset.qid + '/delete', {
+                    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: '_token=' + encodeURIComponent(token)
+                }).then(function (r) { return r.json(); }).then(function () { card.remove(); updateCounts(); });
+            });
+        }
+
+        if (e.target.matches('[data-regen]')) {
+            var btn = e.target; btn.disabled = true; btn.textContent = 'กำลังร่าง…';
+            fetch(base + '/courses/' + courseId + '/quizzes/' + quizId + '/questions/' + card.dataset.qid + '/regenerate', {
+                method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: '_token=' + encodeURIComponent(token)
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                btn.disabled = false; btn.textContent = 'สร้างข้อนี้ใหม่';
+                if (d.error) { alert(d.error); return; }
+                var q = d.question;
+                card.querySelector('[data-field=question]').innerText = q.question;
+                card.querySelector('[data-field=explanation]').innerText = q.explanation;
+                var wrap = card.querySelector('.q-choices');
+                if (wrap && q.choices) {
+                    wrap.innerHTML = q.choices.map(function (c) {
+                        return '<div class="q-choice' + (c.is_correct ? ' is-correct' : '') + '" data-cid="' + c.id + '">' +
+                            '<span class="mono q-choice-key">' + c.label + '</span>' +
+                            '<span class="q-choice-text" contenteditable="true" data-field="choice">' + c.content + '</span>' +
+                            (c.is_correct ? '<span class="q-choice-badge">เฉลย</span>' : '') + '</div>';
+                    }).join('');
+                }
+            });
+        }
+    });
+})();
+</script>
+{/block}

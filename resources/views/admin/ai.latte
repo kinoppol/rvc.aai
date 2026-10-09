@@ -1,0 +1,490 @@
+{layout '../layout.latte'}
+
+{block title}เครื่อง AI และโควตา{/block}
+
+{block content}
+<div class="wizard-page" style="max-width:1180px">
+    <h1>เครื่อง AI และโควตา</h1>
+    <div class="sub">สถานะเครื่องในห้องเซิร์ฟเวอร์ · ครูนำร่อง {$teacherCount} คน · {$term ?? ''}</div>
+
+    <div class="tabs">
+        <a href="{$base}/admin/ai?tab=overview" n:class="tab, $tab === 'overview' ? is-active">ภาพรวม</a>
+        <a href="{$base}/admin/ai?tab=settings" n:class="tab, $tab === 'settings' ? is-active">การตั้งค่า</a>
+        <a href="{$base}/admin/ai?tab=quota" n:class="tab, $tab === 'quota' ? is-active">จำกัดการใช้งาน</a>
+        <a href="{$base}/admin/ai?tab=courses" n:class="tab, $tab === 'courses' ? is-active">ฟังก์ชัน AI รายวิชา</a>
+    </div>
+
+    {if $tab === 'overview'}
+    <div class="admin-grid" style="margin-top:22px">
+        <div class="card">
+            <div class="admin-gpu-head">
+                <span n:class="dot-status, $endpoint && $endpoint['status'] === 'online' ? is-online"></span>
+                <strong>เครื่องประมวลผล GPU · {$endpoint && $endpoint['status'] === 'online' ? 'ออนไลน์' : 'ออฟไลน์'}</strong>
+                {if $endpoint}<span class="grow"></span><span class="mono hint">{$endpoint['notes']}</span>{/if}
+            </div>
+            <div class="gpu-stats">
+                {foreach $gpu as $g}
+                    <div>
+                        <div class="hint">{$g['label']}</div>
+                        <div class="mono gpu-val">{$g['value']}</div>
+                        <div class="bar" style="margin-top:8px"><span class="gpu-bar-{$g['tone']}" style="width:{$g['pct']}%"></span></div>
+                    </div>
+                {/foreach}
+            </div>
+            {if $models}
+                <div class="hr"></div>
+                <div class="step-label">โมเดลที่โหลดอยู่</div>
+                <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+                    {foreach $models as $m}
+                        <div class="model-row">
+                            <span class="mono grow">{$m['name']}</span>
+                            <span class="tag">{$m['role']}</span>
+                            <span class="mono hint">{$m['vram']}</span>
+                        </div>
+                    {/foreach}
+                </div>
+            {/if}
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:18px">
+            <div class="card">
+                <div class="step-label">คิวงานปัจจุบัน</div>
+                <div class="queue-count">
+                    <span class="mono">{$queueLength}</span>
+                    <span class="hint">งานรออยู่</span>
+                </div>
+                {if $queue}
+                    <div style="margin-top:12px;border-top:1px solid var(--line2);padding-top:12px;display:flex;flex-direction:column;gap:8px">
+                        {foreach $queue as $j}
+                            <div class="queue-row">
+                                <span class="grow">{$j['who']}</span>
+                                <span class="hint">{$j['what']}</span>
+                                <span class="mono hint">{$j['age']}</span>
+                            </div>
+                        {/foreach}
+                    </div>
+                {else}
+                    <div class="hint" style="margin-top:10px">ไม่มีงานค้างในคิว</div>
+                {/if}
+            </div>
+
+            <div class="card">
+                <div class="admin-gpu-head"><strong>การใช้งาน 7 วันที่ผ่านมา</strong><span class="grow"></span><span class="mono hint">รวม {$weekTotal} ครั้ง</span></div>
+                <div class="chart">
+                    {foreach $chart as $c}
+                        <div class="chart-col">
+                            <div class="mono hint">{$c['n']}</div>
+                            <div class="chart-bars">
+                                <div class="chart-bar chart-bar-own" style="height: {$c['ownH']}"></div>
+                                <div class="chart-bar chart-bar-college" style="height: {$c['collegeH']}"></div>
+                            </div>
+                            <div class="hint">{$c['day']}</div>
+                        </div>
+                    {/foreach}
+                </div>
+                <div class="chart-legend">
+                    <span><i style="background:var(--brand)"></i>AI ของส่วนกลาง</span>
+                    <span><i style="background:var(--brandLine)"></i>คีย์ของครูเอง</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:22px;padding:0;overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--line)">
+            <strong>การใช้งานรายครู · เดือนนี้</strong>
+            <span class="hint" style="margin-left:10px">เรียงตามจำนวนครั้งที่ใช้ AI ของส่วนกลาง</span>
+        </div>
+        <div class="table-scroll">
+            <table class="data">
+                <thead><tr><th>ครู</th><th class="num">AI ส่วนกลาง</th><th class="num">คีย์ของตัวเอง</th><th class="num">โควตาคงเหลือ</th></tr></thead>
+                <tbody>
+                {foreach $usage as $u}
+                    <tr>
+                        <td>{$u['name']}</td>
+                        <td class="num mono">{$u['college']}</td>
+                        <td class="num mono" style="color:var(--ink3)">{$u['own']}</td>
+                        <td class="num mono" style="color: var(--{$u['left_kind']})">{$u['left']}</td>
+                    </tr>
+                {/foreach}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {elseif $tab === 'settings'}
+    <div class="card" style="margin-top:22px" id="endpointCard" data-base="{$base}">
+        <strong>การเชื่อมต่อ AI ของส่วนกลาง</strong>
+        <div class="hint" style="margin-top:6px">
+            ตั้งค่าเครื่องหรือบริการที่ครูทุกคนใช้ร่วมกัน · ครูที่เชื่อม AI ของตัวเองไว้จะไม่ถูกกระทบ
+            {if $endpoint && $endpoint['last_checked_at']} · ตรวจล่าสุด {$endpointCheckedAgo}{/if}
+        </div>
+
+        <form method="post" action="{$base}/admin/ai/endpoint" style="margin-top:16px" id="endpointForm">
+            <input type="hidden" name="_token" value="{$csrf}">
+
+            <div class="endpoint-grid">
+                <div class="field">
+                    <label for="epName">ชื่อที่ครูเห็น</label>
+                    <input class="input" id="epName" name="name" value="{$endpoint['name'] ?? 'AI ของส่วนกลาง'}" maxlength="191">
+                </div>
+                <div class="field">
+                    <label for="epKind">ชนิดการเชื่อมต่อ</label>
+                    <select class="input" id="epKind" name="kind">
+                        <option value="ollama" selected="{($endpoint['kind'] ?? 'ollama') === 'ollama'}">Ollama (เครื่องที่ติดตั้งเอง)</option>
+                        <option value="openai_compatible" selected="{($endpoint['kind'] ?? '') === 'openai_compatible'}">API แบบ OpenAI (vLLM, LM Studio, เครื่องภายใน)</option>
+                        <option value="openrouter" selected="{($endpoint['kind'] ?? '') === 'openrouter'}">OpenRouter (บริการภายนอก)</option>
+                        <option value="google" selected="{($endpoint['kind'] ?? '') === 'google'}">Google AI Studio (Gemini)</option>
+                    </select>
+                </div>
+                <div class="field" id="epUrlField">
+                    <label for="epUrl">ที่อยู่ปลายทาง</label>
+                    <input class="input mono" id="epUrl" name="base_url" value="{$endpoint['base_url'] ?? ''}"
+                           placeholder="http://10.10.0.12:11434" maxlength="255">
+                    <div class="hint" id="epUrlHint"></div>
+                </div>
+                <div class="field">
+                    <label for="epModel">โมเดลที่เปิดใช้งาน</label>
+                    <div style="display:flex;gap:8px">
+                        {* ช่องเดียวแบบ autocomplete: พิมพ์ชื่อบางส่วนเพื่อกรอง เลือกจากรายการ หรือพิมพ์ชื่อเองก็ได้ (ว่าง = ให้ปลายทางเลือกเอง)
+                           readonly จนกว่าจะคลิก — กันเบราว์เซอร์เดาว่าเป็นช่องชื่อผู้ใช้ (อยู่ก่อนช่อง password) แล้วเติมอีเมลที่บันทึกไว้ *}
+                        <div class="combo" style="flex:1">
+                            <input class="input mono" id="epModel" name="model" maxlength="191" autocomplete="off" readonly
+                                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="epModelList"
+                                   data-lpignore="true" data-1p-ignore data-form-type="other"
+                                   value="{$endpoint['model'] ?? ''}" placeholder="พิมพ์ชื่อบางส่วน เช่น qwen, gpt-4.1 · เว้นว่าง = ให้ปลายทางเลือกเอง">
+                            <ul class="combo-list" id="epModelList" role="listbox" hidden></ul>
+                        </div>
+                        <button type="button" class="btn" id="epLoadBtn" title="ดึงรายชื่อโมเดลจากปลายทาง">↻</button>
+                    </div>
+                    <div class="hint" id="epModelHint">กด ↻ หรือ “ทดสอบการเชื่อมต่อ” เพื่อดึงรายชื่อโมเดลจากปลายทาง</div>
+                </div>
+                <div class="field">
+                    <label for="epKey">รหัสเชื่อมต่อ (ถ้าปลายทางต้องใช้)</label>
+                    <input class="input mono" id="epKey" name="api_key" type="password" autocomplete="new-password"
+                           data-lpignore="true" data-1p-ignore
+                           placeholder="{$endpoint && $endpoint['api_key_encrypted'] ? 'เก็บรหัสไว้แล้ว — เว้นว่างเพื่อใช้รหัสเดิม' : 'ไม่ต้องใส่ถ้าเป็นเครื่องภายใน'}">
+                    {if $endpoint && $endpoint['api_key_encrypted']}
+                        <label class="hint" style="display:flex;gap:7px;align-items:center;margin-top:7px">
+                            <input type="checkbox" name="clear_key" value="1"> ลบรหัสที่เก็บไว้
+                        </label>
+                    {/if}
+                </div>
+                <div class="field">
+                    <label for="epNotes">บันทึกช่วยจำ</label>
+                    <input class="input" id="epNotes" name="notes" value="{$endpoint['notes'] ?? ''}"
+                           placeholder="เช่น เครื่องห้องเซิร์ฟเวอร์ ชั้น 2" maxlength="255">
+                </div>
+            </div>
+
+            <div id="epTestResult"></div>
+
+            <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+                <button type="button" class="btn" id="epTestBtn">ทดสอบการเชื่อมต่อ</button>
+                <button type="submit" class="btn btn-primary">บันทึกการตั้งค่า</button>
+            </div>
+        </form>
+    </div>
+
+    {elseif $tab === 'quota'}
+    <div class="card" style="margin-top:22px">
+        <strong>เพดานโควตาต่อครูต่อเดือน</strong>
+        <div class="hint" style="margin-top:6px">ครูที่ใช้คีย์ของตัวเองจะไม่ถูกนับในโควตานี้</div>
+        <form method="post" action="{$base}/admin/ai/cap" style="margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <input type="hidden" name="_token" value="{$csrf}">
+            {foreach $caps as $c}
+                <button type="submit" name="cap" value="{$c}" n:class="pill, mono, $c === $cap ? is-on">
+                    {$c === 0 ? 'ไม่จำกัด' : $c}
+                </button>
+            {/foreach}
+        </form>
+        <div class="hint" style="margin-top:14px;padding:13px 15px;border-radius:10px;background:var(--surface2);line-height:1.65">
+            {if $cap > 0}
+                ที่เพดาน {$cap} ครั้ง/เดือน ครูนำร่อง {$teacherCount} คนใช้รวมกันได้ประมาณ {$capTotal} ครั้ง
+            {else}
+                ไม่จำกัดโควตา — เครื่องจะรับงานตามลำดับคิว เหมาะกับช่วงทดลองใช้เท่านั้น
+            {/if}
+        </div>
+    </div>
+
+    {elseif $tab === 'courses'}
+    <div class="card" style="margin-top:22px;padding:0;overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--line)">
+            <strong>ฟังก์ชัน AI ต่อรายวิชา</strong>
+            <div class="hint" style="margin-top:6px">
+                เปิด/ปิดการใช้งานฟังก์ชัน AI แต่ละอย่างเป็นรายวิชา — เหมาะกับช่วงทดสอบฟังก์ชันใหม่ที่ยังไม่พร้อมให้ครูทุกคนเห็น
+            </div>
+        </div>
+        <div class="table-scroll">
+            <table class="data ai-feature-table">
+                <thead>
+                <tr>
+                    <th>รายวิชา</th>
+                    <th>ครูผู้สอน</th>
+                    <th class="num">ออกข้อสอบด้วย AI</th>
+                    <th class="num">แผนการจัดการเรียนรู้ด้วย AI</th>
+                </tr>
+                </thead>
+                <tbody>
+                {foreach $courses as $c}
+                    <tr data-course-row="{$c['id']}">
+                        <td>
+                            <div style="font-weight:500">{$c['code']}</div>
+                            <div class="hint">{$c['name']}{if $c['classroom_name']} · {$c['classroom_name']}{/if}</div>
+                            <form method="post" action="{$base}/admin/ai/courses/{$c['id']}/features" id="feat-form-{$c['id']}" class="ai-feat-form" hidden>
+                                <input type="hidden" name="_token" value="{$csrf}">
+                                <input type="hidden" name="ai_quiz_enabled" value="{$c['ai_quiz_enabled']}" class="feat-quiz-input">
+                                <input type="hidden" name="ai_lesson_plan_enabled" value="{$c['ai_lesson_plan_enabled']}" class="feat-plan-input">
+                            </form>
+                        </td>
+                        <td>{$c['teacher_name']}</td>
+                        <td class="num">
+                            <button type="button" n:class="switch, feat-toggle, $c['ai_quiz_enabled'] ? is-on"
+                                    aria-label="สลับฟังก์ชันออกข้อสอบ"
+                                    onclick="rvcToggleAiFeature({$c['id']}, 'quiz', this)">
+                                <span class="switch-dot"></span>
+                            </button>
+                        </td>
+                        <td class="num">
+                            <button type="button" n:class="switch, feat-toggle, $c['ai_lesson_plan_enabled'] ? is-on"
+                                    aria-label="สลับฟังก์ชันแผนการจัดการเรียนรู้"
+                                    onclick="rvcToggleAiFeature({$c['id']}, 'plan', this)">
+                                <span class="switch-dot"></span>
+                            </button>
+                        </td>
+                    </tr>
+                {/foreach}
+                {if !$courses}
+                    <tr><td colspan="4" class="hint" style="text-align:center;padding:24px">ยังไม่มีรายวิชาที่เปิดใช้งาน</td></tr>
+                {/if}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {/if}
+</div>
+
+<script>
+function rvcToggleAiFeature(courseId, feature, btn) {
+    var form = document.getElementById('feat-form-' + courseId);
+    if (!form) { return; }
+    var on = !btn.classList.contains('is-on');
+    btn.classList.toggle('is-on', on);
+    var input = form.querySelector(feature === 'quiz' ? '.feat-quiz-input' : '.feat-plan-input');
+    input.value = on ? '1' : '0';
+    form.requestSubmit();
+}
+</script>
+
+<script>
+(function () {
+    var card = document.getElementById('endpointCard');
+    if (!card) { return; }
+
+    var base = card.dataset.base;
+    var kind = document.getElementById('epKind');
+    var url = document.getElementById('epUrl');
+    var urlHint = document.getElementById('epUrlHint');
+    var urlField = document.getElementById('epUrlField');
+    var keyField = document.getElementById('epKey').closest('.field');
+    var model = document.getElementById('epModel');
+    var modelHint = document.getElementById('epModelHint');
+    var box = document.getElementById('epTestResult');
+    var testBtn = document.getElementById('epTestBtn');
+    var loadBtn = document.getElementById('epLoadBtn');
+    var saved = model.value;
+
+    /* บริการภายนอกมีที่อยู่ตายตัว ผู้ดูแลกรอกแค่รหัสเชื่อมต่อ */
+    var HOSTED = { openrouter: 'https://openrouter.ai/api/v1', google: 'https://generativelanguage.googleapis.com/v1beta' };
+
+    function syncUrlHint() {
+        var hosted = HOSTED[kind.value];
+        urlField.hidden = !!hosted;
+
+        if (hosted) {
+            url.value = hosted;
+            keyField.querySelector('label').textContent = 'รหัสเชื่อมต่อ (จำเป็นสำหรับบริการนี้)';
+            urlHint.textContent = '';
+            return;
+        }
+
+        keyField.querySelector('label').textContent = 'รหัสเชื่อมต่อ (ถ้าปลายทางต้องใช้)';
+        urlHint.textContent = kind.value === 'ollama'
+            ? 'ที่อยู่ของ Ollama เช่น http://10.10.0.12:11434 (ระบบจะเรียก /api/chat เอง)'
+            : 'ที่อยู่ฐานของ API เช่น http://10.10.0.12:8000/v1 (ระบบจะเรียก /chat/completions เอง)';
+        if (kind.value === 'ollama' && /\/v1\/?$/.test(url.value.trim())) {
+            urlHint.textContent += ' · ที่อยู่ลงท้ายด้วย /v1 มักเป็น API แบบ OpenAI ลองเปลี่ยนชนิดการเชื่อมต่อดู';
+        }
+    }
+
+    /* ช่องเลือกโมเดลแบบ autocomplete — รายชื่อมาจากปลายทาง พิมพ์ชื่อบางส่วนเพื่อกรอง (หลายคำต้องตรงทุกคำ) */
+    var list = document.getElementById('epModelList');
+    var models = [];
+    var active = -1;
+    var MAX_SHOWN = 200;
+
+    model.addEventListener('focus', function () { model.readOnly = false; });
+
+    function matches() {
+        var words = model.value.toLowerCase().split(/\s+/).filter(Boolean);
+        // ตรงชื่อเป๊ะแล้ว (เพิ่งเลือกมา) ให้เห็นรายการทั้งหมดเพื่อเปลี่ยนได้ง่าย
+        if (models.indexOf(model.value) !== -1) { words = []; }
+        return models.filter(function (m) {
+            var name = m.toLowerCase();
+            return words.every(function (w) { return name.indexOf(w) !== -1; });
+        });
+    }
+
+    function render() {
+        var found = matches();
+        list.innerHTML = '';
+        active = -1;
+
+        found.slice(0, MAX_SHOWN).forEach(function (m) {
+            var li = document.createElement('li');
+            li.setAttribute('role', 'option');
+            li.textContent = m;
+            li.title = m;
+            if (m === model.value) { li.className = 'is-current'; }
+            li.addEventListener('mousedown', function (e) { e.preventDefault(); choose(m); });
+            list.appendChild(li);
+        });
+        if (found.length > MAX_SHOWN) {
+            var more = document.createElement('li');
+            more.className = 'combo-note';
+            more.textContent = 'และอีก ' + (found.length - MAX_SHOWN) + ' รายการ · พิมพ์เพิ่มเพื่อกรองให้แคบลง';
+            list.appendChild(more);
+        }
+        if (!found.length && models.length) {
+            var none = document.createElement('li');
+            none.className = 'combo-note';
+            none.textContent = 'ไม่พบโมเดลที่ตรงกัน — ใช้ชื่อที่พิมพ์นี้ได้เลยถ้าแน่ใจว่าถูก';
+            list.appendChild(none);
+        }
+        return found.length;
+    }
+
+    function open() {
+        if (!models.length) { return; }
+        render();
+        list.hidden = false;
+        model.setAttribute('aria-expanded', 'true');
+    }
+    function close() {
+        list.hidden = true;
+        model.setAttribute('aria-expanded', 'false');
+    }
+    function choose(m) {
+        model.value = m;
+        close();
+        syncHint();
+    }
+    function highlight(i) {
+        var items = list.querySelectorAll('li[role=option]');
+        if (!items.length) { return; }
+        active = (i + items.length) % items.length;
+        items.forEach(function (li, n) { li.classList.toggle('is-active', n === active); });
+        items[active].scrollIntoView({ block: 'nearest' });
+    }
+
+    function syncHint() {
+        var v = model.value.trim();
+        if (!models.length) { return; }
+        if (v === '') {
+            modelHint.textContent = 'เว้นว่างไว้ = ให้ปลายทางเลือกโมเดลเอง · ปลายทางมีให้เลือก ' + models.length + ' รายการ';
+        } else if (models.indexOf(v) === -1) {
+            var n = matches().length;
+            modelHint.textContent = n
+                ? 'ตรงกัน ' + n + ' จาก ' + models.length + ' รายการ · ลูกศรขึ้น/ลงแล้ว Enter เพื่อเลือก'
+                : '“' + v + '” ไม่มีในรายชื่อของปลายทาง — บันทึกได้ แต่ตรวจชื่อให้ถูกก่อน';
+        } else {
+            modelHint.textContent = 'เลือก ' + v + ' · กดบันทึกเพื่อเปิดใช้งาน';
+        }
+    }
+
+    model.addEventListener('click', open);
+    model.addEventListener('input', function () { open(); syncHint(); });
+    model.addEventListener('blur', close);
+    model.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (list.hidden) { open(); }
+            highlight(active + (e.key === 'ArrowDown' ? 1 : -1));
+        } else if (e.key === 'Enter') {
+            if (list.hidden) { return; }
+            e.preventDefault(); // อย่าส่งฟอร์มตอนกำลังเลือก
+            var items = list.querySelectorAll('li[role=option]');
+            var pick = items[active >= 0 ? active : 0];
+            if (pick) { choose(pick.textContent); } else { close(); }
+        } else if (e.key === 'Escape') {
+            close();
+        }
+    });
+
+    /* เติมรายชื่อโมเดลที่ปลายทางมีจริง ให้ผู้ดูแลเลือกเปิดใช้งาน */
+    function fillModels(names) {
+        models = names.slice();
+        if (document.activeElement === model) { open(); }
+        syncHint();
+        var v = model.value.trim();
+        if (v && v === saved && models.indexOf(v) === -1) {
+            modelHint.textContent = v + ' ไม่พบบนปลายทางแล้ว — เลือกโมเดลอื่นจากรายการ';
+        }
+    }
+
+    function probe(showResult) {
+        if (!url.value.trim()) { return; }
+        var buttons = [testBtn, loadBtn];
+        buttons.forEach(function (b) { b.disabled = true; });
+        if (showResult) { testBtn.textContent = 'กำลังทดสอบ…'; }
+        modelHint.textContent = 'กำลังดึงรายชื่อโมเดลจากปลายทาง…';
+
+        var body = new URLSearchParams({
+            _token: card.querySelector('input[name=_token]').value,
+            kind: kind.value,
+            base_url: url.value,
+            model: showResult ? model.value.trim() : '',
+            api_key: document.getElementById('epKey').value
+        });
+
+        fetch(base + '/admin/ai/endpoint/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body
+        }).then(function (r) { return r.json(); }).then(function (d) {
+            buttons.forEach(function (b) { b.disabled = false; });
+            testBtn.textContent = 'ทดสอบการเชื่อมต่อ';
+
+            if (showResult) {
+                box.className = 'alert ' + (d.ok ? 'alert-success' : 'alert-error');
+                box.style.marginTop = '14px';
+                box.innerHTML = '<span>' + (d.ok ? '✓' : '✕') + '</span><div></div>';
+                box.querySelector('div').textContent = d.message;
+            }
+
+            if (d.models && d.models.length) {
+                fillModels(d.models);
+                modelHint.textContent = 'ปลายทางมีโมเดลให้เลือก ' + d.models.length + ' รายการ · เลือกแล้วกดบันทึกเพื่อเปิดใช้งาน';
+            } else {
+                modelHint.textContent = d.ok
+                    ? 'ปลายทางไม่ได้บอกรายชื่อโมเดล — พิมพ์ชื่อโมเดลลงในช่องได้เลย'
+                    : 'ดึงรายชื่อโมเดลไม่ได้ · ' + d.message;
+            }
+        }).catch(function () {
+            buttons.forEach(function (b) { b.disabled = false; });
+            testBtn.textContent = 'ทดสอบการเชื่อมต่อ';
+            modelHint.textContent = 'เรียกทดสอบไม่สำเร็จ';
+        });
+    }
+
+    kind.addEventListener('change', function () { syncUrlHint(); probe(false); });
+    url.addEventListener('blur', syncUrlHint);
+    testBtn.addEventListener('click', function () { probe(true); });
+    loadBtn.addEventListener('click', function () { probe(false); });
+
+
+    syncUrlHint();
+    if (url.value.trim()) { probe(false); }
+})();
+</script>
+{/block}

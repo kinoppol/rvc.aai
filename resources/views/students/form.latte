@@ -1,0 +1,52 @@
+{layout '../layout.latte'}
+
+{block title}{$student ? 'แก้ไขนักเรียน' : 'เพิ่มนักเรียน'}{/block}
+
+{block content}
+<div class="page-head">
+    <div>
+        <h1>{$student ? 'แก้ไขนักเรียน' : 'เพิ่มนักเรียน'}</h1>
+        <div class="sub">ชื่อผู้ใช้คือรหัสนักศึกษา · รหัสผ่านคือเลขประจำตัวประชาชน</div>
+    </div>
+</div>
+
+<form method="post" action="{$student ? $base . '/students/' . $student['id'] : $base . '/students'}" class="card" style="max-width:520px">
+    <input type="hidden" name="_token" value="{$csrf}">
+
+    <div class="field">
+        <label for="username">รหัสนักศึกษา (ชื่อผู้ใช้)</label>
+        {if $student}
+            <input class="input" type="text" value="{$form['username']}" disabled>
+        {else}
+            <input class="input" type="text" id="username" name="username" value="{$form['username']}" required autofocus>
+        {/if}
+    </div>
+
+    <div class="field">
+        <label for="full_name">ชื่อ-สกุล</label>
+        <input class="input" type="text" id="full_name" name="full_name" value="{$form['full_name']}" required>
+    </div>
+
+    <div class="field">
+        <label for="national_id">เลขประจำตัวประชาชน (ใช้เป็นรหัสผ่าน)</label>
+        <input class="input" type="text" id="national_id" name="national_id" value=""
+               inputmode="numeric" maxlength="13" placeholder="ตัวเลข 13 หลัก" n:attr="required: !$student">
+        {if $student}<div class="hint">เว้นว่างไว้ถ้าไม่ต้องการรีเซ็ตรหัสผ่านของนักเรียนคนนี้</div>{/if}
+    </div>
+
+    <div class="field">
+        <label for="email">อีเมล (ถ้ามี)</label>
+        <input class="input" type="email" id="email" name="email" value="{$form['email']}">
+    </div>
+
+    <div class="field">
+        <label for="phone">เบอร์โทรศัพท์ (ถ้ามี)</label>
+        <input class="input" type="tel" id="phone" name="phone" value="{$form['phone']}">
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px">
+        <button type="submit" class="btn btn-primary">บันทึก</button>
+        <a class="btn" href="{$base}/students">ยกเลิก</a>
+    </div>
+</form>
+{/block}

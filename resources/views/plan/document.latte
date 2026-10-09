@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>{$doc['title']}</title>
+<style>
+    body { font-family: "TH Sarabun New", "Sarabun", sans-serif; font-size: 16pt; color: #000; margin: 2cm; line-height: 1.6; }
+    h1 { font-size: 18pt; text-align: center; margin: 0 0 4pt; }
+    .sub { text-align: center; font-size: 15pt; margin-bottom: 2pt; }
+    .rule { border-bottom: 1px solid #000; margin: 12pt 0; }
+    .section-head { font-weight: bold; margin-top: 14pt; }
+    .section-body { white-space: pre-line; margin-top: 4pt; }
+    .foot { display: flex; justify-content: space-between; margin-top: 24pt; font-size: 15pt; }
+    {if $forPrint}@media print { body { margin: 1.2cm; } }{/if}
+</style>
+</head>
+<body>
+{if $forPrint}<div style="text-align:right;margin-bottom:10pt" class="no-print"><button onclick="window.print()">พิมพ์ / บันทึกเป็น PDF</button></div>{/if}
+<h1>แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะอาชีพ</h1>
+<div class="sub">วิชา{$doc['meta']['course_name']} รหัส {$doc['meta']['course_code']}</div>
+<div class="sub">วิทยาลัยเทคนิคร้อยเอ็ด · สำนักงานคณะกรรมการการอาชีวศึกษา</div>
+<div class="sub">{$doc['meta']['unit']} · {$doc['meta']['hours']} ชั่วโมง{if $doc['meta']['week']} · สัปดาห์ที่ {$doc['meta']['week']}{/if}</div>
+<div class="rule"></div>
+{foreach $doc['sections'] as $s}
+    <div class="section-head">{$s['head']}</div>
+    <div class="section-body">{$s['body']}</div>
+{/foreach}
+<div class="foot">
+    <span>ผู้สอน ................................................ ({$teacher})</span>
+    <span>ร่างเมื่อ {$today}</span>
+</div>
+</body>
+</html>
