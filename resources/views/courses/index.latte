@@ -29,7 +29,8 @@
                 {var $published = (int) $c['show_on_landing'] === 1}
                 <div class="course-card">
                     <a class="course-card-link" href="{$base}/courses/{$c['id']}">
-                        <div class="course-card-head" style="background:#{$c['color']}">
+                        <div class="course-card-head" style="--cc:#{$c['color']};--ca:#{$c['accent']}">
+                            {if $c['cover_url']}<img class="cover-img" src="{$c['cover_url']}" alt="" loading="lazy">{/if}
                             <div class="code">{$c['code']}</div>
                             <div class="name">{$c['name']}</div>
                         </div>

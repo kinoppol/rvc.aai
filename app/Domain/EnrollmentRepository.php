@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain;
 
+use App\Support\Cover;
 use App\Support\Db;
 
 /**
@@ -58,7 +59,7 @@ final class EnrollmentRepository
     /** @return list<array<string,mixed>> รายวิชาที่นักเรียนคนนี้เรียนอยู่ */
     public function coursesForStudent(int $studentId): array
     {
-        return $this->db->all(
+        return Cover::decorateAll($this->db->all(
             'SELECT c.*, u.full_name AS teacher_name
              FROM {enrollments} e
              JOIN {courses} c ON c.id = e.course_id
@@ -66,6 +67,6 @@ final class EnrollmentRepository
              WHERE e.student_id = ? AND e.status = \'active\' AND c.status = \'active\'
              ORDER BY c.code',
             [$studentId]
-        );
+        ));
     }
 }

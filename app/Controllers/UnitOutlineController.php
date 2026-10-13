@@ -62,6 +62,7 @@ final class UnitOutlineController
             'proposed' => $proposed,
             'count' => is_array($draft) ? (int) ($draft['count'] ?? 8) : 8,
             'note' => is_array($draft) ? (string) ($draft['note'] ?? '') : '',
+            'ai' => $this->drafter->picker((int) $request->getAttribute('user')['id']),
         ]);
     }
 
@@ -79,7 +80,7 @@ final class UnitOutlineController
         }
 
         $count = max(2, min(self::MAX_UNITS, (int) ($data['count'] ?? 8)));
-        $note = mb_substr(trim((string) ($data['note'] ?? '')), 0, 500);
+        $note = mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000);
         $existing = array_map(
             static fn (array $u): string => (string) $u['title'],
             $this->units->forCourse((int) $course['id'])
@@ -98,7 +99,28 @@ final class UnitOutlineController
                 'existing' => $existing,
                 'count' => $count,
                 'note' => $note,
-            ], $count));
+            ], $count, (string) ($data['ai'] ?? '')));
+
+            // โมเดลเล็กมักหยุดก่อนครบจำนวน — ขอส่วนที่ขาดอีกหนึ่งรอบ (ไม่ให้ซ้ำชื่อหน่วยที่มีแล้ว)
+            if ($units !== [] && count($units) < $count) {
+                $more = $this->clean($this->drafter->objects((int) $user['id'], $system, [
+                    'task' => 'unit_outline',
+                    'course_code' => $course['code'],
+                    'course_name' => $course['name'],
+                    'description' => $course['description'],
+                    'existing' => array_merge($existing, array_column($units, 'title')),
+                    'count' => $count - count($units),
+                    'note' => $note,
+                ], $count - count($units), (string) ($data['ai'] ?? '')));
+
+                $seen = array_map('mb_strtolower', array_column($units, 'title'));
+                foreach ($more as $u) {
+                    if (count($units) < $count && !in_array(mb_strtolower($u['title']), $seen, true)) {
+                        $units[] = $u;
+                        $seen[] = mb_strtolower($u['title']);
+                    }
+                }
+            }
         } catch (AiUnavailableException $e) {
             Flash::error($e->getMessage());
 
@@ -208,9 +230,9 @@ final class UnitOutlineController
 
             $units[] = [
                 'title' => mb_substr($title, 0, 191),
-                'key_content' => mb_substr(trim((string) ($obj['key_content'] ?? '')), 0, 2000),
-                'objectives' => mb_substr(trim((string) ($obj['objectives'] ?? '')), 0, 2000),
-                'competencies' => mb_substr(trim((string) ($obj['competencies'] ?? '')), 0, 2000),
+                'key_content' => mb_substr(Drafter::text($obj['key_content'] ?? ''), 0, 2000),
+                'objectives' => mb_substr(Drafter::text($obj['objectives'] ?? ''), 0, 2000),
+                'competencies' => mb_substr(Drafter::text($obj['competencies'] ?? ''), 0, 2000),
                 'hours' => max(0, min(255, (int) ($obj['hours'] ?? 0))),
             ];
         }

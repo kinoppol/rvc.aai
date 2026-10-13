@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain;
 
+use App\Support\Cover;
 use App\Support\Db;
 
 /**
@@ -11,12 +12,6 @@ use App\Support\Db;
  */
 final class CourseRepository
 {
-    /**
-     * สีหัวการ์ดรายวิชา (ไม่มี # เพราะ Latte จะ escape # ใน context ของ style attribute
-     * เทมเพลตจึงเติม # เองเป็น style="background:#{$c['color']}")
-     */
-    private const CARD_COLORS = ['6366F1', 'F43F5E', '10B981', 'D97706', '8B5CF6', '0EA5E9'];
-
     /** ตัดตัวที่อ่านสับสนกันออก (O/0, I/1) เพราะครูมักเขียนรหัสบนกระดาน */
     private const JOIN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     private const JOIN_LENGTH = 6;
@@ -39,17 +34,14 @@ final class CourseRepository
             [$teacherId]
         );
 
-        foreach ($rows as $i => $row) {
-            $rows[$i]['color'] = self::CARD_COLORS[$i % count(self::CARD_COLORS)];
-        }
-
-        return $rows;
+        // สีและรูปหน้าปกของแต่ละวิชา (คงที่ต่อวิชา ไม่ขึ้นกับลำดับในรายการ)
+        return Cover::decorateAll($rows);
     }
 
     /** @return array<string,mixed>|null */
     public function find(int $id): ?array
     {
-        return $this->db->first(
+        $row = $this->db->first(
             'SELECT c.*, cr.name AS classroom_name,
                     (SELECT COUNT(*) FROM {enrollments} e WHERE e.course_id = c.id AND e.status = \'active\') AS student_count,
                     (SELECT COUNT(*) FROM {units} u WHERE u.course_id = c.id) AS unit_count
@@ -58,6 +50,8 @@ final class CourseRepository
              WHERE c.id = ?',
             [$id]
         );
+
+        return $row === null ? null : Cover::decorate($row);
     }
 
     /**
@@ -189,11 +183,6 @@ final class CourseRepository
         return strtoupper((string) preg_replace('/[^A-Za-z0-9]/', '', $input));
     }
 
-    public function color(int $index): string
-    {
-        return self::CARD_COLORS[$index % count(self::CARD_COLORS)];
-    }
-
     /** @return list<array<string,mixed>> รายวิชาที่ยังเปิดใช้งานทั้งหมด สำหรับผู้ดูแลตั้งค่าฟังก์ชัน AI */
     public function allActiveForAdmin(): array
     {
@@ -286,7 +275,7 @@ final class CourseRepository
     public function publicFind(int $id): ?array
     {
         return $this->db->first(
-            'SELECT c.id, c.code, c.name, c.credits, c.theory_hours, c.practice_hours, c.description,
+            'SELECT c.id, c.code, c.name, c.credits, c.theory_hours, c.practice_hours, c.description, c.cover_color, c.cover_image,
                     cr.name AS classroom_name, d.name AS department_name,
                     u.full_name AS teacher_name, t.name AS term_name
              FROM {courses} c
@@ -307,7 +296,7 @@ final class CourseRepository
     public function publicLanding(): array
     {
         $rows = $this->db->all(
-            'SELECT c.id, c.code, c.name, c.credits, c.theory_hours, c.practice_hours, c.description,
+            'SELECT c.id, c.code, c.name, c.credits, c.theory_hours, c.practice_hours, c.description, c.cover_color, c.cover_image,
                     cr.name AS classroom_name,
                     d.name AS department_name,
                     u.full_name AS teacher_name,
@@ -322,12 +311,10 @@ final class CourseRepository
         );
 
         $groups = [];
-        $n = 0;
         foreach ($rows as $row) {
             $key = (string) ($row['department_name'] ?? 'รายวิชาอื่น ๆ');
             $groups[$key] ??= ['department' => $key, 'courses' => []];
-            $row['color'] = self::CARD_COLORS[$n++ % count(self::CARD_COLORS)];
-            $groups[$key]['courses'][] = $row;
+            $groups[$key]['courses'][] = Cover::decorate($row);
         }
 
         return array_values($groups);

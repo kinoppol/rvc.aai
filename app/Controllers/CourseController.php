@@ -10,6 +10,7 @@ use App\Domain\EnrollmentRepository;
 use App\Domain\QuizRepository;
 use App\Domain\StudentAccountRepository;
 use App\Domain\UnitRepository;
+use App\Support\Cover;
 use App\Support\Csrf;
 use App\Support\Db;
 use App\Support\Flash;
@@ -18,6 +19,7 @@ use App\Support\Url;
 use App\Support\View;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Psr\Http\Message\UploadedFileInterface;
 use Slim\Exception\HttpForbiddenException;
 use Slim\Exception\HttpNotFoundException;
 
@@ -313,6 +315,11 @@ final class CourseController
         return $this->view->render($response, 'courses/edit', [
             'page' => 'courses',
             'course' => $course,
+            // ชุดสีหน้าปก + สีที่ระบบสุ่มให้วิชานี้เมื่อครูไม่ได้เลือกเอง (วิชาใหม่สุ่มสีให้ก่อน)
+            'coverPalette' => Cover::PALETTE,
+            'coverAuto' => $course !== null
+                ? Cover::color(['id' => $course['id']])
+                : Cover::hexes()[array_rand(Cover::hexes())],
             'terms' => $this->courses->terms(),
             'classrooms' => $this->courses->classrooms(),
             'currentTermId' => $this->courses->currentTermId(),
@@ -363,6 +370,8 @@ final class CourseController
             'competencies' => trim((string) ($data['competencies'] ?? '')) ?: null,
             'term_id' => $termId,
             'classroom_id' => $classroomId,
+            // สีหน้าปก — ว่าง = ให้ระบบสุ่มจาก id วิชา (สีเดิมเสมอ)
+            'cover_color' => Cover::normalise((string) ($data['cover_color'] ?? '')),
         ];
 
         if ($course === null) {
@@ -374,7 +383,74 @@ final class CourseController
             Flash::success('บันทึกการแก้ไขรายวิชาแล้ว');
         }
 
+        $coverError = $this->saveCover($request, $id, (string) ($course['cover_image'] ?? ''), ($data['remove_cover'] ?? '') === '1');
+        if ($coverError !== null) {
+            Flash::error($coverError);
+        }
+
         return $response->withHeader('Location', Url::to('/courses/' . $id))->withStatus(302);
+    }
+
+    /**
+     * รับรูปหน้าปกที่อัปโหลด (jpg/png/webp ไม่เกิน 3 MB) หรือลบรูปเดิม — คืนข้อความเมื่อมีปัญหา
+     * ตรวจชนิดไฟล์จากเนื้อไฟล์จริง ไม่เชื่อนามสกุลหรือชนิดที่เบราว์เซอร์บอกมา
+     */
+    private function saveCover(Request $request, int $courseId, string $current, bool $remove): ?string
+    {
+        $file = $request->getUploadedFiles()['cover'] ?? null;
+        $hasUpload = $file instanceof UploadedFileInterface && $file->getError() !== UPLOAD_ERR_NO_FILE;
+
+        if (!$hasUpload) {
+            if ($remove && $current !== '') {
+                $this->deleteCoverFile($current);
+                $this->courses->update($courseId, ['cover_image' => null]);
+            }
+
+            return null;
+        }
+
+        if ($file->getError() !== UPLOAD_ERR_OK) {
+            return 'อัปโหลดรูปหน้าปกไม่สำเร็จ ลองใหม่อีกครั้ง';
+        }
+        if (($file->getSize() ?? 0) > 3 * 1024 * 1024) {
+            return 'รูปหน้าปกใหญ่เกิน 3 MB · ย่อรูปก่อนแล้วอัปโหลดใหม่';
+        }
+
+        $dir = Cover::dir();
+        if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
+            return 'สร้างโฟลเดอร์เก็บรูปหน้าปกไม่ได้ · แจ้งผู้ดูแลระบบ';
+        }
+
+        $tmp = $dir . '/.upload-' . bin2hex(random_bytes(6));
+        $file->moveTo($tmp);
+
+        $ext = match ((new \finfo(FILEINFO_MIME_TYPE))->file($tmp)) {
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => null,
+        };
+        if ($ext === null || @getimagesize($tmp) === false) {
+            @unlink($tmp);
+
+            return 'รูปหน้าปกต้องเป็นไฟล์ JPG, PNG หรือ WEBP';
+        }
+
+        $name = $courseId . '-' . bin2hex(random_bytes(4)) . '.' . $ext;
+        rename($tmp, $dir . '/' . $name);
+        if ($current !== '') {
+            $this->deleteCoverFile($current);
+        }
+        $this->courses->update($courseId, ['cover_image' => $name]);
+
+        return null;
+    }
+
+    private function deleteCoverFile(string $file): void
+    {
+        if ($file !== '' && basename($file) === $file && is_file(Cover::dir() . '/' . $file)) {
+            @unlink(Cover::dir() . '/' . $file);
+        }
     }
 
     /** เก็บรายวิชาเข้าคลัง — ไม่ลบ เพราะบทเรียนและคะแนนของนักเรียนยังผูกอยู่ */

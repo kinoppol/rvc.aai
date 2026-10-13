@@ -58,6 +58,7 @@ final class AssignmentController
 
         return $this->view->render($response, 'courses/assignment-edit', [
             'page' => 'courses',
+            'ai' => $this->drafter->picker((int) $request->getAttribute('user')['id']),
             'course' => $course,
             'unit' => $unit,
             'assignment' => $assignment,
@@ -173,8 +174,8 @@ final class AssignmentController
                 'unit' => $unit['title'],
                 'key_content' => $unit['key_content'],
                 'max_score' => $maxScore,
-                'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 500),
-            ], 3);
+                'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000),
+            ], 3, (string) ($data['ai'] ?? ''));
             $draft = $this->firstWithTitle($objects);
         } catch (AiUnavailableException $e) {
             Flash::error($e->getMessage());
@@ -214,7 +215,7 @@ final class AssignmentController
     {
         $lines = [];
 
-        $objective = trim((string) ($draft['objective'] ?? ''));
+        $objective = Drafter::text($draft['objective'] ?? '');
         if ($objective !== '') {
             $lines[] = 'จุดประสงค์';
             $lines[] = $objective;
@@ -229,7 +230,7 @@ final class AssignmentController
             }
         }
 
-        $deliverable = trim((string) ($draft['deliverable'] ?? ''));
+        $deliverable = Drafter::text($draft['deliverable'] ?? '');
         if ($deliverable !== '') {
             $lines[] = '';
             $lines[] = 'สิ่งที่ต้องส่ง';

@@ -97,7 +97,7 @@
                         <div class="lp-grid">
                             {foreach $g['courses'] as $c}
                                 <article class="lp-card">
-                                    <div class="lp-card-img" style="background:#{$c['color']}">
+                                    <div class="lp-card-img" style="background:#{$c['color']}">{if $c['cover_url']}<img class="cover-img" src="{$c['cover_url']}" alt="" loading="lazy">{/if}
                                         <span class="lp-code">{$c['code']}</span>
                                         <span class="lp-credit">{(float) $c['credits']} นก.</span>
                                     </div>

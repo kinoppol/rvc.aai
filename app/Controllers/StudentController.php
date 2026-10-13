@@ -8,6 +8,7 @@ use App\Domain\AttemptRepository;
 use App\Domain\EnrollmentRepository;
 use App\Domain\UnitRepository;
 use App\Domain\QuizRepository;
+use App\Support\Cover;
 use App\Support\Csrf;
 use App\Support\Db;
 use App\Support\Flash;
@@ -52,6 +53,7 @@ final class StudentController
         $this->requireEnrolled($request, $courseId, (int) $user['id']);
 
         $course = $this->db->first('SELECT c.*, u.full_name AS teacher_name FROM {courses} c LEFT JOIN {users} u ON u.id = c.teacher_id WHERE c.id = ?', [$courseId]);
+        $course = $course === null ? null : Cover::decorate($course);
 
         $units = array_values(array_filter(
             $this->units->forCourse($courseId),

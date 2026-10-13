@@ -343,10 +343,15 @@
             '<select class="aichat-card-select" data-f="classroom">' +
             '<option value="">— ยังไม่ระบุกลุ่มเรียน —</option>' + rooms +
             '</select>' +
-            '<dl class="aichat-card-rows" style="margin-top:12px">' +
-            '<div><dt>หน่วยกิต</dt><dd class="mono" data-f="credits"></dd></div>' +
-            '<div><dt>ทฤษฎี/ปฏิบัติ</dt><dd class="mono" data-f="hours"></dd></div>' +
-            '</dl>' +
+            '<label class="aichat-card-label">ท-ป-น · ชั่วโมงทฤษฎี - ชั่วโมงปฏิบัติ ต่อสัปดาห์ - หน่วยกิต</label>' +
+            '<div class="aichat-tpn">' +
+            '<label><input type="number" class="aichat-card-input mono" data-f="theory" min="0" max="40" step="1"><span>ทฤษฎี</span></label>' +
+            '<span class="aichat-tpn-sep">-</span>' +
+            '<label><input type="number" class="aichat-card-input mono" data-f="practice" min="0" max="40" step="1"><span>ปฏิบัติ</span></label>' +
+            '<span class="aichat-tpn-sep">-</span>' +
+            '<label><input type="number" class="aichat-card-input mono" data-f="credits" min="0" max="20" step="0.5"><span>หน่วยกิต</span></label>' +
+            '</div>' +
+            '<div class="aichat-card-hint" data-f="tpnHint"></div>' +
             '<label class="aichat-card-label">คำอธิบายรายวิชา · ตรวจให้ครบตามหลักสูตรก่อนสร้าง</label>' +
             '<textarea class="aichat-card-input aichat-card-textarea" data-f="description" rows="6"></textarea>' +
             '<label class="aichat-card-label">จุดประสงค์รายวิชา · ข้อละบรรทัด</label>' +
@@ -364,8 +369,24 @@
         if (window.RvcCombo) { RvcCombo.enhance(roomSelect); }
         codeInput.value = d.code;
         nameInput.value = d.name;
-        el.querySelector('[data-f="credits"]').textContent = d.credits;
-        el.querySelector('[data-f="hours"]').textContent = d.theory_hours + ' / ' + d.practice_hours + ' ชม.';
+        // ท-ป-น แก้ได้บนการ์ด — ค่าที่อ่านจากข้อความ/ไฟล์ของครูมาก่อนค่าที่ AI เดา
+        var theoryInput = el.querySelector('[data-f="theory"]');
+        var practiceInput = el.querySelector('[data-f="practice"]');
+        var creditsInput = el.querySelector('[data-f="credits"]');
+        var tpnHint = el.querySelector('[data-f="tpnHint"]');
+        theoryInput.value = d.theory_hours;
+        practiceInput.value = d.practice_hours;
+        creditsInput.value = d.credits;
+        function checkTpn() {
+            var t = parseFloat(theoryInput.value) || 0, p = parseFloat(practiceInput.value) || 0, c = parseFloat(creditsInput.value) || 0;
+            var expect = t + p / 2;
+            tpnHint.textContent = Math.abs(expect - c) > 0.01
+                ? 'ตามเกณฑ์ทั่วไป ' + t + '-' + p + ' ควรได้ประมาณ ' + expect + ' หน่วยกิต · ตรวจกับหลักสูตรอีกครั้ง'
+                : (d.tpn_from_source ? 'อ่านจากข้อมูลที่ครูให้มา · แก้ได้ถ้าไม่ตรง' : 'AI ร่างให้ · ตรวจกับหลักสูตรก่อนสร้าง');
+            tpnHint.classList.toggle('is-warn', Math.abs(expect - c) > 0.01);
+        }
+        [theoryInput, practiceInput, creditsInput].forEach(function (i) { i.addEventListener('input', checkTpn); });
+        checkTpn();
         var descInput = el.querySelector('[data-f="description"]');
         descInput.value = d.description || '';
         var objInput = el.querySelector('[data-f="objectives"]');
@@ -387,8 +408,8 @@
                 code: codeInput.value.trim(),
                 name: nameInput.value.trim(),
                 classroom_id: roomSelect.value,
-                credits: d.credits,
-                theory_hours: d.theory_hours, practice_hours: d.practice_hours,
+                credits: creditsInput.value,
+                theory_hours: theoryInput.value, practice_hours: practiceInput.value,
                 description: descInput.value.trim(),
                 objectives: objInput.value.trim(),
                 competencies: compInput.value.trim()

@@ -21,6 +21,7 @@ use App\Controllers\CourseController;
 use App\Controllers\DashboardController;
 use App\Controllers\ImpersonationController;
 use App\Controllers\JoinController;
+use App\Controllers\CourseCoverController;
 use App\Controllers\LandingController;
 use App\Controllers\BoardController;
 use App\Controllers\UnitController;
@@ -53,6 +54,8 @@ return static function (App $app): void {
     // รายวิชาที่ครูเผยแพร่ — คนทั่วไปอ่านเนื้อหาได้โดยไม่ต้องสมัครหรือเข้าสู่ระบบ
     $app->get('/course/{id:[0-9]+}', [PublicCourseController::class, 'show'])->setName('public.course');
     $app->get('/course/{id:[0-9]+}/unit/{unitId:[0-9]+}', [PublicCourseController::class, 'unit'])->setName('public.unit');
+    // รูปหน้าปกรายวิชา — ตรวจสิทธิ์ใน controller (ล็อกอิน หรือวิชาที่เปิดให้แสดงในหน้าแรก)
+    $app->get('/course-cover/{id:[0-9]+}', [CourseCoverController::class, 'show']);
 
     // ลิงก์รีเซ็ตรหัสผ่านที่ผู้ดูแลระบบสร้างให้ครูที่ลืมรหัสผ่าน — ไม่ต้องล็อกอินก่อน
     $app->get('/reset-password/{token}', [ResetPasswordController::class, 'show'])->setName('reset-password');

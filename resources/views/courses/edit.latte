@@ -15,7 +15,8 @@
         {/if}
     </div>
 
-    <form method="post" action="{$base}/courses{if !$isNew}/{$course['id']}{/if}" class="card" style="margin-top:22px">
+    <form method="post" action="{$base}/courses{if !$isNew}/{$course['id']}{/if}" class="card" style="margin-top:22px"
+          enctype="multipart/form-data">
         <input type="hidden" name="_token" value="{$csrf}">
 
         <div class="course-form-grid">
@@ -88,6 +89,49 @@
             </div>
         </div>
 
+        {* หน้าปกรายวิชา: สีจากชุดสี / สีเอง / สุ่ม หรืออัปโหลดรูปแล้วให้ระบบเลือกสีที่เข้ากับรูป *}
+        {var $coverColor = $course['cover_color'] ?? ''}
+        {var $shown = $coverColor ?: $coverAuto}
+        <div class="cover-editor" id="coverEditor" data-palette="{json_encode(array_column($coverPalette, 0))}" data-auto="{$coverAuto}">
+            <div class="step-label">หน้าปกรายวิชา</div>
+            <div class="cover-layout">
+                <div class="course-card-head cover-preview" id="coverPreview" style="--cc:#{$shown}">
+                    <img class="cover-img" id="coverPreviewImg" alt="" src="{$course['cover_url'] ?? ''}" n:attr="hidden: empty($course['cover_url'])">
+                    <div class="name">{$course['name'] ?? 'ชื่อรายวิชา'}</div>
+                    <div class="code">{$course['code'] ?? 'รหัสวิชา'}</div>
+                </div>
+
+                <div class="cover-controls">
+                    <input type="hidden" name="cover_color" id="coverColor" value="{$coverColor}">
+                    <div class="hint">สีหน้าปก</div>
+                    <div class="cover-swatches">
+                        <button type="button" n:class="cover-swatch, cover-swatch-auto, $coverColor === '' ? is-on" data-hex=""
+                                style="--sw:#{$coverAuto}" title="ให้ระบบสุ่มสีประจำวิชาให้">สุ่ม</button>
+                        {foreach $coverPalette as [$hex, $label]}
+                            <button type="button" n:class="cover-swatch, $coverColor === $hex ? is-on" data-hex="{$hex}"
+                                    style="--sw:#{$hex}" title="{$label}"></button>
+                        {/foreach}
+                    </div>
+                    <div class="cover-row">
+                        <input type="color" id="coverPicker" class="color-input" value="#{$shown}" title="เลือกสีเอง">
+                        <button type="button" class="btn btn-sm" id="coverRandom">สุ่มสีใหม่</button>
+                    </div>
+
+                    <div class="hint" style="margin-top:12px">รูปหน้าปก (ไม่บังคับ) · JPG, PNG หรือ WEBP ไม่เกิน 3 MB</div>
+                    <input type="file" name="cover" id="coverFile" class="input" accept="image/jpeg,image/png,image/webp">
+                    {if !empty($course['cover_url'])}
+                        <label class="hint" style="display:flex;gap:7px;align-items:center;margin-top:7px">
+                            <input type="checkbox" name="remove_cover" value="1" id="coverRemove"> ลบรูปหน้าปก
+                        </label>
+                    {/if}
+                    <div id="coverSuggest" hidden style="margin-top:12px">
+                        <div class="hint">สีที่เข้ากับรูป · ระบบวิเคราะห์สีในรูปแล้วเลือกสีที่เด่นที่สุดให้ กดเปลี่ยนได้</div>
+                        <div class="cover-swatches" id="coverSuggestList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px">
             <button type="submit" class="btn btn-primary">{$isNew ? 'เพิ่มรายวิชา' : 'บันทึกการแก้ไข'}</button>
             <a class="btn" href="{$base}/courses{if !$isNew}/{$course['id']}{/if}">ยกเลิก</a>
@@ -109,4 +153,5 @@
         </div>
     {/if}
 </div>
+<script src="{$base}/assets/js/cover-picker.js"></script>
 {/block}

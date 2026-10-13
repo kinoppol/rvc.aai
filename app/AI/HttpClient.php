@@ -64,6 +64,10 @@ final class HttpClient
         $ch = curl_init($url);
         curl_setopt_array($ch, $this->baseOptions('POST', $headers, $json) + [
             CURLOPT_TIMEOUT => $this->timeout,
+            // โมเดลเงียบไปเลย (ไม่ส่งข้อมูลสักไบต์) นาน 3 นาที = ค้าง ตัดทิ้ง ไม่ต้องรอครบ $timeout
+            // (เผื่อเครื่อง CPU ในวิทยาลัยที่ใช้เวลาอ่านคำสั่งยาว ๆ นานก่อนตอบไบต์แรก)
+            CURLOPT_LOW_SPEED_LIMIT => 1,
+            CURLOPT_LOW_SPEED_TIME => 180,
             CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$buffer, &$pending, &$status, &$errorBody): int {
                 if ($status === 0) {
                     $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);

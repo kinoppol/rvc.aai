@@ -147,6 +147,10 @@ final class AiChatController
         $mode = null;      // null = ยังไม่รู้ว่าเป็นข้อความหรือคำสั่ง, 'text', 'action'
         $pending = '';     // ข้อความต้นเรื่องที่พักไว้ระหว่างตัดสินใจ
         $rawAction = '';
+        $textAll = '';     // ข้อความทั้งหมดที่ส่งออกไปในโหมดข้อความ — ไว้ตรวจหา JSON ที่โมเดลเขียนแทรกมา
+
+        // ค่า ท-ป-น ที่ครูให้มาเอง (พิมพ์หรือไฟล์แนบ) — เชื่อค่านี้มากกว่าที่โมเดลเดา
+        $source = $attached . "\n" . $message;
 
         try {
             foreach ($route->provider->stream($this->systemPrompt($isTeacher), $spec, $quality) as $chunk) {
@@ -180,12 +184,13 @@ final class AiChatController
                 }
 
                 $chars += mb_strlen($pending);
+                $textAll .= $pending;
                 $send('delta', ['text' => $pending]);
                 $pending = '';
             }
 
             if ($mode === 'action') {
-                $action = $this->parseAction($rawAction, $isTeacher, (int) $user['id']);
+                $action = $this->parseAction($rawAction, $isTeacher, (int) $user['id'], $source);
                 if ($action !== null) {
                     $send('action', $action);
                 } else {
@@ -193,9 +198,21 @@ final class AiChatController
                     $chars += mb_strlen($rawAction);
                     $send('delta', ['text' => $rawAction]);
                 }
-            } elseif ($pending !== '') {
-                $chars += mb_strlen($pending);
-                $send('delta', ['text' => $pending]);
+            } else {
+                if ($pending !== '') {
+                    $chars += mb_strlen($pending);
+                    $textAll .= $pending;
+                    $send('delta', ['text' => $pending]);
+                }
+
+                // โมเดลบางตัวเขียนข้อความนำหน้า JSON หรือลืมใส่ "action" — ตรวจซ้ำตอนจบ
+                // ถ้าเป็นข้อมูลรายวิชา/หน่วยการเรียนจริง เปลี่ยนเป็นการ์ดยืนยันแทนข้อความดิบ
+                if ($isTeacher && str_contains($textAll, '{')) {
+                    $action = $this->parseAction($textAll, $isTeacher, (int) $user['id'], $source);
+                    if ($action !== null) {
+                        $send('action', $action);
+                    }
+                }
             }
         } catch (AiUnavailableException $e) {
             // ข้อผิดพลาดจากบริการจริง (รหัสหมดอายุ โควตาผู้ให้บริการ ฯลฯ) — บอกสาเหตุตามจริง
@@ -478,15 +495,17 @@ final class AiChatController
 
         return $base . "\n"
             . 'ถ้าครูแนบไฟล์มา ให้ใช้ข้อมูลในไฟล์นั้นตอบคำถามหรือเติมข้อมูลรายวิชาให้ครบที่สุด' . "\n"
-            . 'ถ้าครูขอให้สร้างหรือเพิ่มรายวิชา ให้ตอบกลับเป็น JSON บรรทัดเดียวเท่านั้น '
-            . 'ห้ามมีข้อความอื่นนำหน้าหรือต่อท้าย และห้ามครอบด้วย ``` ตามรูปแบบนี้ '
+            . 'ถ้าครูขอให้สร้างหรือเพิ่มรายวิชา หรือแนบข้อมูลรายวิชามาแล้วขอให้สร้าง ให้ตอบกลับเป็น JSON บรรทัดเดียวเท่านั้น '
+            . 'ตัวอักษรแรกของคำตอบต้องเป็น { ห้ามมีข้อความอื่นนำหน้าหรือต่อท้าย ห้ามอธิบาย และห้ามครอบด้วย ``` ตามรูปแบบนี้ '
             . '{"action":"create_course","code":"20127-2002","name":"ชื่อวิชา","credits":3,"theory_hours":1,"practice_hours":2,"description":"คำอธิบายรายวิชา",'
             . '"objectives":["จุดประสงค์รายวิชาข้อ 1","ข้อ 2"],"competencies":["สมรรถนะรายวิชาข้อ 1","ข้อ 2"]}' . "\n"
             . 'objectives คือ "จุดประสงค์รายวิชา" และ competencies คือ "สมรรถนะรายวิชา" ใส่เป็น array ข้อละหนึ่งรายการ ไม่ต้องใส่เลขข้อ '
             . 'ถ้าครูให้มา ให้คัดลอกครบทุกข้อตามต้นฉบับ ถ้าไม่ได้ให้มาให้ใส่ array ว่าง' . "\n"
             . 'ถ้าครูให้คำอธิบายรายวิชามา (พิมพ์มาหรืออยู่ในไฟล์แนบ) ให้คัดลอกลง description ทั้งหมดทุกคำตามต้นฉบับ '
             . 'ห้ามย่อ ห้ามสรุป ห้ามตัดทอน ห้ามเรียบเรียงใหม่ — แต่งคำอธิบายเองได้เฉพาะเมื่อครูไม่ได้ให้มาเท่านั้น '
-            . 'รหัสวิชา ชื่อวิชา หน่วยกิต และชั่วโมงทฤษฎี/ปฏิบัติ (ท-ป-น) ก็ให้ใช้ตามที่ครูให้มาเช่นกัน' . "\n"
+            . 'รหัสวิชา ชื่อวิชา หน่วยกิต และชั่วโมงทฤษฎี/ปฏิบัติ ก็ให้ใช้ตามที่ครูให้มาเช่นกัน '
+            . 'ตัวเลข ท-ป-น เรียงเป็น ชั่วโมงทฤษฎีต่อสัปดาห์-ชั่วโมงปฏิบัติต่อสัปดาห์-หน่วยกิต '
+            . 'เช่น 1-4-3 คือ "theory_hours":1,"practice_hours":4,"credits":3 และ 2-2-3 คือ "theory_hours":2,"practice_hours":2,"credits":3' . "\n"
             . 'ถ้าครูขอให้สร้างหน่วยการเรียน บทเรียน หรือเนื้อหาในรายวิชา ให้ตอบกลับเป็น JSON บรรทัดเดียว '
             . 'ในรูปแบบนี้แทน '
             . '{"action":"create_unit","course_code":"รหัสวิชาถ้าครูระบุมา","title":"ชื่อหน่วยการเรียน",'
@@ -503,7 +522,7 @@ final class AiChatController
      *
      * @return array<string,mixed>|null
      */
-    private function parseAction(string $raw, bool $isTeacher, int $teacherId = 0): ?array
+    private function parseAction(string $raw, bool $isTeacher, int $teacherId = 0, string $source = ''): ?array
     {
         if (!$isTeacher) {
             return null;
@@ -512,6 +531,15 @@ final class AiChatController
         foreach (JsonStream::objects([$raw]) as $obj) {
             $action = (string) ($obj['action'] ?? '');
 
+            // ไม่ได้ใส่ action มา — เดาจากหน้าตาข้อมูล (มีรหัส+ชื่อวิชา = รายวิชา, มีชื่อหน่วย+หัวข้อย่อย = หน่วยการเรียน)
+            if ($action === '') {
+                if (!empty($obj['code']) && !empty($obj['name'])) {
+                    $action = 'create_course';
+                } elseif (!empty($obj['title']) && !empty($obj['sections'])) {
+                    $action = 'create_unit';
+                }
+            }
+
             if ($action === 'create_course') {
                 $code = trim((string) ($obj['code'] ?? ''));
                 $name = trim((string) ($obj['name'] ?? ''));
@@ -519,13 +547,17 @@ final class AiChatController
                     return null;
                 }
 
+                // ท-ป-น ที่ครูให้มาชนะค่าที่โมเดลเดา · ครูยังแก้ได้บนการ์ดอีกชั้น
+                $tpn = self::tpn($source);
+
                 return [
                     'action' => 'create_course',
                     'code' => mb_substr($code, 0, 32),
                     'name' => mb_substr($name, 0, 191),
-                    'credits' => (float) ($obj['credits'] ?? 3),
-                    'theory_hours' => (int) ($obj['theory_hours'] ?? 1),
-                    'practice_hours' => (int) ($obj['practice_hours'] ?? 2),
+                    'credits' => $tpn['credits'] ?? max(0, (float) ($obj['credits'] ?? 3)),
+                    'theory_hours' => $tpn['theory'] ?? max(0, (int) ($obj['theory_hours'] ?? 1)),
+                    'practice_hours' => $tpn['practice'] ?? max(0, (int) ($obj['practice_hours'] ?? 2)),
+                    'tpn_from_source' => $tpn !== null,
                     'description' => mb_substr(trim((string) ($obj['description'] ?? '')), 0, self::MAX_DESCRIPTION),
                     'objectives' => self::listText($obj['objectives'] ?? ''),
                     'competencies' => self::listText($obj['competencies'] ?? ''),
@@ -574,6 +606,43 @@ final class AiChatController
         }
 
         return null;
+    }
+
+    /**
+     * อ่านค่า ท-ป-น (ทฤษฎี-ปฏิบัติ-หน่วยกิต) จากข้อความที่ครูให้มา เช่น "หน่วยกิต (ท-ป-น): 1-4-3", "ท-ป-น 2-2-3",
+     * "31901-2007 ฐานข้อมูล 1-4-3" — โมเดลเล็กมักสลับตำแหน่งตัวเลขเหล่านี้ จึงไม่ให้โมเดลอ่านเอง
+     * ตัวที่สามบางหลักสูตรเขียนเป็นชั่วโมงศึกษาด้วยตนเอง — ถ้าไม่ได้ระบุว่าเป็นหน่วยกิต ใช้ ท + ป/2 ตามเกณฑ์ สอศ.
+     *
+     * @return array{theory:int,practice:int,credits:float}|null
+     */
+    public static function tpn(string $text): ?array
+    {
+        if ($text === '') {
+            return null;
+        }
+
+        // ตัวเลขสามชุดที่อยู่ใกล้คำว่า ท-ป-น / หน่วยกิต / ทฤษฎี (ภายในบรรทัดเดียวกัน) — ไม่จับรหัสวิชา 5-4 หลัก
+        $label = '(?:ท\s*-\s*ป\s*-\s*[นชศ]|หน่วยกิต|ทฤษฎี)';
+        if (preg_match('/' . $label . '[^\n]{0,80}?(?<![\d-])(\d{1,2})\s*-\s*(\d{1,2})\s*-\s*(\d{1,2})(?![\d-])/u', $text, $m) !== 1
+            && preg_match('/(?<![\d-])(\d{1,2})\s*-\s*(\d{1,2})\s*-\s*(\d{1,2})(?![\d-])[^\n]{0,40}?' . $label . '/u', $text, $m) !== 1) {
+            return null;
+        }
+
+        $theory = (int) $m[1];
+        $practice = (int) $m[2];
+        $third = (float) $m[3];
+
+        // บรรทัดที่ระบุว่าตัวที่สามคือชั่วโมงศึกษาด้วยตนเอง (ท-ป-ช/ศ) — หน่วยกิตคิดจาก ท + ป/2
+        $line = (string) preg_replace('/.*\n/u', '', mb_substr($text, 0, (int) mb_strpos($text, $m[0]) + mb_strlen($m[0])));
+        $selfStudy = preg_match('/ศึกษาด้วยตนเอง|ท\s*-\s*ป\s*-\s*[ชศ]/u', $line) === 1;
+        $computed = $theory + $practice / 2;
+        $credits = $selfStudy && abs($computed - $third) > 0.01 ? $computed : $third;
+
+        if ($theory > 40 || $practice > 40 || $credits <= 0 || $credits > 20) {
+            return null;
+        }
+
+        return ['theory' => $theory, 'practice' => $practice, 'credits' => $credits];
     }
 
     /**

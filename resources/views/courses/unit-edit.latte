@@ -118,12 +118,18 @@
                 <div class="hint" style="margin-top:6px">
                     ผู้ช่วยจะใช้สาระสำคัญและจุดประสงค์ของหน่วยนี้เขียนเนื้อหาแยกเป็นหัวข้อย่อยมาให้เลือก
                 </div>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px">
-                    <input type="number" name="count" class="input" style="width:110px" min="2" max="10" value="4"
-                           aria-label="จำนวนหัวข้อย่อย">
-                    <input type="text" name="note" class="input" style="flex:1;min-width:220px" maxlength="500"
-                           placeholder="สั่งเพิ่มเติม เช่น ยกตัวอย่างจากร้านสะดวกซื้อ (ไม่บังคับ)">
+                <textarea name="note" class="input note-input" style="margin-top:12px" maxlength="2000" rows="3"
+                          aria-label="สั่งเพิ่มเติม"
+                          placeholder="สั่งเพิ่มเติม เช่น ยกตัวอย่างจากร้านสะดวกซื้อ (ไม่บังคับ) · พิมพ์ได้หลายบรรทัด"></textarea>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
+                    <label class="hint" style="display:flex;gap:8px;align-items:center">
+                        จำนวนหัวข้อย่อย
+                        <input type="number" name="count" class="input" style="width:90px" min="2" max="10" value="4">
+                    </label>
                     <button type="submit" class="btn">✦ ให้ AI ร่างเนื้อหา</button>
+                </div>
+                <div style="margin-top:12px;max-width:520px">
+                    {include '../_partials/ai-picker.latte', options: $ai['options'], chosen: $ai['chosen'], id: 'contentAi'}
                 </div>
                 <div class="busy-note" data-busy-note hidden>
                     <span class="spinner"></span>

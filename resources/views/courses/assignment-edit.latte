@@ -20,10 +20,14 @@
                 ผู้ช่วยจะใช้สาระสำคัญของหน่วยนี้ร่างจุดประสงค์ ขั้นตอนการทำงาน สิ่งที่ต้องส่ง และเกณฑ์การให้คะแนนมาให้
                 แล้วครูแก้ต่อได้ทั้งหมดก่อนบันทึก
             </div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px">
-                <input type="text" name="note" class="input" style="flex:1;min-width:240px" maxlength="500"
-                       placeholder="สั่งเพิ่มเติม เช่น ให้ทำเป็นงานกลุ่มหน้าร้านจำลอง (ไม่บังคับ)">
+            <textarea name="note" class="input note-input" style="margin-top:12px" maxlength="2000" rows="3"
+                      aria-label="สั่งเพิ่มเติม"
+                      placeholder="สั่งเพิ่มเติม เช่น ให้ทำเป็นงานกลุ่มหน้าร้านจำลอง (ไม่บังคับ) · พิมพ์ได้หลายบรรทัด"></textarea>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
                 <button type="submit" class="btn">✦ ให้ AI ร่างใบงาน</button>
+            </div>
+            <div style="margin-top:12px;max-width:520px">
+                {include '../_partials/ai-picker.latte', options: $ai['options'], chosen: $ai['chosen'], id: 'assignAi'}
             </div>
             <div class="busy-note" data-busy-note hidden>
                 <span class="spinner"></span>

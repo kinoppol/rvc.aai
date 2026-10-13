@@ -59,6 +59,7 @@ final class UnitController
 
         return $this->view->render($response, 'courses/unit-edit', [
             'page' => 'courses',
+            'ai' => $this->drafter->picker((int) $request->getAttribute('user')['id']),
             'course' => $course,
             'unit' => $unit,
             'sections' => $sections,
@@ -274,9 +275,10 @@ final class UnitController
                     'objectives' => $unit['objectives'],
                     'existing' => $existing,
                     'count' => $count,
-                    'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 500),
+                    'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000),
                 ],
-                $count
+                $count,
+                (string) ($data['ai'] ?? '')
             );
         } catch (AiUnavailableException $e) {
             Flash::error($e->getMessage());
@@ -293,7 +295,7 @@ final class UnitController
 
         $sections = [];
         foreach ($objects as $obj) {
-            $content = trim((string) ($obj['content'] ?? ''));
+            $content = Drafter::text($obj['content'] ?? '');
             if ($content === '') {
                 continue;
             }

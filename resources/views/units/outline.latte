@@ -38,9 +38,11 @@
 
         <div class="field">
             <label for="note">สั่งเพิ่มเติม (ไม่บังคับ)</label>
-            <input class="input" type="text" id="note" name="note" maxlength="500" value="{$note}"
-                   placeholder="เช่น เน้นการฝึกปฏิบัติในร้านจำลอง หรือแบ่งตามลำดับงานจริงหน้าร้าน">
+            <textarea class="input note-input" id="note" name="note" maxlength="2000" rows="3"
+                      placeholder="เช่น เน้นการฝึกปฏิบัติในร้านจำลอง หรือแบ่งตามลำดับงานจริงหน้าร้าน · พิมพ์ได้หลายบรรทัด">{$note}</textarea>
         </div>
+
+        {include '../_partials/ai-picker.latte', options: $ai['options'], chosen: $ai['chosen'], id: 'outlineAi'}
 
         <button type="submit" class="btn btn-primary">ให้ AI ร่างรายชื่อหน่วย</button>
         <span class="hint" style="margin-left:10px">ปกติใช้เวลา 15–60 วินาที</span>

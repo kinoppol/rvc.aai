@@ -6,7 +6,8 @@
 <div class="course-page">
     <div class="course-header">
         <div class="course-header-inner">
-            <div class="course-banner">
+            <div class="course-banner" style="--cc:#{$course['color']};--ca:#{$course['accent']}">
+            {if $course['cover_url']}<img class="cover-img" src="{$course['cover_url']}" alt="">{/if}
             <div class="course-head-code">{$course['code']} · ผู้สอน {$course['teacher_name'] ?? '—'}</div>
             <h1>{$course['name']}</h1>
             <div class="course-head-stats">{count($units)} หน่วยการเรียน</div>

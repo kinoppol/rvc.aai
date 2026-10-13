@@ -3,8 +3,6 @@
 {block title}วิชาที่เรียน{/block}
 
 {block content}
-{* สีหัวการ์ด — เลือกตาม id รายวิชาให้แต่ละวิชาได้สีเดิมทุกครั้ง (ไม่มี # เพราะ Latte escape ใน style) *}
-{var $cardColors = ['6366F1', 'F43F5E', '10B981', 'D97706', '8B5CF6', '0EA5E9', 'EC4899', '14B8A6']}
 <div class="dash">
     <div class="dash-greeting">วิชาที่เรียน</div>
     <div class="dash-sub">{$term ?? ''} · {count($courses)} รายวิชา</div>
@@ -15,7 +13,8 @@
         <div class="course-grid">
             {foreach $courses as $c}
                 <a class="course-card" href="{$base}/learn/{$c['id']}">
-                    <div class="course-card-head" style="background:#{$cardColors[$c['id'] % count($cardColors)]}">
+                    <div class="course-card-head" style="--cc:#{$c['color']};--ca:#{$c['accent']}">
+                        {if $c['cover_url']}<img class="cover-img" src="{$c['cover_url']}" alt="" loading="lazy">{/if}
                         <div class="name">{$c['name']}</div>
                         <div class="code">{$c['code']}</div>
                         <div class="teacher">{$c['teacher_name'] ?? '—'}</div>
