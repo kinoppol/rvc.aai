@@ -1,6 +1,7 @@
 {* กล่องยืนยันกลางของระบบ แทน confirm() ของเบราว์เซอร์
    ใช้งาน: ใส่ data-confirm="ข้อความ" ที่ <form> (เสริมด้วย data-confirm-title / data-confirm-ok / data-confirm-danger)
-   หรือเรียก rvcConfirm({message: '...'}).then(ok => ...) จากสคริปต์เอง *}
+   หรือเรียก rvcConfirm({message: '...'}).then(ok => ...) จากสคริปต์เอง
+   แจ้งเตือนอย่างเดียว (แทน alert()): rvcAlert('ข้อความ') หรือ rvcAlert({message, title, danger}) *}
 <div class="modal-backdrop" id="confirmModal" hidden>
     <div class="modal-panel confirm-panel">
         <div class="modal-head">
@@ -14,7 +15,7 @@
         </div>
         <div class="modal-foot">
             <div class="spacer"></div>
-            <button type="button" class="btn" data-confirm-cancel>ยกเลิก</button>
+            <button type="button" class="btn" id="confirmCancel" data-confirm-cancel>ยกเลิก</button>
             <button type="button" class="btn btn-primary" id="confirmOk">ยืนยัน</button>
         </div>
     </div>

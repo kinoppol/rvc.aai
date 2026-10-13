@@ -148,6 +148,11 @@ code, .mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums
     padding: 18px;
     margin-bottom: 16px;
 }
+/* การ์ดที่มีตารางชิดขอบ — ให้หัวตารางและคอลัมน์ริมมีที่หายใจ */
+.card.flush { padding: 0; overflow: hidden; }
+.card.flush table.data th { padding-top: 14px; padding-bottom: 12px; line-height: 1.4; }
+.card.flush table.data th:first-child, .card.flush table.data td:first-child { padding-left: 18px; }
+.card.flush table.data th:last-child, .card.flush table.data td:last-child { padding-right: 18px; }
 .card > h2 { margin-bottom: 4px; }
 .card .card-sub { color: var(--ink3); font-size: 13px; margin-bottom: 14px; }
 
@@ -1089,6 +1094,16 @@ textarea.input {
 }
 .aichat-attach:hover { border-color: var(--brandLine); color: var(--brand); }
 .aichat-attach:disabled { opacity: .5; cursor: default; }
+.aichat-mic { display: grid; place-items: center; }
+.aichat-mic.is-on {
+    background: var(--err); border-color: var(--err); color: #fff;
+    animation: aichat-mic-pulse 1.4s ease-out infinite;
+}
+@keyframes aichat-mic-pulse {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--err) 45%, transparent); }
+    100% { box-shadow: 0 0 0 10px transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .aichat-mic.is-on { animation: none; } }
 .aichat-panel.is-dropping { outline: 2px dashed var(--brand); outline-offset: -6px; }
 .aichat-msg-files {
     margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, .25);

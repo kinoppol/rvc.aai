@@ -126,7 +126,7 @@
                 body: '_token=' + encodeURIComponent(token)
             }).then(function (r) { return r.json(); }).then(function (d) {
                 btn.disabled = false; btn.textContent = 'สร้างข้อนี้ใหม่';
-                if (d.error) { alert(d.error); return; }
+                if (d.error) { rvcAlert({ title: 'สร้างข้อนี้ใหม่ไม่สำเร็จ', message: d.error, danger: true }); return; }
                 var q = d.question;
                 card.querySelector('[data-field=question]').innerText = q.question;
                 card.querySelector('[data-field=explanation]').innerText = q.explanation;

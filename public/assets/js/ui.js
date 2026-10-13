@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    var modal, titleEl, textEl, markEl, okBtn, pending = null, lastFocus = null;
+    var modal, titleEl, textEl, markEl, okBtn, cancelBtn, pending = null, lastFocus = null;
 
     function ready() {
         modal = document.getElementById('confirmModal');
@@ -11,6 +11,7 @@
         textEl = document.getElementById('confirmText');
         markEl = document.getElementById('confirmMark');
         okBtn = document.getElementById('confirmOk');
+        cancelBtn = document.getElementById('confirmCancel');
 
         return true;
     }
@@ -23,28 +24,46 @@
         if (resolve) { resolve(answer); }
     }
 
-    window.rvcConfirm = function (options) {
-        var opts = options || {};
-
+    /* alertOnly = แจ้งเตือนอย่างเดียว: ซ่อนปุ่มยกเลิก ปุ่มเดียวคือ "ตกลง" */
+    function open(opts, alertOnly) {
         return new Promise(function (resolve) {
             if (!modal && !ready()) {
-                resolve(window.confirm(opts.message || 'ยืนยันการทำรายการ?'));
+                if (alertOnly) {
+                    window.alert(opts.message || '');
+                    resolve(true);
+                } else {
+                    resolve(window.confirm(opts.message || 'ยืนยันการทำรายการ?'));
+                }
 
                 return;
             }
 
+            /* มีกล่องค้างอยู่ — ถือว่ากล่องเดิมถูกยกเลิก */
+            if (pending) { close(false); }
+
             pending = resolve;
             lastFocus = document.activeElement;
-            titleEl.textContent = opts.title || 'ยืนยันการทำรายการ';
+            titleEl.textContent = opts.title || (alertOnly ? 'แจ้งเตือน' : 'ยืนยันการทำรายการ');
             textEl.textContent = opts.message || '';
-            okBtn.textContent = opts.confirmText || 'ยืนยัน';
-            markEl.textContent = opts.danger ? '!' : '?';
+            okBtn.textContent = opts.confirmText || (alertOnly ? 'ตกลง' : 'ยืนยัน');
+            markEl.textContent = opts.danger ? '!' : (alertOnly ? 'i' : '?');
             markEl.classList.toggle('is-danger', !!opts.danger);
-            okBtn.classList.toggle('btn-danger', !!opts.danger);
-            okBtn.classList.toggle('btn-primary', !opts.danger);
+            okBtn.classList.toggle('btn-danger', !!opts.danger && !alertOnly);
+            okBtn.classList.toggle('btn-primary', !opts.danger || alertOnly);
+            if (cancelBtn) { cancelBtn.hidden = !!alertOnly; }
             modal.hidden = false;
             okBtn.focus();
         });
+    }
+
+    /* rvcConfirm({message, title, confirmText, danger}) → Promise<boolean> */
+    window.rvcConfirm = function (options) {
+        return open(options || {}, false);
+    };
+
+    /* rvcAlert('ข้อความ') หรือ rvcAlert({message, title, danger}) → Promise ที่จบเมื่อปิดกล่อง */
+    window.rvcAlert = function (options) {
+        return open(typeof options === 'string' ? { message: options } : (options || {}), true);
     };
 
     document.addEventListener('click', function (event) {

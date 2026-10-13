@@ -10,11 +10,14 @@
 declare(strict_types=1);
 
 use App\Auth\Auth;
+use App\Domain\SettingsRepository;
+use App\Install\DemoSeeder;
 use App\Install\Installer;
 use App\Install\Requirements;
 use App\Migration\Migrator;
 use App\Support\Config;
 use App\Support\Database;
+use App\Support\Db;
 use App\Support\Paths;
 
 $root = dirname(__DIR__);
@@ -298,6 +301,7 @@ if ($action === 'step3') {
     $state['site'] = $site;
     $state['admin'] = $admin;
     $state['mode'] = $mode;
+    $state['demo'] = ($_POST['demo'] ?? '') === '1';
 
     if ($errors === []) {
         redirect_step(4);
@@ -405,6 +409,10 @@ function run_installation(array $state): array
         Installer::seedCurrentTerm($connection, $db['prefix'], $site['academic_year'], $site['semester']);
         $add(true, sprintf('ตั้งค่าเริ่มต้นและภาคเรียนที่ %d / %d แล้ว', $site['semester'], $site['academic_year']));
 
+        if (!empty($state['demo'])) {
+            install_demo($connection, $db['prefix'], $add);
+        }
+
         $serverInfo = Database::inspectServer($connection);
         Installer::writeLock([
             'version' => Installer::VERSION,
@@ -425,6 +433,37 @@ function run_installation(array $state): array
     }
 }
 
+/**
+ * ใส่ข้อมูลตัวอย่าง (เลือกได้ตอนติดตั้ง ค่าปกติคือไม่ใส่)
+ *
+ * DemoSeeder ล้างรายวิชาและบัญชีครู/นักเรียนก่อน seed — ถ้าฐานข้อมูลมีข้อมูลจริงอยู่แล้ว
+ * (เลือกเก็บข้อมูลเดิมไว้) จึงข้ามไปเลย ไม่ให้การติดตั้งซ้ำลบงานของครูทิ้ง
+ * ข้อมูลตัวอย่างไม่ใช่ส่วนจำเป็น ถ้าล้มเหลวก็ยังถือว่าติดตั้งสำเร็จ
+ */
+function install_demo(PDO $connection, string $prefix, callable $add): void
+{
+    $db = new Db($connection, $prefix);
+
+    try {
+        $existing = $db->int("SELECT COUNT(*) FROM {courses}")
+            + $db->int("SELECT COUNT(*) FROM {users} WHERE role IN ('teacher','supervisor','student')");
+        if ($existing > 0) {
+            $add(true, 'ข้ามการใส่ข้อมูลตัวอย่าง เพราะฐานข้อมูลมีรายวิชาหรือบัญชีผู้ใช้อยู่แล้ว',
+                'ใส่ภายหลังได้ที่เมนู ข้อมูลตัวอย่าง (/admin/demo) — ข้อมูลรายวิชาและบัญชีครู/นักเรียนเดิมจะถูกล้าง');
+
+            return;
+        }
+
+        (new DemoSeeder($db, new SettingsRepository($db)))->run();
+        $add(true, 'ใส่ข้อมูลตัวอย่างแล้ว', sprintf(
+            'ครูตัวอย่าง thanaphon · นักเรียน 66201001–66201028 · รหัสผ่าน %s',
+            DemoSeeder::DEMO_PASSWORD
+        ));
+    } catch (Throwable $e) {
+        $add(false, 'ใส่ข้อมูลตัวอย่างไม่สำเร็จ (ระบบยังใช้งานได้ตามปกติ ลองใหม่ได้ที่ /admin/demo)', $e->getMessage());
+    }
+}
+
 // ---------------------------------------------------------------- ส่วนแสดงผล
 
 $baseAssets = 'assets/css/app.css';
@@ -439,7 +478,7 @@ $defaults = [
     ],
     'site' => $state['site'] ?? [
         'name' => 'RVC Learn',
-        'college' => 'วิทยาลัยเทคนิคร้อยเอ็ด',
+        'college' => '',
         'url' => guess_base_url(),
         'timezone' => 'Asia/Bangkok',
         'academic_year' => 2569,
@@ -466,7 +505,7 @@ $defaults = [
         <div class="brand-mark">RV</div>
         <div>
             <h1>ติดตั้งระบบ RVC Learn</h1>
-            <div class="text-muted" style="font-size:13px;margin-top:4px">ระบบจัดการเรียนรู้ของวิทยาลัยเทคนิคร้อยเอ็ด</div>
+            <div class="text-muted" style="font-size:13px;margin-top:4px">ระบบจัดการเรียนรู้สำหรับสถานศึกษา</div>
         </div>
     </div>
 
@@ -724,7 +763,7 @@ $defaults = [
                 </div>
                 <div class="field">
                     <label for="college">ชื่อวิทยาลัย</label>
-                    <input class="input" type="text" id="college" name="college" value="<?= h((string) $site['college']) ?>" required>
+                    <input class="input" type="text" id="college" name="college" value="<?= h((string) $site['college']) ?>" placeholder="ชื่อสถานศึกษาของคุณ" required>
                 </div>
             </div>
 
@@ -789,6 +828,20 @@ $defaults = [
             </div>
         </div>
 
+        <div class="card">
+            <h2>ข้อมูลตัวอย่าง</h2>
+            <div class="card-sub">สำหรับทดลองใช้งานหรือสาธิตระบบ · ระบบที่ใช้งานจริงไม่ควรใส่</div>
+
+            <label class="alert alert-info" style="cursor:pointer;align-items:flex-start;margin-bottom:0">
+                <input type="checkbox" name="demo" value="1" <?= !empty($state['demo']) ? 'checked' : '' ?> style="margin-top:4px">
+                <div>
+                    <strong>ใส่ข้อมูลตัวอย่างด้วย</strong><br>
+                    สาขาวิชา กลุ่มเรียน ครู นักเรียน รายวิชา หน่วยการเรียน และแบบทดสอบตัวอย่างระดับ ปวช./ปวส.
+                    ใส่ได้เฉพาะเมื่อฐานข้อมูลยังไม่มีรายวิชาหรือบัญชีครู/นักเรียน · ลบหรือใส่ใหม่ภายหลังได้ที่เมนูข้อมูลตัวอย่าง
+                </div>
+            </label>
+        </div>
+
         <div class="form-actions">
             <a class="btn" href="install.php?step=2">ย้อนกลับ</a>
             <div class="spacer"></div>
@@ -831,6 +884,13 @@ $defaults = [
                 <tr><td>ชื่อระบบ</td><td><?= h($state['site']['name']) ?> · <?= h($state['site']['college']) ?></td></tr>
                 <tr><td>ที่อยู่เว็บ</td><td class="mono"><?= h($state['site']['url']) ?></td></tr>
                 <tr><td>ภาคเรียน</td><td class="mono"><?= h((string) $state['site']['semester']) ?> / <?= h((string) $state['site']['academic_year']) ?></td></tr>
+                <tr><td>ข้อมูลตัวอย่าง</td><td>
+                    <?php if (!empty($state['demo'])): ?>
+                        <span class="chip chip-warn">ใส่ข้อมูลตัวอย่าง</span>
+                    <?php else: ?>
+                        <span class="chip">ไม่ใส่</span>
+                    <?php endif; ?>
+                </td></tr>
                 <tr><td>ผู้ดูแลระบบ</td><td><?= h($state['admin']['full_name']) ?> (<span class="mono"><?= h($state['admin']['username']) ?></span>)</td></tr>
                 </tbody>
             </table>

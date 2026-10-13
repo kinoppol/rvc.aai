@@ -10,7 +10,7 @@
 </button>
 
 <section class="aichat-panel" id="aichatPanel" role="dialog" aria-label="ช่องสนทนากับผู้ช่วย AI"
-         data-base="{$base}" data-token="{$csrf}" hidden>
+         data-base="{$base}" data-token="{$csrf}" data-user="{$user['id'] ?? 0}" hidden>
     <header class="aichat-head">
         <span class="aichat-head-icon">✦</span>
         <div class="aichat-head-title">
@@ -45,8 +45,18 @@
                     title="แนบไฟล์ให้ผู้ช่วยอ่าน (txt, csv, docx, pdf · ไม่เกิน 2 MB)">📎</button>
             <input type="file" id="aichatFile" hidden
                    accept=".txt,.md,.csv,.json,.xml,.html,.htm,.docx,.pdf">
+            {* พูดแทนพิมพ์ — ใช้ Web Speech API ของเบราว์เซอร์ ซ่อนไว้ก่อน แสดงเมื่อเบราว์เซอร์รองรับ *}
+            <button type="button" class="aichat-attach aichat-mic" id="aichatMic" hidden
+                    title="พูดแทนพิมพ์ (ภาษาไทย) · กดอีกครั้งเพื่อหยุด" aria-pressed="false">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="9" y="2" width="6" height="12" rx="3"></rect>
+                    <path d="M5 10a7 7 0 0 0 14 0"></path>
+                    <line x1="12" y1="17" x2="12" y2="22"></line>
+                </svg>
+            </button>
             <textarea class="aichat-input" id="aichatInput" rows="1" maxlength="8000"
-                      placeholder="พิมพ์คำถามหรือคำสั่ง… วางข้อความยาว ๆ ได้"
+                      placeholder="ถามหรือสั่งงาน…"
                       title="Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่"></textarea>
             <button type="submit" class="aichat-send" id="aichatSend" title="ส่ง">➤</button>
         </div>
@@ -91,6 +101,47 @@
             .catch(function () { setStatus('ตรวจการเชื่อมต่อไม่สำเร็จ', 'err'); });
     }
 
+    /* ---------- เก็บบทสนทนาไว้ข้ามหน้า ----------
+       เก็บใน sessionStorage ของแท็บนี้ แยกตามผู้ใช้ — เปลี่ยนหน้า/รีเฟรชแล้วยังอยู่
+       ปิดแท็บแล้วหายไปเอง (เครื่องในห้องเรียนใช้ร่วมกันหลายคน จึงไม่เก็บถาวรใน localStorage) */
+    var storeKey = 'rvc.aichat.' + (panel.dataset.user || '0');
+    var MAX_ITEMS = 80;
+    var state = { open: false, draft: '', files: [], items: [] };
+    try {
+        var saved = JSON.parse(sessionStorage.getItem(storeKey) || 'null');
+        if (saved && Array.isArray(saved.items)) { state = Object.assign(state, saved); }
+    } catch (err) { /* ใช้งาน storage ไม่ได้ — แชตยังใช้ได้ตามปกติ แค่ไม่จำข้ามหน้า */ }
+
+    var saveTimer = null;
+    function save(now) {
+        clearTimeout(saveTimer);
+        var write = function () {
+            if (state.items.length > MAX_ITEMS) { state.items = state.items.slice(-MAX_ITEMS); }
+            try { sessionStorage.setItem(storeKey, JSON.stringify(state)); } catch (err) { /* เต็มหรือถูกปิดไว้ */ }
+        };
+        if (now) { write(); } else { saveTimer = setTimeout(write, 250); }
+    }
+    // ออกจากหน้าระหว่างที่ยังรอบันทึก — เขียนทันทีกันข้อความท้าย ๆ หาย
+    var leaving = false;
+    window.addEventListener('beforeunload', function () { leaving = true; });
+    window.addEventListener('pagehide', function () { leaving = true; save(true); });
+    window.addEventListener('pageshow', function () { leaving = false; });
+
+    /** ผูกองค์ประกอบในช่องสนทนากับรายการที่จะจำไว้ */
+    function track(el, item) {
+        el._item = item;
+        state.items.push(item);
+        save();
+        return el;
+    }
+
+    /** เอาออกจากหน้าจอและจากความจำ */
+    function drop(el) {
+        var i = state.items.indexOf(el._item);
+        if (i !== -1) { state.items.splice(i, 1); save(); }
+        el.remove();
+    }
+
     function scroll() { log.scrollTop = log.scrollHeight; }
 
     function bubble(who, text) {
@@ -103,19 +154,41 @@
         return el;
     }
 
-    function note(text, tone) {
+    /** ข้อความของครู พร้อมรายชื่อไฟล์ที่แนบไปด้วย */
+    function myBubble(text, names) {
+        var el = bubble('me', text);
+        if (names && names.length) {
+            var listed = document.createElement('div');
+            listed.className = 'aichat-msg-files';
+            listed.textContent = names.map(function (n) { return '📄 ' + n; }).join('  ');
+            el.appendChild(listed);
+        }
+        return el;
+    }
+
+    function noteEl(text, tone, link) {
+        if (empty) { empty.hidden = true; }
         var el = document.createElement('div');
         el.className = 'aichat-note is-' + (tone || 'ok');
         el.textContent = text;
+        if (link) {
+            var a = document.createElement('a');
+            a.href = link.href; a.textContent = link.label;
+            el.appendChild(a);
+        }
         log.appendChild(el);
         scroll();
         return el;
     }
 
+    function note(text, tone, link) {
+        return track(noteEl(text, tone, link), { t: 'note', text: text, tone: tone || 'ok', link: link || null });
+    }
+
     /** การ์ดยืนยันก่อนบันทึกจริง — เลือกแบบตามชนิดของคำสั่งที่ผู้ช่วยเสนอมา */
-    function actionCard(d) {
-        if (d && d.action === 'create_unit') { unitCard(d); return; }
-        courseCard(d);
+    function actionCard(d, item) {
+        var el = d && d.action === 'create_unit' ? unitCard(d) : courseCard(d);
+        if (item) { el._item = item; } else { track(el, { t: 'card', d: d }); }
     }
 
     /** การ์ดยืนยันก่อนสร้างหน่วยการเรียนพร้อมเนื้อหา */
@@ -156,7 +229,7 @@
         el.querySelector('[data-f="key_content"]').textContent = d.key_content || '';
 
         el.querySelector('.aichat-card-no').addEventListener('click', function () {
-            el.remove();
+            drop(el);
             note('ยกเลิกการสร้างหน่วยการเรียนแล้ว', 'ok');
         });
 
@@ -185,15 +258,8 @@
                         note(res.message || 'บันทึกหน่วยการเรียนไม่สำเร็จ', 'err');
                         return;
                     }
-                    el.remove();
-                    var done = document.createElement('div');
-                    done.className = 'aichat-note is-ok';
-                    done.textContent = res.message + ' · ';
-                    var a = document.createElement('a');
-                    a.href = res.url; a.textContent = 'เปิดหน่วยการเรียน';
-                    done.appendChild(a);
-                    log.appendChild(done);
-                    scroll();
+                    drop(el);
+                    note(res.message + ' · ', 'ok', { href: res.url, label: 'เปิดหน่วยการเรียน' });
                 }).catch(function () {
                     ok.disabled = false; ok.textContent = 'บันทึกเป็นฉบับร่าง';
                     note('เรียกบันทึกหน่วยการเรียนไม่สำเร็จ', 'err');
@@ -203,6 +269,7 @@
 
         log.appendChild(el);
         scroll();
+        return el;
     }
 
     function esc(s) {
@@ -262,7 +329,7 @@
         compInput.value = d.competencies || '';
 
         el.querySelector('.aichat-card-no').addEventListener('click', function () {
-            el.remove();
+            drop(el);
             note('ยกเลิกการสร้างรายวิชาแล้ว', 'ok');
         });
 
@@ -299,15 +366,8 @@
                     }
                     return;
                 }
-                el.remove();
-                var done = document.createElement('div');
-                done.className = 'aichat-note is-ok';
-                done.textContent = res.message + ' · ';
-                var a = document.createElement('a');
-                a.href = res.url; a.textContent = 'เปิดรายวิชา';
-                done.appendChild(a);
-                log.appendChild(done);
-                scroll();
+                drop(el);
+                note(res.message + ' · ', 'ok', { href: res.url, label: 'เปิดรายวิชา' });
             }).catch(function () {
                 ok.disabled = false; ok.textContent = 'สร้างรายวิชา';
                 note('เรียกสร้างรายวิชาไม่สำเร็จ', 'err');
@@ -316,12 +376,15 @@
 
         log.appendChild(el);
         scroll();
+        return el;
     }
 
     /* ---------- ไฟล์แนบ ---------- */
-    var attached = [];   // { id, name, chars }
+    var attached = state.files;   // { id, name, chars } — ข้อความในไฟล์อยู่ใน session ฝั่งเซิร์ฟเวอร์ จำแค่ id
 
     function renderFiles() {
+        state.files = attached;
+        save();
         filesBox.innerHTML = '';
         filesBox.hidden = attached.length === 0;
 
@@ -358,7 +421,7 @@
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 attachBtn.disabled = false;
-                pending.remove();
+                drop(pending);
                 if (!d.ok) { note(d.message || 'อ่านไฟล์ไม่สำเร็จ', 'err'); return; }
                 attached.push({ id: d.id, name: d.name, chars: d.chars });
                 renderFiles();
@@ -366,7 +429,7 @@
             })
             .catch(function () {
                 attachBtn.disabled = false;
-                pending.remove();
+                drop(pending);
                 note('อัปโหลดไฟล์ไม่สำเร็จ', 'err');
             });
     }
@@ -390,6 +453,79 @@
         busy = on;
         sendBtn.disabled = on;
         input.disabled = on;
+        micBtn.disabled = on;
+        if (on) { stopListening(); }
+    }
+
+    /* ---------- พูดแทนพิมพ์ (Web Speech API) ----------
+       เบราว์เซอร์เป็นผู้แปลงเสียงเอง (Chrome/Edge อาจส่งเสียงไปประมวลผลที่บริการของผู้ผลิตเบราว์เซอร์)
+       ไม่มีเสียงผ่านเซิร์ฟเวอร์ของระบบ · ใช้ได้เฉพาะ https หรือ localhost */
+    var micBtn = document.getElementById('aichatMic');
+    var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    var recognizer = null, listening = false, spokenBase = '';
+
+    var micErrors = {
+        'not-allowed': 'ไม่ได้รับอนุญาตให้ใช้ไมโครโฟน · อนุญาตที่ไอคอนแม่กุญแจบนแถบที่อยู่เว็บแล้วลองใหม่',
+        'service-not-allowed': 'เบราว์เซอร์นี้ไม่อนุญาตให้แปลงเสียงเป็นข้อความ',
+        'audio-capture': 'ไม่พบไมโครโฟนในเครื่องนี้',
+        'network': 'แปลงเสียงไม่สำเร็จ · ตรวจการเชื่อมต่ออินเทอร์เน็ต',
+        'language-not-supported': 'เบราว์เซอร์นี้ยังแปลงเสียงภาษาไทยไม่ได้'
+    };
+
+    function setListening(on) {
+        listening = on;
+        micBtn.classList.toggle('is-on', on);
+        micBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        micBtn.title = on ? 'กำลังฟัง… กดเพื่อหยุด' : 'พูดแทนพิมพ์ (ภาษาไทย) · กดอีกครั้งเพื่อหยุด';
+        input.placeholder = on ? 'กำลังฟัง…' : 'ถามหรือสั่งงาน…';
+    }
+
+    function stopListening() {
+        if (recognizer && listening) { recognizer.stop(); }
+    }
+
+    function startListening() {
+        recognizer = new Recognition();
+        recognizer.lang = 'th-TH';
+        recognizer.continuous = true;
+        recognizer.interimResults = true;
+
+        // ต่อท้ายข้อความที่พิมพ์ไว้แล้ว ไม่เขียนทับ
+        spokenBase = input.value.replace(/\s+$/, '');
+        if (spokenBase !== '') { spokenBase += ' '; }
+
+        recognizer.onresult = function (e) {
+            var text = '';
+            for (var i = 0; i < e.results.length; i++) { text += e.results[i][0].transcript; }
+            input.value = (spokenBase + text).slice(0, 8000);
+            input.dispatchEvent(new Event('input'));
+        };
+        recognizer.onerror = function (e) {
+            if (e.error === 'no-speech') { note('ไม่ได้ยินเสียงพูด · กดไมค์แล้วลองพูดใหม่อีกครั้ง', 'err'); return; }
+            if (e.error === 'aborted') { return; }
+            note(micErrors[e.error] || ('แปลงเสียงไม่สำเร็จ (' + e.error + ')'), 'err');
+        };
+        recognizer.onend = function () {
+            setListening(false);
+            recognizer = null;
+            input.focus();
+        };
+
+        try {
+            recognizer.start();
+            setListening(true);
+        } catch (err) {
+            recognizer = null;
+            note('เริ่มฟังเสียงไม่สำเร็จ · ลองใหม่อีกครั้ง', 'err');
+        }
+    }
+
+    if (Recognition && window.isSecureContext) {
+        micBtn.hidden = false;
+        micBtn.addEventListener('click', function () {
+            if (busy) { return; }
+            if (listening) { stopListening(); } else { startListening(); }
+        });
     }
 
     function stop() {
@@ -400,21 +536,18 @@
     function ask(message) {
         if (busy || (!message && attached.length === 0)) { return; }
         var files = attached.slice();
-        var mine = bubble('me', message);
-
+        var names = files.map(function (f) { return f.name; });
         // แสดงชื่อไฟล์ที่ส่งไปด้วยใต้ข้อความของครู
-        if (files.length) {
-            var listed = document.createElement('div');
-            listed.className = 'aichat-msg-files';
-            listed.textContent = files.map(function (f) { return '📄 ' + f.name; }).join('  ');
-            mine.appendChild(listed);
-        }
+        track(myBubble(message, names), { t: 'me', text: message, files: names });
 
         attached = [];
         renderFiles();
         var reply = bubble('ai', '');
         reply.classList.add('is-typing');
         reply.innerHTML = '<i></i><i></i><i></i>';
+        // partial = ยังตอบไม่จบ — ถ้าเปลี่ยนหน้าไปก่อน หน้าถัดไปจะบอกว่าคำตอบถูกตัด
+        var replyItem = { t: 'ai', text: '', partial: true };
+        track(reply, replyItem);
         setBusy(true);
 
         var started = Date.now(), text = '', first = true, acted = false;
@@ -432,14 +565,14 @@
             body: prep
         }).then(function (r) { return r.json(); }).then(function (d) {
             if (!d.ok) {
-                reply.remove();
+                drop(reply);
                 note(d.message || 'ส่งข้อความไม่สำเร็จ', 'err');
                 setBusy(false);
                 return;
             }
             openStream(base + '/ai/chat/stream?_token=' + encodeURIComponent(token) + '&p=' + encodeURIComponent(d.id));
         }).catch(function () {
-            reply.remove();
+            drop(reply);
             note('ส่งข้อความไม่สำเร็จ กรุณาลองใหม่', 'err');
             setBusy(false);
         });
@@ -455,6 +588,7 @@
             if (first) { first = false; reply.classList.remove('is-typing'); reply.textContent = ''; }
             text += JSON.parse(e.data).text;
             reply.textContent = text;
+            replyItem.text = text; save();
             scroll();
         });
 
@@ -469,19 +603,20 @@
         source.addEventListener('action', function (e) {
             var d = JSON.parse(e.data);
             acted = true;
-            reply.remove();
+            drop(reply);
             actionCard(d);
         });
 
         source.addEventListener('done', function (e) {
             var d = JSON.parse(e.data);
             var secs = ((Date.now() - started) / 1000).toFixed(1);
+            replyItem.partial = false; save();
             reply.classList.remove('is-typing');
             // การ์ดยืนยันบอกผลด้วยตัวเองอยู่แล้ว ไม่ต้องมีบรรทัดสรุปจำนวนตัวอักษรซ้ำ
             if (acted) {
                 // ไม่ต้องแจ้งอะไรเพิ่ม
             } else if (d.chars === 0) {
-                reply.remove();
+                drop(reply);
                 note('ผู้ช่วยไม่ได้ตอบข้อความกลับมา · ลองย่อข้อความให้สั้นลง แนบเป็นไฟล์แทน หรือลองใหม่อีกครั้ง', 'err');
             } else {
                 note('ตอบกลับ ' + d.chars + ' ตัวอักษร · ใช้เวลา ' + secs + ' วินาที · เชื่อมต่อปกติ', 'ok');
@@ -492,16 +627,18 @@
         source.addEventListener('error', function (e) {
             var msg = 'ตอบกลับไม่สำเร็จ กรุณาลองใหม่';
             try { msg = JSON.parse(e.data).message || msg; } catch (err) { return; }
-            reply.remove();
+            drop(reply);
             note(msg, 'err');
             setStatus(msg, 'err');
             stop();
         });
 
         source.onerror = function () {
-            if (!busy) { return; }
+            // กำลังเปลี่ยนหน้า — ปล่อยไว้เป็นคำตอบที่ยังไม่จบ ให้หน้าถัดไปบอกว่าถูกตัด
+            if (!busy || leaving) { return; }
+            replyItem.partial = false; save();
             reply.classList.remove('is-typing');
-            if (!text) { reply.remove(); note('การเชื่อมต่อขาดระหว่างทาง กรุณาลองใหม่', 'err'); }
+            if (!text) { drop(reply); note('การเชื่อมต่อขาดระหว่างทาง กรุณาลองใหม่', 'err'); }
             stop();
         };
         }
@@ -511,12 +648,14 @@
         panel.hidden = false;
         fab.setAttribute('aria-expanded', 'true');
         checkStatus();
+        state.open = true; save();
         setTimeout(function () { input.focus(); }, 40);
     }
 
     function close() {
         panel.hidden = true;
         fab.setAttribute('aria-expanded', 'false');
+        state.open = false; save();
         stop();
     }
 
@@ -524,6 +663,7 @@
     document.getElementById('aichatClose').addEventListener('click', close);
     document.getElementById('aichatClear').addEventListener('click', function () {
         stop();
+        state.items = []; save(true);
         log.innerHTML = '';
         if (empty) { empty.hidden = false; log.appendChild(empty); }
     });
@@ -535,10 +675,12 @@
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
+        if (listening) { recognizer.abort(); }
         var v = input.value.trim();
         if (!v && attached.length === 0) { return; }
         input.value = '';
         input.style.height = 'auto';
+        state.draft = ''; save();
         ask(v);
     });
 
@@ -548,10 +690,55 @@
     input.addEventListener('input', function () {
         input.style.height = 'auto';
         input.style.height = Math.min(input.scrollHeight, 220) + 'px';
+        state.draft = input.value; save();
     });
 
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && !panel.hidden) { close(); }
     });
+
+    /* ---------- วาดบทสนทนาเดิมกลับมาเมื่อเปิดหน้าใหม่ ---------- */
+    function restore() {
+        var items = state.items.slice();
+        state.items = [];
+
+        items.forEach(function (item) {
+            var el;
+            if (item.t === 'me') {
+                el = myBubble(item.text, item.files);
+            } else if (item.t === 'ai') {
+                if (!item.text) { return; }   // ยังไม่ทันได้คำตอบก็เปลี่ยนหน้าไปแล้ว
+                el = bubble('ai', item.text);
+            } else if (item.t === 'note') {
+                el = noteEl(item.text, item.tone, item.link);
+            } else if (item.t === 'card') {
+                state.items.push(item);
+                actionCard(item.d, item);
+                return;
+            } else {
+                return;
+            }
+            el._item = item;
+            state.items.push(item);
+
+            if (item.t === 'ai' && item.partial) {
+                item.partial = false;
+                note('คำตอบนี้ถูกตัดเพราะเปลี่ยนหน้าระหว่างที่ผู้ช่วยกำลังตอบ · ถามซ้ำได้ถ้าต้องการคำตอบเต็ม', 'err');
+            }
+        });
+
+        // note() ข้างบนต่อท้ายรายการไว้แล้ว ส่วนที่เหลือเขียนรวดเดียว
+        save(true);
+        renderFiles();
+
+        if (state.draft) {
+            input.value = state.draft;
+            input.style.height = Math.min(input.scrollHeight, 220) + 'px';
+        }
+        if (state.open) { open(); }
+        scroll();
+    }
+
+    restore();
 })();
 </script>

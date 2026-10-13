@@ -211,7 +211,7 @@
     document.querySelectorAll('.rms-item [data-run]').forEach(function (btn) {
         btn.addEventListener('click', async function () {
             var key = btn.closest('.rms-item').dataset.key;
-            if (!confirm('เริ่มโอนข้อมูลจาก RMS ตอนนี้?')) return;
+            if (!(await rvcConfirm({ title: 'โอนข้อมูลจาก RMS', message: 'เริ่มโอนข้อมูลจาก RMS ตอนนี้?', confirmText: 'เริ่มโอนข้อมูล' }))) return;
             setBusy(true);
             await runOne(key);
             setBusy(false);
@@ -219,7 +219,7 @@
     });
 
     document.getElementById('rmsAll').addEventListener('click', async function () {
-        if (!confirm('โอนบุคลากร กลุ่มเรียน และนักเรียนตามลำดับ? ระหว่างนี้อย่าปิดหน้า')) return;
+        if (!(await rvcConfirm({ title: 'โอนข้อมูลทั้งหมด', message: 'โอนบุคลากร กลุ่มเรียน และนักเรียนตามลำดับ · ระหว่างนี้อย่าปิดหน้า', confirmText: 'เริ่มโอนทั้งหมด' }))) return;
         setBusy(true);
         for (var key of ['people', 'groups', 'students']) {
             if (!(await runOne(key))) break;
