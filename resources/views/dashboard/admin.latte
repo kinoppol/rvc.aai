@@ -3,14 +3,19 @@
 {block title}หน้าแรก{/block}
 
 {block content}
-<div class="page-head">
-    <div>
-        <h1>ภาพรวมระบบ</h1>
-        <div class="sub">{$term ?? ''} · วิทยาลัยเทคนิคร้อยเอ็ด</div>
+<section class="hero">
+    <div class="hero-main">
+        <span class="hero-badge"><span class="msi">waving_hand</span>ยินดีต้อนรับกลับ</span>
+        <h1 class="dash-greeting">ภาพรวมระบบ</h1>
+        <div class="dash-sub">{$term ?? ''} · {$college}</div>
     </div>
-</div>
+    <div class="hero-side">
+        <div class="hero-pill"><div class="num">{$userCounts['teacher'] ?? 0}</div><div class="lbl">ครูผู้สอน</div></div>
+        <div class="hero-pill"><div class="num">{$userCounts['student'] ?? 0}</div><div class="lbl">นักเรียน</div></div>
+    </div>
+</section>
 
-<div class="stat-row">
+<div class="stat-row" style="margin-top:24px">
     <div class="stat">
         <div class="label">ครูผู้สอน</div>
         <div class="value">{$userCounts['teacher'] ?? 0}</div>

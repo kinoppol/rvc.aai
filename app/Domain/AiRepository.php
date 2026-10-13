@@ -15,12 +15,12 @@ final class AiRepository
     {
     }
 
-    /** @return array<string,mixed>|null เครื่อง AI หลักของวิทยาลัย */
+    /** @return array<string,mixed>|null ผู้ให้บริการหลักของส่วนกลาง — ตัวที่เปิดอยู่ก่อนตัวที่ผู้ดูแลปิดไว้ */
     public function defaultEndpoint(): ?array
     {
         return $this->db->first(
-            'SELECT * FROM {ai_endpoints} WHERE is_default = 1 ORDER BY id LIMIT 1'
-        ) ?? $this->db->first('SELECT * FROM {ai_endpoints} ORDER BY id LIMIT 1');
+            'SELECT * FROM {ai_endpoints} ORDER BY is_active DESC, is_default DESC, id LIMIT 1'
+        );
     }
 
     /** @return list<array<string,mixed>> */
@@ -29,12 +29,158 @@ final class AiRepository
         return $this->db->all('SELECT * FROM {ai_endpoints} ORDER BY is_default DESC, id');
     }
 
-    /** @return array<string,mixed>|null คีย์ที่ครูเชื่อมไว้และใช้งานได้ */
+    /** @return list<array<string,mixed>> ผู้ให้บริการส่วนกลางที่ผู้ดูแลเปิดไว้ — ตัวหลักก่อน */
+    public function activeEndpoints(): array
+    {
+        return $this->db->all('SELECT * FROM {ai_endpoints} WHERE is_active = 1 ORDER BY is_default DESC, id');
+    }
+
+    /** @return array<string,mixed>|null */
+    public function endpoint(int $id): ?array
+    {
+        return $this->db->first('SELECT * FROM {ai_endpoints} WHERE id = ?', [$id]);
+    }
+
+    public function deleteEndpoint(int $id): void
+    {
+        $wasDefault = $this->db->int('SELECT is_default FROM {ai_endpoints} WHERE id = ?', [$id]) === 1;
+        $this->db->run('DELETE FROM {ai_endpoints} WHERE id = ?', [$id]);
+
+        // ลบตัวหลักไป — ให้ตัวที่เหลือตัวแรกขึ้นเป็นตัวหลักแทน
+        if ($wasDefault) {
+            $next = $this->db->int('SELECT id FROM {ai_endpoints} ORDER BY is_active DESC, id LIMIT 1');
+            if ($next > 0) {
+                $this->setDefaultEndpoint($next);
+            }
+        }
+    }
+
+    public function setEndpointActive(int $id, bool $active): void
+    {
+        $this->db->update('ai_endpoints', ['is_active' => $active ? 1 : 0], ['id' => $id]);
+    }
+
+    /** ตั้งเป็นผู้ให้บริการหลักของส่วนกลาง (มีได้ตัวเดียว) */
+    public function setDefaultEndpoint(int $id): void
+    {
+        $this->db->run('UPDATE {ai_endpoints} SET is_default = (id = ?)', [$id]);
+    }
+
+    /**
+     * โมเดลที่เปิดใช้ของผู้ให้บริการหนึ่งราย (ส่วนกลางหรือของครู) — ตัวแรกคือโมเดลหลัก
+     * แถวที่ยังไม่เคยเลือกหลายโมเดลใช้คอลัมน์ model เดิม · คืน [''] = ให้ปลายทางเลือกโมเดลเอง
+     *
+     * @param array<string,mixed> $row
+     * @return list<string>
+     */
+    public static function enabledModels(array $row): array
+    {
+        $list = json_decode((string) ($row['models_enabled'] ?? ''), true);
+        $models = [];
+        foreach (is_array($list) ? $list : [] as $m) {
+            $m = trim((string) $m);
+            if ($m !== '' && !in_array($m, $models, true)) {
+                $models[] = $m;
+            }
+        }
+
+        if ($models === []) {
+            $models = [trim((string) ($row['model'] ?? ''))];
+        }
+
+        return $models;
+    }
+
+    /**
+     * โมเดลของส่วนกลางที่ผู้ดูแลตั้งให้ใช้ได้ไม่จำกัด (เช่น โมเดลฟรี) — งานที่ใช้โมเดลเหล่านี้ไม่นับโควตาของครู
+     *
+     * @param array<string,mixed> $row
+     * @return list<string>
+     */
+    public static function unlimitedModels(array $row): array
+    {
+        $list = json_decode((string) ($row['models_unlimited'] ?? ''), true);
+
+        return array_values(array_filter(
+            array_map(static fn (mixed $m): string => trim((string) $m), is_array($list) ? $list : []),
+            static fn (string $m): bool => $m !== ''
+        ));
+    }
+
+    /**
+     * รายชื่อโมเดลไม่จำกัดสำหรับบันทึก — เก็บเฉพาะตัวที่เปิดใช้อยู่จริง
+     *
+     * @param list<mixed> $raw
+     * @param list<string> $enabled
+     */
+    public static function unlimitedField(array $raw, array $enabled): ?string
+    {
+        $models = array_values(array_intersect($enabled, array_map(static fn (mixed $m): string => trim((string) $m), $raw)));
+
+        return $models === [] ? null : (string) json_encode($models, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * ทำรายชื่อโมเดลจากฟอร์มให้สะอาด แล้วคืนค่าสำหรับบันทึก (model = ตัวหลัก, models_enabled = JSON)
+     *
+     * @param list<mixed> $raw
+     * @return array{model:string,models_enabled:?string}
+     */
+    public static function modelFields(array $raw): array
+    {
+        $models = [];
+        foreach ($raw as $m) {
+            $m = mb_substr(trim((string) $m), 0, 191);
+            if ($m !== '' && !in_array($m, $models, true)) {
+                $models[] = $m;
+            }
+        }
+        $models = array_slice($models, 0, 50);
+
+        return [
+            'model' => $models[0] ?? '',
+            'models_enabled' => $models === [] ? null : (string) json_encode($models, JSON_UNESCAPED_UNICODE),
+        ];
+    }
+
+    /** @return array<string,mixed>|null คีย์ที่ครูเชื่อมไว้และใช้งานได้ (ตัวล่าสุด) */
     public function activeKeyForUser(int $userId): ?array
     {
         return $this->db->first(
             'SELECT * FROM {user_api_keys} WHERE user_id = ? AND status = \'active\' ORDER BY id DESC LIMIT 1',
             [$userId]
+        );
+    }
+
+    /** @return list<array<string,mixed>> คีย์ทั้งหมดของครูที่ยังใช้งานอยู่ — ล่าสุดก่อน */
+    public function activeKeysForUser(int $userId): array
+    {
+        return $this->db->all(
+            'SELECT * FROM {user_api_keys} WHERE user_id = ? AND status = \'active\' ORDER BY id DESC',
+            [$userId]
+        );
+    }
+
+    /** @return array<string,mixed>|null คีย์ของครูคนนี้เท่านั้น (กันครูอ้าง id คีย์ของคนอื่น) */
+    public function keyForUser(int $userId, int $keyId): ?array
+    {
+        return $this->db->first(
+            'SELECT * FROM {user_api_keys} WHERE id = ? AND user_id = ? AND status = \'active\'',
+            [$keyId, $userId]
+        );
+    }
+
+    /** @param array<string,mixed> $data */
+    public function updateKey(int $userId, int $keyId, array $data): void
+    {
+        $this->db->update('user_api_keys', $data, ['id' => $keyId, 'user_id' => $userId]);
+    }
+
+    public function disableKey(int $userId, int $keyId): void
+    {
+        $this->db->run(
+            'UPDATE {user_api_keys} SET status = \'disabled\' WHERE id = ? AND user_id = ?',
+            [$keyId, $userId]
         );
     }
 
@@ -47,11 +193,13 @@ final class AiRepository
         );
     }
 
-    /** @param array<string,mixed> $data */
+    /**
+     * เพิ่มคีย์ใหม่ของครู — เก็บได้หลายคีย์ (หลายผู้ให้บริการ) โดยไม่ปิดคีย์เดิม
+     *
+     * @param array<string,mixed> $data
+     */
     public function saveKey(int $userId, array $data): int
     {
-        $this->db->run('UPDATE {user_api_keys} SET status = \'disabled\' WHERE user_id = ?', [$userId]);
-
         return $this->db->insert('user_api_keys', $data + ['user_id' => $userId]);
     }
 
@@ -103,7 +251,8 @@ final class AiRepository
     // ---- คิวงาน ----
 
     /**
-     * บันทึกการตั้งค่าเครื่อง AI ส่วนกลาง (มีได้ตัวเดียวเป็นค่าเริ่มต้น) แล้วคืน id
+     * บันทึกผู้ให้บริการ AI ส่วนกลาง (มีได้หลายราย) แล้วคืน id
+     * รายแรกที่เพิ่มเข้ามาเป็นตัวหลักให้อัตโนมัติ
      *
      * @param array<string,mixed> $data
      */
@@ -115,7 +264,9 @@ final class AiRepository
             return $id;
         }
 
-        return $this->db->insert('ai_endpoints', $data + ['is_default' => 1]);
+        $isFirst = $this->db->int('SELECT COUNT(*) FROM {ai_endpoints} WHERE is_default = 1') === 0;
+
+        return $this->db->insert('ai_endpoints', $data + ['is_default' => $isFirst ? 1 : 0]);
     }
 
     /** อัปเดตผลการตรวจสอบสถานะเครื่องส่วนกลาง */

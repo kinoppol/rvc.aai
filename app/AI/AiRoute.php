@@ -9,7 +9,10 @@ namespace App\AI;
  */
 final class AiRoute
 {
-    /** @param 'college'|'byok' $source */
+    /**
+     * @param 'college'|'byok' $source
+     * @param string $target รหัสตัวเลือก AI ที่ใช้จริง (ดู AiRouter::options) — เทียบกับที่ผู้ใช้เลือกได้ว่าถูกสลับหรือไม่
+     */
     public function __construct(
         public readonly AiProvider $provider,
         public readonly string $source,
@@ -17,6 +20,7 @@ final class AiRoute
         public readonly string $wait,
         public readonly bool $countsQuota,
         public readonly string $model = '',
+        public readonly string $target = '',
     ) {
     }
 }

@@ -3,9 +3,19 @@
 {block title}หน้าแรก{/block}
 
 {block content}
+{* สีหัวการ์ด — เลือกตาม id รายวิชาให้แต่ละวิชาได้สีเดิมทุกครั้ง (ไม่มี # เพราะ Latte escape ใน style) *}
+{var $cardColors = ['6366F1', 'F43F5E', '10B981', 'D97706', '8B5CF6', '0EA5E9', 'EC4899', '14B8A6']}
 <div class="dash">
-    <div class="dash-greeting">สวัสดี {$firstName}</div>
-    <div class="dash-sub">{$term ?? ''} · เรียน {count($courses)} รายวิชา</div>
+    <section class="hero">
+        <div class="hero-main">
+            <span class="hero-badge"><span class="msi">waving_hand</span>ยินดีต้อนรับกลับ</span>
+            <div class="dash-greeting">สวัสดี {$firstName}</div>
+            <div class="dash-sub">{$term ?? ''} · เรียน {count($courses)} รายวิชา</div>
+        </div>
+        <div class="hero-side">
+            <div class="hero-pill"><div class="num">{count($courses)}</div><div class="lbl">รายวิชาที่เรียน</div></div>
+        </div>
+    </section>
 
     {include '../_partials/join-form.latte'}
 
@@ -13,12 +23,15 @@
         <div class="course-grid">
             {foreach $courses as $c}
                 <a class="course-card" href="{$base}/learn/{$c['id']}">
-                    <div class="course-card-head" style="background: var(--brand)">
-                        <div class="code">{$c['code']}</div>
+                    <div class="course-card-head" style="background:#{$cardColors[$c['id'] % count($cardColors)]}">
                         <div class="name">{$c['name']}</div>
+                        <div class="code">{$c['code']}</div>
+                        <div class="teacher">{$c['teacher_name'] ?? '—'}</div>
                     </div>
-                    <div class="course-card-body">
-                        <div class="meta">ผู้สอน: {$c['teacher_name'] ?? '—'}</div>
+                    <div class="course-card-body"></div>
+                    <div class="course-card-icons" aria-hidden="true">
+                        <span class="msi" title="งานของฉัน">assignment</span>
+                        <span class="msi" title="เปิดรายวิชา">folder_open</span>
                     </div>
                 </a>
             {/foreach}

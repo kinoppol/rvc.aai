@@ -3,11 +3,51 @@
 {block title}หน้าแรก{/block}
 
 {block content}
+{* ตัวเลขสรุปบนแดชบอร์ด รวมจากรายการรายวิชาที่ส่งมาอยู่แล้ว *}
+{var $studentTotal = (int) array_sum(array_column($courses, 'student_count'))}
+{var $unitTotal = (int) array_sum(array_column($courses, 'unit_count'))}
+{var $pending = $reviewCount ?? 0}
 <div class="dash">
-    <div class="dash-greeting">สวัสดี {$firstName}</div>
-    <div class="dash-sub">
-        {$term ?? ''} · สอน {count($courses)} รายวิชา
-        {if $todayClasses > 0} · วันนี้มีคาบสอน {$todayClasses} คาบ{/if}
+    <section class="hero">
+        <div class="hero-main">
+            <span class="hero-badge"><span class="msi">waving_hand</span>ยินดีต้อนรับกลับ</span>
+            <div class="dash-greeting">สวัสดี {$firstName}</div>
+            <div class="dash-sub">
+                {$term ?? ''} · สอน {count($courses)} รายวิชา
+                {if $todayClasses > 0} · วันนี้มีคาบสอน {$todayClasses} คาบ{/if}
+            </div>
+        </div>
+        <div class="hero-side">
+            <div class="hero-pill"><div class="num">{count($courses)}</div><div class="lbl">รายวิชาที่สอน</div></div>
+            <div class="hero-pill"><div class="num">{$pending}</div><div class="lbl">รอตรวจ</div></div>
+        </div>
+    </section>
+
+    <div class="metric-grid">
+        <div class="metric metric-indigo">
+            <div class="metric-top"><div class="metric-icon"><span class="msi">class</span></div></div>
+            <div class="metric-label">รายวิชา</div>
+            <div class="metric-value">{count($courses)}</div>
+        </div>
+        <div class="metric metric-emerald">
+            <div class="metric-top"><div class="metric-icon"><span class="msi">group</span></div></div>
+            <div class="metric-label">นักเรียนทั้งหมด</div>
+            <div class="metric-value">{$studentTotal}</div>
+        </div>
+        <div class="metric metric-amber">
+            <div class="metric-top"><div class="metric-icon"><span class="msi">library_books</span></div></div>
+            <div class="metric-label">หน่วยการเรียน</div>
+            <div class="metric-value">{$unitTotal}</div>
+        </div>
+        <div class="metric metric-rose">
+            <div class="metric-top">
+                <div class="metric-icon"><span class="msi">auto_awesome</span></div>
+                <span class="metric-note">ใช้ไป {$quota['pct']}%</span>
+            </div>
+            <div class="metric-label">AI คงเหลือเดือนนี้</div>
+            <div class="metric-value">{$quota['left']}</div>
+            <div class="bar"><span style="width: {100 - $quota['pct']}%"></span></div>
+        </div>
     </div>
 
     {if $courses}
@@ -22,6 +62,10 @@
                         <div class="meta">{$c['classroom_name'] ?? 'ยังไม่ระบุกลุ่มเรียน'} · {$c['student_count']} คน</div>
                         <div class="note">{$c['unit_count']} หน่วยการเรียน</div>
                     </div>
+                    <div class="course-card-icons" aria-hidden="true">
+                        <span class="msi" title="นักเรียน">group</span>
+                        <span class="msi" title="เปิดรายวิชา">folder_open</span>
+                    </div>
                 </a>
             {/foreach}
         </div>
@@ -32,39 +76,57 @@
         </div>
     {/if}
 
-    <div class="quota-strip">
-        <div class="grow">
-            <div class="label">ผู้ช่วย AI · เหลือ {$quota['left']} ครั้งในเดือนนี้</div>
-            <div n:class="bar, $quota['pct'] >= 100 ? bar-warn">
-                <span style="width: {100 - $quota['pct']}%"></span>
+    <div class="dash-row">
+        <div class="card">
+            <div class="section-head">
+                <h2>งานที่สร้างล่าสุด</h2>
+                <a class="link-btn" href="{$base}/review">ดูรายการรอตรวจ ({$pending})</a>
             </div>
-        </div>
-        <a class="btn btn-sm" href="{$base}/settings/ai">จัดการ</a>
-    </div>
 
-    <div class="section-head">
-        <h2>งานที่สร้างล่าสุด</h2>
-        <a class="link-btn" href="{$base}/review">ดูรายการรอตรวจ ({$reviewCount ?? 0})</a>
-    </div>
-
-    {if $recent}
-        <div class="recent-list">
-            {foreach $recent as $r}
-                <div class="row">
-                    <div class="main">
-                        <div class="title">{$r['title']}</div>
-                        {if $r['meta']}<div class="meta">{$r['meta']}</div>{/if}
-                    </div>
-                    <span n:class="tag, $r['status_kind'] === 'ok' ? tag-ok : tag-warn">{$r['status']}</span>
-                    <div class="when">{$r['time']}</div>
+            {if $recent}
+                <div class="recent-list">
+                    {foreach $recent as $r}
+                        <div class="row">
+                            <div class="main">
+                                <div class="title">{$r['title']}</div>
+                                {if $r['meta']}<div class="meta">{$r['meta']}</div>{/if}
+                            </div>
+                            <span n:class="tag, $r['status_kind'] === 'ok' ? tag-ok : tag-warn">{$r['status']}</span>
+                            <div class="when">{$r['time']}</div>
+                        </div>
+                    {/foreach}
                 </div>
-            {/foreach}
+            {else}
+                <div class="empty" style="margin-top:12px">
+                    <h3>ยังไม่มีงานที่สร้างด้วยผู้ช่วย AI</h3>
+                    <p>เปิดรายวิชาแล้วกด “ให้ AI ช่วย” เพื่อร่างข้อสอบหรือแผนการสอนชิ้นแรก</p>
+                </div>
+            {/if}
         </div>
-    {else}
-        <div class="empty" style="margin-top:12px">
-            <h3>ยังไม่มีงานที่สร้างด้วยผู้ช่วย AI</h3>
-            <p>เปิดรายวิชาแล้วกด “ให้ AI ช่วย” เพื่อร่างข้อสอบหรือแผนการสอนชิ้นแรก</p>
-        </div>
-    {/if}
+
+        <aside class="insight-card">
+            <h2><span class="msi">smart_toy</span>ผู้ช่วย AI</h2>
+            <ul class="insight-list">
+                <li>
+                    <span class="insight-dot {$quota['pct'] >= 100 ? 'is-rose' : ($quota['pct'] >= 80 ? 'is-amber' : '')}"></span>
+                    <div class="grow">
+                        เหลือ {$quota['left']} จาก {$quota['limit']} ครั้งในเดือนนี้
+                        <div n:class="bar, $quota['pct'] >= 100 ? bar-warn">
+                            <span style="width: {100 - $quota['pct']}%"></span>
+                        </div>
+                    </div>
+                </li>
+                <li>
+                    <span n:class="insight-dot, $pending > 0 ? is-amber"></span>
+                    <div>{if $pending > 0}มีงานรอตรวจก่อนเผยแพร่ {$pending} ชิ้น · <a href="{$base}/review">ไปตรวจ</a>{else}ไม่มีงานค้างตรวจ{/if}</div>
+                </li>
+                <li>
+                    <span class="insight-dot"></span>
+                    <div>ผลงานจาก AI ทุกชิ้นจะรอครูตรวจก่อนเผยแพร่ให้นักเรียนเสมอ</div>
+                </li>
+            </ul>
+            <a class="btn" href="{$base}/settings/ai">จัดการผู้ช่วย AI</a>
+        </aside>
+    </div>
 </div>
 {/block}

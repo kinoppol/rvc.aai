@@ -34,6 +34,12 @@ final class AppearanceController
         return $this->view->render($response, 'settings/appearance', [
             'page' => 'appearance',
             'presets' => Palette::PRESETS,
+            // สีคู่และพื้นหลังของแต่ละสีสำเร็จรูป — ใช้วาดตัวอย่างและแสดงผลทันทีตอนกดเลือก
+            'pairs' => array_map(static function (string $hex): array {
+                $t = Palette::tokens($hex);
+
+                return ['accent' => $t['accent'], 'bg' => $t['bg'], 'darkAccent' => $t['darkAccent'], 'darkBg' => $t['darkBg']];
+            }, array_combine(array_keys(Palette::PRESETS), array_keys(Palette::PRESETS))),
             'current' => $current['hex'],
             'usesOwn' => $current['own'],
             'siteHex' => $current['siteHex'],

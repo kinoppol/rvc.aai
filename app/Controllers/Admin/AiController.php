@@ -70,7 +70,95 @@ final class AiController
             'capTotal' => $cap > 0 ? $cap * $teacherCount : 0,
             'teacherCount' => $teacherCount,
             'courses' => $tab === 'courses' ? $this->courses->allActiveForAdmin() : [],
+            // ผู้ให้บริการทั้งหมด + ตัวที่กำลังแก้ (?edit=id หรือ ?edit=new)
+            'endpoints' => array_map(static fn (array $e): array => $e + [
+                'models' => array_values(array_filter(AiRepository::enabledModels($e))),
+                'unlimited' => AiRepository::unlimitedModels($e),
+                'checked_ago' => $e['last_checked_at'] ? Thai::ago($e['last_checked_at']) : null,
+            ], $this->ai->endpoints()),
+            'editing' => $this->editingEndpoint($request),
         ]);
+    }
+
+    /**
+     * ผู้ให้บริการที่เปิดฟอร์มแก้ไขอยู่ — ['id' => null] = เพิ่มใหม่, null = ไม่ได้เปิดฟอร์ม
+     * ยังไม่มีผู้ให้บริการเลย ให้เปิดฟอร์มเพิ่มใหม่ไว้เลย
+     *
+     * @return array<string,mixed>|null
+     */
+    private function editingEndpoint(Request $request): ?array
+    {
+        $edit = (string) ($request->getQueryParams()['edit'] ?? '');
+
+        if ($edit === 'new' || ($edit === '' && $this->ai->endpoints() === [])) {
+            return ['id' => null, 'name' => '', 'kind' => 'ollama', 'base_url' => '', 'models' => [], 'unlimited' => [], 'notes' => '', 'api_key_encrypted' => null];
+        }
+
+        $endpoint = ctype_digit($edit) ? $this->ai->endpoint((int) $edit) : null;
+
+        return $endpoint === null ? null : $endpoint + [
+            'models' => array_values(array_filter(AiRepository::enabledModels($endpoint))),
+            'unlimited' => AiRepository::unlimitedModels($endpoint),
+        ];
+    }
+
+    /** ลบผู้ให้บริการส่วนกลาง */
+    public function deleteEndpoint(Request $request, Response $response, array $args): Response
+    {
+        if (!Csrf::check(((array) $request->getParsedBody())['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ');
+
+            return $this->redirect($response, 'settings');
+        }
+
+        $endpoint = $this->ai->endpoint((int) $args['id']);
+        if ($endpoint !== null) {
+            $this->ai->deleteEndpoint((int) $endpoint['id']);
+            $this->auth->log('ai.endpoint.delete', (string) $endpoint['base_url'], ['name' => $endpoint['name']]);
+            Flash::success('ลบ ' . $endpoint['name'] . ' แล้ว');
+        }
+
+        return $this->redirect($response, 'settings');
+    }
+
+    /** เปิด/ปิดผู้ให้บริการชั่วคราว (ปิดแล้วครูจะไม่เห็นในรายการ AI) */
+    public function toggleEndpoint(Request $request, Response $response, array $args): Response
+    {
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ');
+
+            return $this->redirect($response, 'settings');
+        }
+
+        $endpoint = $this->ai->endpoint((int) $args['id']);
+        if ($endpoint !== null) {
+            $on = ($data['active'] ?? '') === '1';
+            $this->ai->setEndpointActive((int) $endpoint['id'], $on);
+            $this->auth->log('ai.endpoint.active', (string) $endpoint['base_url'], ['active' => $on]);
+            Flash::success(($on ? 'เปิดใช้ ' : 'ปิดใช้ ') . $endpoint['name'] . ' แล้ว');
+        }
+
+        return $this->redirect($response, 'settings');
+    }
+
+    /** ตั้งเป็นผู้ให้บริการหลักของส่วนกลาง */
+    public function defaultEndpoint(Request $request, Response $response, array $args): Response
+    {
+        if (!Csrf::check(((array) $request->getParsedBody())['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ');
+
+            return $this->redirect($response, 'settings');
+        }
+
+        $endpoint = $this->ai->endpoint((int) $args['id']);
+        if ($endpoint !== null) {
+            $this->ai->setDefaultEndpoint((int) $endpoint['id']);
+            $this->auth->log('ai.endpoint.default', (string) $endpoint['base_url']);
+            Flash::success('ตั้ง ' . $endpoint['name'] . ' เป็นผู้ให้บริการหลักแล้ว');
+        }
+
+        return $this->redirect($response, 'settings');
     }
 
     /** ผู้ดูแลเปิด/ปิดฟังก์ชัน AI ของรายวิชานี้ (บางฟังก์ชันยังไม่ผ่านการทดสอบ จึงจำกัดเป็นรายวิชาได้) */
@@ -128,7 +216,9 @@ final class AiController
             return $this->redirect($response, 'settings');
         }
 
-        $current = $this->ai->defaultEndpoint();
+        // id = แก้ผู้ให้บริการเดิม · ว่าง = เพิ่มรายใหม่
+        $current = ctype_digit((string) ($data['id'] ?? '')) ? $this->ai->endpoint((int) $data['id']) : null;
+        $back = $current !== null ? 'settings&edit=' . $current['id'] : 'settings&edit=new';
         $kind = self::kind($data['kind'] ?? '');
         $baseUrl = self::baseUrlFor($kind, (string) ($data['base_url'] ?? ''));
         $apiKey = trim((string) ($data['api_key'] ?? ''));
@@ -136,28 +226,28 @@ final class AiController
         if (self::needsBaseUrl($kind) && !preg_match('~^https?://~i', $baseUrl)) {
             Flash::error('ที่อยู่ของเครื่องไม่ถูกต้อง ต้องขึ้นต้นด้วย http:// หรือ https://');
 
-            return $this->redirect($response, 'settings');
+            return $this->redirect($response, $back);
         }
 
         if (self::needsKey($kind) && $apiKey === '' && empty($current['api_key_encrypted'])) {
             Flash::error('บริการนี้ต้องใช้รหัสเชื่อมต่อ กรุณาวางรหัสจากผู้ให้บริการ');
 
-            return $this->redirect($response, 'settings');
+            return $this->redirect($response, $back);
         }
 
-        // เลือก "อื่น ๆ" จากรายชื่อโมเดล = ใช้ชื่อที่ผู้ดูแลพิมพ์เอง
-        $model = trim((string) ($data['model'] ?? ''));
-        if ($model === '__custom') {
-            $model = trim((string) ($data['model_custom'] ?? ''));
-        }
+        // โมเดลที่ติ๊กเปิดใช้ (หลายตัว) — ตัวแรกเป็นโมเดลหลัก
+        $models = AiRepository::modelFields(array_values((array) ($data['models'] ?? [])));
 
-        $fields = [
+        $fields = $models + [
+            // โมเดลที่ติ๊ก "ใช้ได้ไม่จำกัด" — ครูใช้ได้โดยไม่ตัดโควตา (เช่น โมเดลฟรีของผู้ให้บริการ)
+            'models_unlimited' => AiRepository::unlimitedField(
+                array_values((array) ($data['unlimited'] ?? [])),
+                json_decode((string) $models['models_enabled'], true) ?: []
+            ),
             'name' => trim((string) ($data['name'] ?? '')) ?: 'AI ของส่วนกลาง',
             'base_url' => $baseUrl,
             'kind' => $kind,
-            'model' => $model,
             'notes' => trim((string) ($data['notes'] ?? '')) ?: null,
-            'is_default' => 1,
         ];
 
         if ($apiKey !== '') {
@@ -172,12 +262,12 @@ final class AiController
         $probe = $this->probeEndpoint($kind, $baseUrl, $this->endpointKey($apiKey, $current), $fields['model']);
         $this->ai->markEndpointChecked($id, $probe['ok'] ? 'online' : 'offline');
 
-        $this->auth->log('ai.endpoint.save', $baseUrl, ['kind' => $kind, 'ok' => $probe['ok']]);
+        $this->auth->log('ai.endpoint.save', $baseUrl, ['kind' => $kind, 'ok' => $probe['ok'], 'models' => $models['models_enabled']]);
         $probe['ok']
-            ? Flash::success('บันทึกและเชื่อมต่อเครื่อง AI ส่วนกลางได้แล้ว · ' . $probe['message'])
+            ? Flash::success('บันทึกและเชื่อมต่อ ' . $fields['name'] . ' ได้แล้ว · ' . $probe['message'])
             : Flash::error('บันทึกแล้ว แต่ยังต่อไม่ได้ · ' . $probe['message']);
 
-        return $this->redirect($response, 'settings');
+        return $this->redirect($response, $probe['ok'] ? 'settings' : 'settings&edit=' . $id);
     }
 
     /** ทดสอบการเชื่อมต่อโดยไม่บันทึก (เรียกจากปุ่มในหน้าจอ) */
@@ -190,7 +280,8 @@ final class AiController
 
         $kind = self::kind($data['kind'] ?? '');
         $baseUrl = self::baseUrlFor($kind, (string) ($data['base_url'] ?? ''));
-        $current = $this->ai->defaultEndpoint();
+        // ทดสอบผู้ให้บริการที่กำลังแก้ — ใช้รหัสที่เก็บไว้ของรายนั้นเมื่อไม่ได้พิมพ์รหัสใหม่
+        $current = ctype_digit((string) ($data['id'] ?? '')) ? $this->ai->endpoint((int) $data['id']) : null;
 
         $probe = $this->probeEndpoint(
             $kind,

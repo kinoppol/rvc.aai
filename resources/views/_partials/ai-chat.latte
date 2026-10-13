@@ -4,7 +4,7 @@
 *}
 {var $isTeacher = in_array($user['role'] ?? '', ['teacher', 'supervisor'], true)}
 <button type="button" class="aichat-fab" id="aichatFab" aria-expanded="false" aria-controls="aichatPanel">
-    <span class="aichat-fab-icon">✦</span>
+    <span class="aichat-fab-icon msi" aria-hidden="true">smart_toy</span>
     <span class="aichat-fab-text">ผู้ช่วย AI</span>
     <span class="aichat-fab-dot" id="aichatFabDot" hidden></span>
 </button>
@@ -12,7 +12,7 @@
 <section class="aichat-panel" id="aichatPanel" role="dialog" aria-label="ช่องสนทนากับผู้ช่วย AI"
          data-base="{$base}" data-token="{$csrf}" data-user="{$user['id'] ?? 0}" hidden>
     <header class="aichat-head">
-        <span class="aichat-head-icon">✦</span>
+        <span class="aichat-head-icon msi" aria-hidden="true">smart_toy</span>
         <div class="aichat-head-title">
             ผู้ช่วย AI
             <div class="aichat-head-sub" id="aichatStatus">กำลังตรวจการเชื่อมต่อ…</div>
@@ -20,6 +20,12 @@
         <button type="button" class="aichat-icon-btn" id="aichatClear" title="ล้างบทสนทนา">↺</button>
         <button type="button" class="aichat-icon-btn" id="aichatClose" title="ปิด">✕</button>
     </header>
+
+    {* เลือก AI ที่จะตอบในช่องสนทนานี้ — แสดงเมื่อมีให้เลือกมากกว่าหนึ่งตัว *}
+    <label class="aichat-pick" id="aichatPick" hidden>
+        <span class="msi" aria-hidden="true">smart_toy</span>
+        <select id="aichatAi" aria-label="เลือก AI ที่จะใช้ตอบ"></select>
+    </label>
 
     <div class="aichat-log" id="aichatLog" aria-live="polite">
         <div class="aichat-empty" id="aichatEmpty">
@@ -89,12 +95,51 @@
         fabDot.className = 'aichat-fab-dot is-' + (tone || 'ok');
     }
 
+    /* ตัวเลือก AI ในช่องสนทนา — '' = ใช้ค่าเริ่มต้นของครู · จำไว้กับบทสนทนาในแท็บนี้ */
+    var pick = document.getElementById('aichatPick');
+    var aiSelect = document.getElementById('aichatAi');
+
+    function fillOptions(options, fallback) {
+        aiSelect.innerHTML = '';
+        var auto = document.createElement('option');
+        auto.value = '';
+        auto.textContent = 'อัตโนมัติ · ตามค่าเริ่มต้นของฉัน';
+        aiSelect.appendChild(auto);
+
+        var groups = Object.create(null);
+        (options || []).forEach(function (o) {
+            if (!groups[o.group]) {
+                groups[o.group] = document.createElement('optgroup');
+                groups[o.group].label = o.group;
+                aiSelect.appendChild(groups[o.group]);
+            }
+            var opt = document.createElement('option');
+            opt.value = o.id;
+            opt.textContent = o.label + (o.online ? '' : ' (ปิดอยู่)');
+            groups[o.group].appendChild(opt);
+        });
+
+        // ตัวที่เคยเลือกไว้ถูกปิดไปแล้ว — กลับไปใช้ค่าเริ่มต้น
+        var wanted = state.ai || '';
+        if (wanted && !(options || []).some(function (o) { return o.id === wanted; })) { wanted = ''; state.ai = ''; save(); }
+        aiSelect.value = wanted;
+        pick.hidden = (options || []).length < 2;
+    }
+
+    aiSelect.addEventListener('change', function () {
+        state.ai = aiSelect.value;
+        save();
+        checked = false;
+        checkStatus();
+    });
+
     function checkStatus() {
         if (checked) { return; }
         checked = true;
-        fetch(base + '/ai/chat/status', { credentials: 'same-origin' })
+        fetch(base + '/ai/chat/status?ai=' + encodeURIComponent(state.ai || ''), { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
+                fillOptions(d.options);
                 if (d.ok) { setStatus('พร้อมใช้งาน · ' + d.chip, 'ok'); }
                 else { setStatus(d.message || 'ยังใช้งานไม่ได้', 'err'); }
             })
@@ -106,7 +151,7 @@
        ปิดแท็บแล้วหายไปเอง (เครื่องในห้องเรียนใช้ร่วมกันหลายคน จึงไม่เก็บถาวรใน localStorage) */
     var storeKey = 'rvc.aichat.' + (panel.dataset.user || '0');
     var MAX_ITEMS = 80;
-    var state = { open: false, draft: '', files: [], items: [] };
+    var state = { open: false, draft: '', files: [], items: [], ai: '' };
     try {
         var saved = JSON.parse(sessionStorage.getItem(storeKey) || 'null');
         if (saved && Array.isArray(saved.items)) { state = Object.assign(state, saved); }
@@ -570,7 +615,8 @@
                 setBusy(false);
                 return;
             }
-            openStream(base + '/ai/chat/stream?_token=' + encodeURIComponent(token) + '&p=' + encodeURIComponent(d.id));
+            openStream(base + '/ai/chat/stream?_token=' + encodeURIComponent(token) + '&p=' + encodeURIComponent(d.id)
+                + '&ai=' + encodeURIComponent(state.ai || ''));
         }).catch(function () {
             drop(reply);
             note('ส่งข้อความไม่สำเร็จ กรุณาลองใหม่', 'err');
@@ -581,7 +627,12 @@
         source = new EventSource(url);
 
         source.addEventListener('meta', function (e) {
-            setStatus('พร้อมใช้งาน · ' + JSON.parse(e.data).chip, 'ok');
+            var meta = JSON.parse(e.data);
+            setStatus('พร้อมใช้งาน · ' + meta.chip, 'ok');
+            // AI ที่เลือกไว้ใช้ไม่ได้ในตอนนี้ — ระบบสลับให้ บอกครูตรง ๆ ว่าตอบด้วยตัวไหน
+            if (meta.switched) {
+                note('AI ที่เลือกไว้ใช้ไม่ได้ตอนนี้ · ตอบด้วย ' + meta.chip + ' แทน', 'err');
+            }
         });
 
         source.addEventListener('delta', function (e) {

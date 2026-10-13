@@ -15,7 +15,7 @@ final class CourseRepository
      * สีหัวการ์ดรายวิชา (ไม่มี # เพราะ Latte จะ escape # ใน context ของ style attribute
      * เทมเพลตจึงเติม # เองเป็น style="background:#{$c['color']}")
      */
-    private const CARD_COLORS = ['0E6B60', '2D6E8E', '6B5B95', '8A5A3B', '1F5F3F', '9C6206'];
+    private const CARD_COLORS = ['6366F1', 'F43F5E', '10B981', 'D97706', '8B5CF6', '0EA5E9'];
 
     /** ตัดตัวที่อ่านสับสนกันออก (O/0, I/1) เพราะครูมักเขียนรหัสบนกระดาน */
     private const JOIN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

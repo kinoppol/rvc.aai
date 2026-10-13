@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\AI\AiRouter;
 use App\AI\AiUnavailableException;
 use App\AI\GoogleAiProvider;
 use App\AI\KeyCipher;
@@ -37,6 +38,7 @@ final class SettingsController
         private readonly SettingsRepository $settings,
         private readonly KeyCipher $cipher,
         private readonly Auth $auth,
+        private readonly AiRouter $router,
     ) {
     }
 
@@ -50,6 +52,13 @@ final class SettingsController
         $endpoint = $this->ai->defaultEndpoint();
         $key = $this->ai->activeKeyForUser($uid);
 
+        // คีย์ของครูทั้งหมด พร้อมโมเดลที่เปิดใช้ของแต่ละคีย์
+        $keys = array_map(static fn (array $k): array => $k + [
+            'provider_name' => self::PROVIDERS[$k['provider']] ?? $k['provider'],
+            'models' => array_values(array_filter(AiRepository::enabledModels($k))),
+            'verified_ago' => $k['verified_at'] ? Thai::ago($k['verified_at']) : null,
+        ], $this->ai->activeKeysForUser($uid));
+
         return $this->view->render($response, 'settings/ai', [
             'page' => 'settings',
             'quota' => $quota,
@@ -62,6 +71,9 @@ final class SettingsController
             'qualityPref' => $this->settings->userQualityPref($uid),
             'routePref' => $this->settings->userRoutePref($uid),
             'providers' => self::PROVIDERS,
+            'keys' => $keys,
+            'aiOptions' => $this->router->options($uid),
+            'aiDefault' => $this->router->defaultTarget($uid),
         ]);
     }
 
@@ -100,11 +112,14 @@ final class SettingsController
             return $this->redirect($response, '/settings/ai');
         }
 
-        $this->ai->saveKey((int) $user['id'], [
+        // โมเดลที่ครูติ๊กไว้ในขั้นสุดท้าย — ไม่ได้ติ๊กเลยใช้โมเดลที่ผู้ให้บริการแนะนำ
+        $chosen = array_values((array) ($data['models'] ?? []));
+        $models = AiRepository::modelFields($chosen !== [] ? $chosen : [(string) ($probe['model'] ?? '')]);
+
+        $this->ai->saveKey((int) $user['id'], $models + [
             'provider' => $provider,
             'label' => self::PROVIDERS[$provider],
             'base_url' => $baseUrl,
-            'model' => $probe['model'] ?? null,
             'key_encrypted' => $this->cipher->encrypt($key),
             'key_last4' => $this->cipher->last4($key),
             'status' => 'active',
@@ -112,7 +127,7 @@ final class SettingsController
         ]);
 
         $this->auth->log('ai.key.connect', $provider);
-        Flash::success('เชื่อม AI ของฉันแล้ว · ระบบจะใช้ของครูก่อนเสมอ');
+        Flash::success('เชื่อม AI ของฉันแล้ว · ' . self::PROVIDERS[$provider]);
 
         return $this->redirect($response, '/settings/ai');
     }
@@ -127,9 +142,17 @@ final class SettingsController
             return $this->redirect($response, '/settings/ai');
         }
 
-        $this->ai->disconnectUser((int) $user['id']);
-        $this->auth->log('ai.key.disconnect');
-        Flash::success('ยกเลิกการเชื่อมแล้ว · กลับไปใช้ AI ของส่วนกลาง');
+        // ยกเลิกทีละคีย์ — ไม่ระบุคีย์ = ยกเลิกทั้งหมด (ปุ่มเดิม)
+        $keyId = (int) ($data['key_id'] ?? 0);
+        if ($keyId > 0) {
+            $this->ai->disableKey((int) $user['id'], $keyId);
+        } else {
+            $this->ai->disconnectUser((int) $user['id']);
+        }
+        $this->auth->log('ai.key.disconnect', $keyId > 0 ? 'key#' . $keyId : null);
+        Flash::success($this->ai->activeKeysForUser((int) $user['id']) === []
+            ? 'ยกเลิกการเชื่อมแล้ว · กลับไปใช้ AI ของส่วนกลาง'
+            : 'ยกเลิกการเชื่อมบริการนี้แล้ว');
 
         return $this->redirect($response, '/settings/ai');
     }
@@ -168,6 +191,93 @@ final class SettingsController
         Flash::success($pref === 'college'
             ? 'ใช้ AI ของส่วนกลางก่อน · จะสลับไปใช้ AI ของครูให้อัตโนมัติเมื่อเครื่องส่วนกลางไม่ว่าง'
             : 'ใช้ AI ของฉันก่อน · จะสลับไปใช้เครื่องของส่วนกลางให้อัตโนมัติเมื่อ AI ของครูใช้ไม่ได้');
+
+        return $this->redirect($response, '/settings/ai');
+    }
+
+    /** ครูเลือกโมเดลที่เปิดใช้ของคีย์หนึ่ง */
+    public function keyModels(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ');
+
+            return $this->redirect($response, '/settings/ai');
+        }
+
+        $key = $this->ai->keyForUser((int) $user['id'], (int) $args['id']);
+        if ($key === null) {
+            Flash::error('ไม่พบการเชื่อมต่อนี้');
+
+            return $this->redirect($response, '/settings/ai');
+        }
+
+        $this->ai->updateKey((int) $user['id'], (int) $key['id'], AiRepository::modelFields(array_values((array) ($data['models'] ?? []))));
+        $this->auth->log('ai.key.models', 'key#' . $key['id']);
+        Flash::success('บันทึกโมเดลที่เปิดใช้แล้ว');
+
+        return $this->redirect($response, '/settings/ai');
+    }
+
+    /** ดึงรายชื่อโมเดลของคีย์ที่บันทึกไว้แล้ว (ใช้รหัสที่เก็บไว้ ครูไม่ต้องวางใหม่) */
+    public function keyProbe(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            return $this->json($response, ['ok' => false, 'message' => 'เซสชันหมดอายุ'], 419);
+        }
+
+        $key = $this->ai->keyForUser((int) $user['id'], (int) $args['id']);
+        if ($key === null) {
+            return $this->json($response, ['ok' => false, 'message' => 'ไม่พบการเชื่อมต่อนี้'], 404);
+        }
+
+        try {
+            $secret = $this->cipher->decrypt((string) $key['key_encrypted']);
+        } catch (\RuntimeException) {
+            return $this->json($response, ['ok' => false, 'message' => 'อ่านรหัสที่เก็บไว้ไม่ได้ กรุณาเชื่อมต่อใหม่']);
+        }
+
+        return $this->json($response, $this->probeKey((string) $key['provider'], $secret, $key['base_url'] ?: null));
+    }
+
+    /** AI ที่ใช้เป็นค่าเริ่มต้นของครู ('' = ให้ระบบเลือกตามลำดับ) */
+    public function defaultAi(Request $request, Response $response): Response
+    {
+        $user = $request->getAttribute('user');
+        $uid = (int) $user['id'];
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ');
+
+            return $this->redirect($response, '/settings/ai');
+        }
+
+        $target = trim((string) ($data['target'] ?? ''));
+        $option = null;
+        foreach ($this->router->options($uid) as $o) {
+            if ($o['id'] === $target) {
+                $option = $o;
+            }
+        }
+
+        if ($target !== '' && $option === null) {
+            Flash::error('ไม่พบ AI ที่เลือก อาจถูกปิดไปแล้ว');
+
+            return $this->redirect($response, '/settings/ai');
+        }
+
+        $this->settings->set('ai_target:' . $uid, $target, 'string', 'ai');
+        // ให้ลำดับสำรองไปทางแหล่งเดียวกับตัวที่เลือก
+        if ($option !== null) {
+            $this->settings->set('ai_route:' . $uid, $option['source'], 'string', 'ai');
+        }
+        $this->auth->log('ai.default.set', $target !== '' ? $target : 'auto');
+        Flash::success($option !== null
+            ? 'ตั้งค่าเริ่มต้นเป็น ' . $option['group'] . ' · ' . $option['label'] . ' แล้ว'
+            : 'ให้ระบบเลือก AI ให้อัตโนมัติแล้ว');
 
         return $this->redirect($response, '/settings/ai');
     }

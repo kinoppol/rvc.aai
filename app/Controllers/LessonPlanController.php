@@ -59,6 +59,7 @@ final class LessonPlanController
             'course' => $course,
             'styles' => self::STYLES,
             'aiChip' => $route,
+            'aiOptions' => $this->router->options((int) $request->getAttribute('user')['id']),
             'existing' => $this->plans->forCourse($course['id'], (int) $request->getAttribute('user')['id']),
         ]);
     }
@@ -93,7 +94,8 @@ final class LessonPlanController
 
         try {
             $quality = $this->settings->userQualityPref((int) $user['id']);
-            $route = $this->router->route((int) $user['id'], $quality, real: true);
+            // AI ที่ครูเลือกในหน้าแผนการสอน ('' = ค่าเริ่มต้นของครู)
+            $route = $this->router->route((int) $user['id'], $quality, real: true, target: trim((string) ($q['ai'] ?? '')));
         } catch (AiUnavailableException $e) {
             $send('error', ['reason' => $e->reason, 'message' => $e->getMessage()]);
 

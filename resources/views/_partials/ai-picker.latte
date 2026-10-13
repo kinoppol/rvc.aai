@@ -1,0 +1,24 @@
+{*
+    เลือก AI ที่จะใช้ทำงานชิ้นนี้ — ใช้กับหน้าสร้างข้อสอบและแผนการสอน
+    ต้องส่ง options: (AiRouter::options) และ chosen: (รหัสที่เลือกไว้ '' = ค่าเริ่มต้น) · id: ของ <select>
+    แสดงเฉพาะเมื่อมี AI ให้เลือกมากกว่าหนึ่งตัว
+*}
+{if count($options) > 1}
+    <div class="ai-picker">
+        <label class="ai-picker-label" for="{$id}">AI ที่ใช้ทำงานนี้</label>
+        <select class="input" id="{$id}" name="ai">
+            <option value="">อัตโนมัติ · ตามค่าเริ่มต้นของฉัน</option>
+            {var $group = null}
+            {foreach $options as $o}
+                {if $o['group'] !== $group}
+                    {if $group !== null}</optgroup>{/if}
+                    <optgroup label="{$o['group']}">
+                    {var $group = $o['group']}
+                {/if}
+                <option value="{$o['id']}" selected="{$o['id'] === $chosen}">{$o['label']}{if !$o['online']} (ปิดอยู่){/if}</option>
+            {/foreach}
+            {if $group !== null}</optgroup>{/if}
+        </select>
+        <div class="hint">ถ้าตัวที่เลือกใช้ไม่ได้ ระบบจะสลับไปตัวอื่นให้อัตโนมัติ</div>
+    </div>
+{/if}

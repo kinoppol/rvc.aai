@@ -3,7 +3,7 @@
 {block title}สีหลักของหน้าจอ{/block}
 
 {block content}
-<div class="wizard-page" style="max-width:820px" id="appearancePage">
+<div class="wizard-page" style="max-width:820px" id="appearancePage" data-pairs="{json_encode($pairs)}">
     <h1>สีหลักของหน้าจอ</h1>
     <div class="sub">
         {if $isAdmin}
@@ -21,7 +21,7 @@
         <div class="swatches" style="margin-top:12px">
             {foreach $presets as $hex => $label}
                 <button type="button" class="swatch{if $hex === $current} is-on{/if}" data-hex="{$hex}" title="{$label}">
-                    <span class="swatch-dot" style="background:#{$hex}"></span>
+                    <span class="swatch-dot" style="background:linear-gradient(135deg, #{$hex} 0 50%, #{$pairs[$hex]['accent']} 50% 100%)"></span>
                     <span class="swatch-name">{$label}</span>
                 </button>
             {/foreach}
@@ -75,6 +75,37 @@
     var picker = document.getElementById('colorPicker');
     var hex = document.getElementById('colorHex');
     var root = document.documentElement;
+    var pairs = JSON.parse(page.dataset.pairs || 'null') || Object.create(null);
+
+    function hexOf(c) { return c.map(function (v) { return Math.round(v).toString(16).padStart(2, '0'); }).join('').toUpperCase(); }
+    function mixRgb(a, b, t) { return a.map(function (v, i) { return v + (b[i] - v) * t; }); }
+
+    /* ชุดสีคู่ของสีที่เลือกเอง — หมุนเฉดสี 30° (สีเทาใช้โทนเดียวกันที่อ่อนลง) */
+    function derivePair(rgb) {
+        var r = rgb[0] / 255, g = rgb[1] / 255, b = rgb[2] / 255;
+        var max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, s = 0, h = 0, d = max - min;
+        if (d) {
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            h = max === r ? ((g - b) / d + (g < b ? 6 : 0)) : (max === g ? (b - r) / d + 2 : (r - g) / d + 4);
+            h *= 60;
+        }
+        var accent;
+        if (s < 0.15) {
+            accent = mixRgb(rgb, [255, 255, 255], 0.3);
+        } else {
+            h = (h + 30) % 360; s = Math.min(1, s * 1.05); l = Math.min(0.62, l + 0.1);
+            var c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2;
+            var p = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+            accent = p.map(function (v) { return (v + m) * 255; });
+        }
+        var white = [255, 255, 255], night = [11, 11, 22];
+        return {
+            accent: hexOf(accent),
+            darkAccent: hexOf(mixRgb(accent, white, 0.25)),
+            bg: [mixRgb(accent, white, 0.78), mixRgb(rgb, white, 0.86), mixRgb(accent, white, 0.9), mixRgb(rgb, white, 0.8)].map(hexOf),
+            darkBg: [mixRgb(rgb, night, 0.72), mixRgb(accent, night, 0.8), mixRgb(rgb, night, 0.88), mixRgb(accent, night, 0.74)].map(hexOf)
+        };
+    }
 
     /* แสดงผลทันทีที่เลือก โดยยังไม่ต้องบันทึก */
     function preview(h) {
@@ -100,6 +131,12 @@
         root.style.setProperty('--brandInk', dark ? '#08201C' : (light > 0.55 ? '#16221F' : '#FFFFFF'));
         root.style.setProperty('--brandSoft', dark ? mix(night, 0.76) : mix(white, 0.88));
         root.style.setProperty('--brandLine', dark ? mix(night, 0.58) : mix(white, 0.62));
+
+        // สีคู่ + พื้นหลังพาสเทล: สีสำเร็จรูปใช้คู่ที่ระบบคัดไว้ สีที่เลือกเองคำนวณแบบเดียวกับ Palette::accentFor()
+        var pair = pairs[h] || derivePair(rgb);
+        var bg = dark ? pair.darkBg : pair.bg;
+        root.style.setProperty('--violet', '#' + (dark ? pair.darkAccent : pair.accent));
+        root.style.setProperty('--bgGradient', 'linear-gradient(-45deg, #' + bg.join(', #') + ')');
 
         page.querySelectorAll('.swatch').forEach(function (b) {
             b.classList.toggle('is-on', b.dataset.hex === h);

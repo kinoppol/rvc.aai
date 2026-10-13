@@ -189,6 +189,9 @@ return static function (App $app): void {
             $s->post('/ai/disconnect', [SettingsController::class, 'disconnect']);
             $s->post('/ai/mode', [SettingsController::class, 'mode']);
             $s->post('/ai/route', [SettingsController::class, 'route']);
+            $s->post('/ai/default', [SettingsController::class, 'defaultAi']);
+            $s->post('/ai/keys/{id:[0-9]+}/models', [SettingsController::class, 'keyModels']);
+            $s->post('/ai/keys/{id:[0-9]+}/probe', [SettingsController::class, 'keyProbe']);
         })->add(new RoleMiddleware(Roles::TEACHING));
 
         // งานกำกับดูแล — ผู้ดูแลระบบและผู้ดูแลครูเข้าได้เท่ากัน
@@ -219,6 +222,9 @@ return static function (App $app): void {
             $admin->post('/ai/cap', [AdminAiController::class, 'saveCap']);
             $admin->post('/ai/endpoint', [AdminAiController::class, 'saveEndpoint']);
             $admin->post('/ai/endpoint/test', [AdminAiController::class, 'testEndpoint']);
+            $admin->post('/ai/endpoint/{id:[0-9]+}/delete', [AdminAiController::class, 'deleteEndpoint']);
+            $admin->post('/ai/endpoint/{id:[0-9]+}/active', [AdminAiController::class, 'toggleEndpoint']);
+            $admin->post('/ai/endpoint/{id:[0-9]+}/default', [AdminAiController::class, 'defaultEndpoint']);
             $admin->post('/ai/courses/{id:[0-9]+}/features', [AdminAiController::class, 'saveCourseFeatures']);
             $admin->post('/users/{id:[0-9]+}/impersonate', [ImpersonationController::class, 'start']);
             $admin->post('/users/{id:[0-9]+}/reset-password', [AdminUsersController::class, 'resetPassword']);

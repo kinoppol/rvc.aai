@@ -44,27 +44,37 @@ final class AiChatController
     ) {
     }
 
-    /** สถานะเส้นทาง AI ปัจจุบัน สำหรับแสดง chip ตอนเปิดช่องสนทนา */
+    /**
+     * สถานะเส้นทาง AI ปัจจุบัน สำหรับแสดง chip ตอนเปิดช่องสนทนา
+     * พร้อมรายการ AI ที่เลือกใช้ได้ (options) ให้ช่องสนทนาแสดงตัวเลือกสลับ AI
+     */
     public function status(Request $request, Response $response): Response
     {
         $user = $request->getAttribute('user');
+        $uid = (int) $user['id'];
+        $target = trim((string) ($request->getQueryParams()['ai'] ?? ''));
+        $extra = [
+            'options' => $this->router->options($uid),
+            'default' => $this->router->defaultTarget($uid),
+        ];
 
         try {
-            $quality = $this->settings->userQualityPref((int) $user['id']);
-            $route = $this->router->route((int) $user['id'], $quality, false, real: true);
+            $quality = $this->settings->userQualityPref($uid);
+            $route = $this->router->route($uid, $quality, false, real: true, target: $target);
 
             return $this->json($response, [
                 'ok' => true,
                 'chip' => $route->chip,
                 'source' => $route->source,
                 'model' => $route->model,
-            ]);
+                'target' => $route->target,
+            ] + $extra);
         } catch (AiUnavailableException $e) {
             return $this->json($response, [
                 'ok' => false,
                 'reason' => $e->reason,
                 'message' => $e->getMessage(),
-            ]);
+            ] + $extra);
         }
     }
 
@@ -109,15 +119,23 @@ final class AiChatController
 
         $quality = $this->settings->userQualityPref((int) $user['id']);
 
+        // AI ที่ครูเลือกในช่องสนทนา (ว่าง = ค่าเริ่มต้น) — ถ้าใช้ไม่ได้ ระบบสลับตัวอื่นให้และบอกใน meta
+        $wanted = trim((string) ($params['ai'] ?? ''));
+
         try {
-            $route = $this->router->route((int) $user['id'], $quality, false, real: true);
+            $route = $this->router->route((int) $user['id'], $quality, false, real: true, target: $wanted);
         } catch (AiUnavailableException $e) {
             $send('error', ['reason' => $e->reason, 'message' => $e->getMessage()]);
 
             return $response;
         }
 
-        $send('meta', ['chip' => $route->chip, 'source' => $route->source]);
+        $send('meta', [
+            'chip' => $route->chip,
+            'source' => $route->source,
+            'target' => $route->target,
+            'switched' => $wanted !== '' && $wanted !== $route->target,
+        ]);
 
         $spec = json_encode([
             'task' => 'chat',

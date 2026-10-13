@@ -113,20 +113,84 @@
     </div>
 
     {elseif $tab === 'settings'}
+    {* รายการผู้ให้บริการ AI ของส่วนกลาง — มีได้หลายราย แต่ละรายเปิดได้หลายโมเดล ครูเลือกใช้ตัวไหนก็ได้ *}
+    <div class="section-head" style="margin-top:22px">
+        <div>
+            <h2>ผู้ให้บริการ AI ของส่วนกลาง</h2>
+            <div class="hint" style="margin-top:4px">ครูทุกคนเลือกใช้ได้จากรายการนี้ · ตัวหลักจะถูกใช้เมื่อครูไม่ได้เลือกเอง · ครูที่เชื่อม AI ของตัวเองไว้จะไม่ถูกกระทบ</div>
+        </div>
+        {if !$editing || $editing['id'] !== null}
+            <a class="btn btn-primary" href="{$base}/admin/ai?tab=settings&edit=new">+ เพิ่มผู้ให้บริการ</a>
+        {/if}
+    </div>
+
+    {if $endpoints}
+        <div class="provider-list">
+            {foreach $endpoints as $e}
+                <div n:class="card, provider-item, !$e['is_active'] ? is-off, $editing && (int) $editing['id'] === (int) $e['id'] ? is-editing">
+                    <div class="provider-top">
+                        <span n:class="dot-status, $e['is_active'] && $e['status'] === 'online' ? is-online"></span>
+                        <div class="grow">
+                            <div class="provider-name">
+                                {$e['name']}
+                                {if $e['is_default']}<span class="chip chip-ok">ตัวหลัก</span>{/if}
+                                {if !$e['is_active']}<span class="chip chip-muted">ปิดใช้อยู่</span>{/if}
+                            </div>
+                            <div class="hint">
+                                {$e['kind'] === 'ollama' ? 'Ollama' : ($e['kind'] === 'openrouter' ? 'OpenRouter' : ($e['kind'] === 'google' ? 'Google AI Studio' : 'API แบบ OpenAI'))}
+                                · <span class="mono">{$e['base_url']}</span>
+                                · {$e['status'] === 'online' ? 'เชื่อมต่อได้' : ($e['status'] === 'offline' ? 'เชื่อมต่อไม่ได้' : 'ยังไม่ได้ตรวจ')}{if $e['checked_ago']} {$e['checked_ago']}{/if}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="model-chips">
+                        {foreach $e['models'] as $m}
+                            <span n:class="chip, $iterator->first ? chip-ok : chip-muted" title="{$m}">{$m}{if $iterator->first} · หลัก{/if}{if in_array($m, $e['unlimited'], true)} · ∞ ไม่จำกัด{/if}</span>
+                        {else}
+                            <span class="chip chip-muted">ให้ปลายทางเลือกโมเดลเอง</span>
+                        {/foreach}
+                    </div>
+                    <div class="key-btns">
+                        <a class="btn btn-sm" href="{$base}/admin/ai?tab=settings&edit={$e['id']}">แก้ไข · เลือกโมเดล</a>
+                        {if !$e['is_default'] && $e['is_active']}
+                            <form method="post" action="{$base}/admin/ai/endpoint/{$e['id']}/default">
+                                <input type="hidden" name="_token" value="{$csrf}">
+                                <button type="submit" class="btn btn-sm">ตั้งเป็นตัวหลัก</button>
+                            </form>
+                        {/if}
+                        <form method="post" action="{$base}/admin/ai/endpoint/{$e['id']}/active">
+                            <input type="hidden" name="_token" value="{$csrf}">
+                            <input type="hidden" name="active" value="{$e['is_active'] ? '0' : '1'}">
+                            <button type="submit" class="btn btn-sm">{$e['is_active'] ? 'ปิดใช้ชั่วคราว' : 'เปิดใช้'}</button>
+                        </form>
+                        <form method="post" action="{$base}/admin/ai/endpoint/{$e['id']}/delete"
+                              data-confirm-title="ลบผู้ให้บริการ" data-confirm-ok="ลบ" data-confirm-danger
+                              data-confirm="ลบ {$e['name']} ใช่หรือไม่ · ครูที่ตั้งค่าเริ่มต้นไว้ที่ผู้ให้บริการนี้จะถูกสลับไปใช้ตัวอื่นอัตโนมัติ">
+                            <input type="hidden" name="_token" value="{$csrf}">
+                            <button type="submit" class="btn btn-sm btn-ghost-danger">ลบ</button>
+                        </form>
+                    </div>
+                </div>
+            {/foreach}
+        </div>
+    {/if}
+
+    {if $editing}
+    {var $endpoint = $editing}
     <div class="card" style="margin-top:22px" id="endpointCard" data-base="{$base}">
-        <strong>การเชื่อมต่อ AI ของส่วนกลาง</strong>
+        <strong>{$endpoint['id'] === null ? 'เพิ่มผู้ให้บริการ AI' : 'แก้ไข ' . $endpoint['name']}</strong>
         <div class="hint" style="margin-top:6px">
-            ตั้งค่าเครื่องหรือบริการที่ครูทุกคนใช้ร่วมกัน · ครูที่เชื่อม AI ของตัวเองไว้จะไม่ถูกกระทบ
-            {if $endpoint && $endpoint['last_checked_at']} · ตรวจล่าสุด {$endpointCheckedAgo}{/if}
+            ตั้งค่าเครื่องหรือบริการ แล้วเลือกโมเดลที่จะเปิดให้ครูใช้ได้หลายตัว
         </div>
 
         <form method="post" action="{$base}/admin/ai/endpoint" style="margin-top:16px" id="endpointForm">
             <input type="hidden" name="_token" value="{$csrf}">
+            <input type="hidden" name="id" value="{$endpoint['id']}" id="epId">
 
             <div class="endpoint-grid">
                 <div class="field">
                     <label for="epName">ชื่อที่ครูเห็น</label>
-                    <input class="input" id="epName" name="name" value="{$endpoint['name'] ?? 'AI ของส่วนกลาง'}" maxlength="191">
+                    <input class="input" id="epName" name="name" value="{$endpoint['name'] ?: 'AI ของส่วนกลาง'}" maxlength="191">
                 </div>
                 <div class="field">
                     <label for="epKind">ชนิดการเชื่อมต่อ</label>
@@ -144,27 +208,11 @@
                     <div class="hint" id="epUrlHint"></div>
                 </div>
                 <div class="field">
-                    <label for="epModel">โมเดลที่เปิดใช้งาน</label>
-                    <div style="display:flex;gap:8px">
-                        {* ช่องเดียวแบบ autocomplete: พิมพ์ชื่อบางส่วนเพื่อกรอง เลือกจากรายการ หรือพิมพ์ชื่อเองก็ได้ (ว่าง = ให้ปลายทางเลือกเอง)
-                           readonly จนกว่าจะคลิก — กันเบราว์เซอร์เดาว่าเป็นช่องชื่อผู้ใช้ (อยู่ก่อนช่อง password) แล้วเติมอีเมลที่บันทึกไว้ *}
-                        <div class="combo" style="flex:1">
-                            <input class="input mono" id="epModel" name="model" maxlength="191" autocomplete="off" readonly
-                                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="epModelList"
-                                   data-lpignore="true" data-1p-ignore data-form-type="other"
-                                   value="{$endpoint['model'] ?? ''}" placeholder="พิมพ์ชื่อบางส่วน เช่น qwen, gpt-4.1 · เว้นว่าง = ให้ปลายทางเลือกเอง">
-                            <ul class="combo-list" id="epModelList" role="listbox" hidden></ul>
-                        </div>
-                        <button type="button" class="btn" id="epLoadBtn" title="ดึงรายชื่อโมเดลจากปลายทาง">↻</button>
-                    </div>
-                    <div class="hint" id="epModelHint">กด ↻ หรือ “ทดสอบการเชื่อมต่อ” เพื่อดึงรายชื่อโมเดลจากปลายทาง</div>
-                </div>
-                <div class="field">
                     <label for="epKey">รหัสเชื่อมต่อ (ถ้าปลายทางต้องใช้)</label>
                     <input class="input mono" id="epKey" name="api_key" type="password" autocomplete="new-password"
                            data-lpignore="true" data-1p-ignore
-                           placeholder="{$endpoint && $endpoint['api_key_encrypted'] ? 'เก็บรหัสไว้แล้ว — เว้นว่างเพื่อใช้รหัสเดิม' : 'ไม่ต้องใส่ถ้าเป็นเครื่องภายใน'}">
-                    {if $endpoint && $endpoint['api_key_encrypted']}
+                           placeholder="{$endpoint['api_key_encrypted'] ? 'เก็บรหัสไว้แล้ว — เว้นว่างเพื่อใช้รหัสเดิม' : 'ไม่ต้องใส่ถ้าเป็นเครื่องภายใน'}">
+                    {if $endpoint['api_key_encrypted']}
                         <label class="hint" style="display:flex;gap:7px;align-items:center;margin-top:7px">
                             <input type="checkbox" name="clear_key" value="1"> ลบรหัสที่เก็บไว้
                         </label>
@@ -177,14 +225,25 @@
                 </div>
             </div>
 
+            <div class="field">
+                <label style="display:flex;align-items:center;gap:8px">
+                    โมเดลที่เปิดให้ครูใช้ · เลือกได้หลายตัว
+                    <button type="button" class="btn btn-sm" id="epLoadBtn" title="ดึงรายชื่อโมเดลจากปลายทาง">↻ ดึงรายชื่อ</button>
+                </label>
+                <div class="hint" id="epModelHint" style="margin-bottom:8px">กด ↻ หรือ “ทดสอบการเชื่อมต่อ” เพื่อดึงรายชื่อโมเดลจากปลายทาง · กดป้าย “นับโควตา” ของโมเดลที่ใช้ฟรีให้เป็น “∞ ไม่จำกัด” แล้วครูจะใช้โมเดลนั้นได้โดยไม่นับโควตา</div>
+                <div id="epModels" data-models="{json_encode($endpoint['models'])}" data-unlimited="{json_encode($endpoint['unlimited'])}"></div>
+            </div>
+
             <div id="epTestResult"></div>
 
             <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
                 <button type="button" class="btn" id="epTestBtn">ทดสอบการเชื่อมต่อ</button>
-                <button type="submit" class="btn btn-primary">บันทึกการตั้งค่า</button>
+                <button type="submit" class="btn btn-primary">บันทึก</button>
+                {if $endpoints}<a class="btn" href="{$base}/admin/ai?tab=settings">ยกเลิก</a>{/if}
             </div>
         </form>
     </div>
+    {/if}
 
     {elseif $tab === 'quota'}
     <div class="card" style="margin-top:22px">
@@ -276,6 +335,7 @@ function rvcToggleAiFeature(courseId, feature, btn) {
 }
 </script>
 
+<script src="{$base}/assets/js/model-picker.js"></script>
 <script>
 (function () {
     var card = document.getElementById('endpointCard');
@@ -287,12 +347,19 @@ function rvcToggleAiFeature(courseId, feature, btn) {
     var urlHint = document.getElementById('epUrlHint');
     var urlField = document.getElementById('epUrlField');
     var keyField = document.getElementById('epKey').closest('.field');
-    var model = document.getElementById('epModel');
     var modelHint = document.getElementById('epModelHint');
     var box = document.getElementById('epTestResult');
     var testBtn = document.getElementById('epTestBtn');
     var loadBtn = document.getElementById('epLoadBtn');
-    var saved = model.value;
+    var modelsBox = document.getElementById('epModels');
+
+    /* เลือกได้หลายโมเดล + ติ๊ก "ใช้ได้ไม่จำกัด" เป็นรายโมเดล */
+    var picker = RvcModelPicker(modelsBox, {
+        name: 'models[]',
+        selected: JSON.parse(modelsBox.dataset.models || '[]'),
+        unlimitedName: 'unlimited[]',
+        unlimited: JSON.parse(modelsBox.dataset.unlimited || '[]')
+    });
 
     /* บริการภายนอกมีที่อยู่ตายตัว ผู้ดูแลกรอกแค่รหัสเชื่อมต่อ */
     var HOSTED = { openrouter: 'https://openrouter.ai/api/v1', google: 'https://generativelanguage.googleapis.com/v1beta' };
@@ -317,121 +384,7 @@ function rvcToggleAiFeature(courseId, feature, btn) {
         }
     }
 
-    /* ช่องเลือกโมเดลแบบ autocomplete — รายชื่อมาจากปลายทาง พิมพ์ชื่อบางส่วนเพื่อกรอง (หลายคำต้องตรงทุกคำ) */
-    var list = document.getElementById('epModelList');
-    var models = [];
-    var active = -1;
-    var MAX_SHOWN = 200;
-
-    model.addEventListener('focus', function () { model.readOnly = false; });
-
-    function matches() {
-        var words = model.value.toLowerCase().split(/\s+/).filter(Boolean);
-        // ตรงชื่อเป๊ะแล้ว (เพิ่งเลือกมา) ให้เห็นรายการทั้งหมดเพื่อเปลี่ยนได้ง่าย
-        if (models.indexOf(model.value) !== -1) { words = []; }
-        return models.filter(function (m) {
-            var name = m.toLowerCase();
-            return words.every(function (w) { return name.indexOf(w) !== -1; });
-        });
-    }
-
-    function render() {
-        var found = matches();
-        list.innerHTML = '';
-        active = -1;
-
-        found.slice(0, MAX_SHOWN).forEach(function (m) {
-            var li = document.createElement('li');
-            li.setAttribute('role', 'option');
-            li.textContent = m;
-            li.title = m;
-            if (m === model.value) { li.className = 'is-current'; }
-            li.addEventListener('mousedown', function (e) { e.preventDefault(); choose(m); });
-            list.appendChild(li);
-        });
-        if (found.length > MAX_SHOWN) {
-            var more = document.createElement('li');
-            more.className = 'combo-note';
-            more.textContent = 'และอีก ' + (found.length - MAX_SHOWN) + ' รายการ · พิมพ์เพิ่มเพื่อกรองให้แคบลง';
-            list.appendChild(more);
-        }
-        if (!found.length && models.length) {
-            var none = document.createElement('li');
-            none.className = 'combo-note';
-            none.textContent = 'ไม่พบโมเดลที่ตรงกัน — ใช้ชื่อที่พิมพ์นี้ได้เลยถ้าแน่ใจว่าถูก';
-            list.appendChild(none);
-        }
-        return found.length;
-    }
-
-    function open() {
-        if (!models.length) { return; }
-        render();
-        list.hidden = false;
-        model.setAttribute('aria-expanded', 'true');
-    }
-    function close() {
-        list.hidden = true;
-        model.setAttribute('aria-expanded', 'false');
-    }
-    function choose(m) {
-        model.value = m;
-        close();
-        syncHint();
-    }
-    function highlight(i) {
-        var items = list.querySelectorAll('li[role=option]');
-        if (!items.length) { return; }
-        active = (i + items.length) % items.length;
-        items.forEach(function (li, n) { li.classList.toggle('is-active', n === active); });
-        items[active].scrollIntoView({ block: 'nearest' });
-    }
-
-    function syncHint() {
-        var v = model.value.trim();
-        if (!models.length) { return; }
-        if (v === '') {
-            modelHint.textContent = 'เว้นว่างไว้ = ให้ปลายทางเลือกโมเดลเอง · ปลายทางมีให้เลือก ' + models.length + ' รายการ';
-        } else if (models.indexOf(v) === -1) {
-            var n = matches().length;
-            modelHint.textContent = n
-                ? 'ตรงกัน ' + n + ' จาก ' + models.length + ' รายการ · ลูกศรขึ้น/ลงแล้ว Enter เพื่อเลือก'
-                : '“' + v + '” ไม่มีในรายชื่อของปลายทาง — บันทึกได้ แต่ตรวจชื่อให้ถูกก่อน';
-        } else {
-            modelHint.textContent = 'เลือก ' + v + ' · กดบันทึกเพื่อเปิดใช้งาน';
-        }
-    }
-
-    model.addEventListener('click', open);
-    model.addEventListener('input', function () { open(); syncHint(); });
-    model.addEventListener('blur', close);
-    model.addEventListener('keydown', function (e) {
-        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-            e.preventDefault();
-            if (list.hidden) { open(); }
-            highlight(active + (e.key === 'ArrowDown' ? 1 : -1));
-        } else if (e.key === 'Enter') {
-            if (list.hidden) { return; }
-            e.preventDefault(); // อย่าส่งฟอร์มตอนกำลังเลือก
-            var items = list.querySelectorAll('li[role=option]');
-            var pick = items[active >= 0 ? active : 0];
-            if (pick) { choose(pick.textContent); } else { close(); }
-        } else if (e.key === 'Escape') {
-            close();
-        }
-    });
-
-    /* เติมรายชื่อโมเดลที่ปลายทางมีจริง ให้ผู้ดูแลเลือกเปิดใช้งาน */
-    function fillModels(names) {
-        models = names.slice();
-        if (document.activeElement === model) { open(); }
-        syncHint();
-        var v = model.value.trim();
-        if (v && v === saved && models.indexOf(v) === -1) {
-            modelHint.textContent = v + ' ไม่พบบนปลายทางแล้ว — เลือกโมเดลอื่นจากรายการ';
-        }
-    }
-
+    /* ทดสอบ/ดึงรายชื่อโมเดล — showResult = แสดงผลการทดสอบด้วย (ตรวจโมเดลหลักที่เลือกไว้) */
     function probe(showResult) {
         if (!url.value.trim()) { return; }
         var buttons = [testBtn, loadBtn];
@@ -441,9 +394,10 @@ function rvcToggleAiFeature(courseId, feature, btn) {
 
         var body = new URLSearchParams({
             _token: card.querySelector('input[name=_token]').value,
+            id: document.getElementById('epId').value,
             kind: kind.value,
             base_url: url.value,
-            model: showResult ? model.value.trim() : '',
+            model: showResult ? (picker.selected()[0] || '') : '',
             api_key: document.getElementById('epKey').value
         });
 
@@ -463,11 +417,11 @@ function rvcToggleAiFeature(courseId, feature, btn) {
             }
 
             if (d.models && d.models.length) {
-                fillModels(d.models);
-                modelHint.textContent = 'ปลายทางมีโมเดลให้เลือก ' + d.models.length + ' รายการ · เลือกแล้วกดบันทึกเพื่อเปิดใช้งาน';
+                picker.setModels(d.models);
+                modelHint.textContent = 'ปลายทางมีโมเดลให้เลือก ' + d.models.length + ' รายการ · ติ๊กโมเดลที่จะเปิดให้ครูใช้ แล้วกดบันทึก';
             } else {
                 modelHint.textContent = d.ok
-                    ? 'ปลายทางไม่ได้บอกรายชื่อโมเดล — พิมพ์ชื่อโมเดลลงในช่องได้เลย'
+                    ? 'ปลายทางไม่ได้บอกรายชื่อโมเดล — พิมพ์ชื่อโมเดลเองด้านล่างได้'
                     : 'ดึงรายชื่อโมเดลไม่ได้ · ' + d.message;
             }
         }).catch(function () {
@@ -481,7 +435,6 @@ function rvcToggleAiFeature(courseId, feature, btn) {
     url.addEventListener('blur', syncUrlHint);
     testBtn.addEventListener('click', function () { probe(true); });
     loadBtn.addEventListener('click', function () { probe(false); });
-
 
     syncUrlHint();
     if (url.value.trim()) { probe(false); }

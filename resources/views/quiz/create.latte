@@ -80,6 +80,7 @@
                 <div><dt>ความยาก</dt><dd id="sumLevel">กลาง</dd></div>
             </dl>
             <div class="hr"></div>
+            {include '../_partials/ai-picker.latte', options: $aiOptions, chosen: $aiChosen, id: 'quizAi'}
             <div class="ai-chip">{$aiChip}</div>
             <div class="hint" style="margin-top:10px">{$aiWait}</div>
             <button type="button" class="btn btn-primary btn-block" id="startBtn" style="margin-top:16px" n:attr="disabled: !$units">
@@ -152,6 +153,8 @@
         state.types.forEach(function (t) { qs.append('types', t); });
         qs.set('count', state.count);
         qs.set('level', state.level);
+        var ai = document.getElementById('quizAi');
+        if (ai && ai.value) { qs.set('ai', ai.value); }
         window.location = base + '/courses/' + courseId + '/quizzes/workspace?' + qs.toString();
     });
 

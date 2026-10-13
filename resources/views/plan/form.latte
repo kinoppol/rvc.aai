@@ -34,6 +34,7 @@
                 </div>
             </div>
             <div class="hr"></div>
+            {include '../_partials/ai-picker.latte', options: $aiOptions, chosen: '', id: 'planAi'}
             <div class="ai-chip">{$aiChip}</div>
             <button type="button" class="btn btn-primary btn-block" id="makePlanBtn" style="margin-top:14px">ร่างเอกสารให้ฉัน</button>
         </aside>
@@ -90,7 +91,8 @@
             competency: document.getElementById('pComp').value,
             hours: document.getElementById('pHours').value,
             week: document.getElementById('pWeek').value,
-            style: style
+            style: style,
+            ai: document.getElementById('planAi') ? document.getElementById('planAi').value : ''
         });
         var es = new EventSource(base + '/courses/' + cid + '/lesson-plan/stream?' + qs.toString());
 

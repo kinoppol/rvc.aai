@@ -44,21 +44,37 @@
 
             {if !$byokAllowed}
                 <div class="alert alert-info" style="margin-top:16px"><span>ℹ</span><div>ผู้ดูแลระบบปิดการเชื่อม AI ส่วนตัวไว้ ติดต่อฝ่าย IT หากต้องการใช้งาน</div></div>
-            {elseif $key}
-                <div class="alert alert-success" style="margin-top:16px">
-                    <span>✓</span>
-                    <div><strong>เชื่อมแล้ว · {$keyProviderName}</strong><br>
-                        รหัสลงท้าย <span class="mono">…{$key['key_last4']}</span>{if $keyVerifiedAgo} · ทดสอบล่าสุด{$keyVerifiedAgo}{/if}</div>
+            {elseif $keys}
+                {* ครูเชื่อมได้หลายบริการ แต่ละบริการเปิดได้หลายโมเดล *}
+                <div class="key-list">
+                    {foreach $keys as $k}
+                        <div class="key-item">
+                            <div class="key-head">
+                                <strong>{$k['provider_name']}</strong>
+                                <span class="hint">รหัสลงท้าย <span class="mono">…{$k['key_last4']}</span>{if $k['verified_ago']} · ทดสอบล่าสุด{$k['verified_ago']}{/if}</span>
+                            </div>
+                            <div class="model-chips">
+                                {foreach $k['models'] as $m}
+                                    <span n:class="chip, $iterator->first ? chip-ok : chip-muted" title="{$m}">{$m}{if $iterator->first} · หลัก{/if}</span>
+                                {else}
+                                    <span class="chip chip-muted">โมเดลเริ่มต้นของผู้ให้บริการ</span>
+                                {/foreach}
+                            </div>
+                            <div class="key-btns">
+                                <button type="button" class="btn btn-sm" data-edit-models="{$k['id']}"
+                                        data-models="{json_encode($k['models'])}" data-name="{$k['provider_name']}">เลือกโมเดล</button>
+                                <form method="post" action="{$base}/settings/ai/disconnect"
+                                      data-confirm-title="ยกเลิกการเชื่อม {$k['provider_name']}" data-confirm-ok="ยกเลิกการเชื่อม" data-confirm-danger
+                                      data-confirm="ยกเลิกการเชื่อม {$k['provider_name']} · รหัสที่บันทึกไว้จะถูกลบ และงานจะใช้ AI ตัวอื่นแทน">
+                                    <input type="hidden" name="_token" value="{$csrf}">
+                                    <input type="hidden" name="key_id" value="{$k['id']}">
+                                    <button type="submit" class="btn btn-sm btn-ghost-danger">ยกเลิกการเชื่อม</button>
+                                </form>
+                            </div>
+                        </div>
+                    {/foreach}
                 </div>
-                <div style="display:flex;gap:9px;margin-top:12px">
-                    <button type="button" class="btn" style="flex:1" data-open-wizard>แก้การเชื่อมต่อ</button>
-                    <form method="post" action="{$base}/settings/ai/disconnect"
-                          data-confirm-title="ยกเลิกการเชื่อม AI ของฉัน" data-confirm-ok="ยกเลิกการเชื่อม" data-confirm-danger
-                          data-confirm="ยกเลิกการเชื่อม AI ของคุณ · ระบบจะกลับไปใช้ AI ของส่วนกลางแทน และรหัสที่บันทึกไว้จะถูกลบ">
-                        <input type="hidden" name="_token" value="{$csrf}">
-                        <button type="submit" class="btn btn-ghost-danger">ยกเลิกการเชื่อม</button>
-                    </form>
-                </div>
+                <button type="button" class="btn btn-block" style="margin-top:12px" data-open-wizard>+ เชื่อม AI เพิ่มอีกบริการ</button>
             {else}
                 <button type="button" class="btn btn-primary btn-block" style="margin-top:16px" data-open-wizard>เชื่อมต่อ AI ของฉัน</button>
                 <div class="hint" style="margin-top:10px">ใช้เวลาประมาณ 3 นาที มีขั้นตอนบอกทีละหน้าจอ ถ้าไม่เชื่อมก็ใช้ AI ของส่วนกลางได้ตามปกติ</div>
@@ -66,20 +82,29 @@
         </div>
     </div>
 
-    {if $key && $byokAllowed}
+    {if count($aiOptions) > 1}
     <div class="card" style="margin-top:24px">
-        <h2>ใช้ AI ตัวไหนก่อน</h2>
-        <div class="hint" style="margin-top:6px">ตอนนี้เชื่อมไว้ทั้งสองแหล่ง เลือกได้ว่าจะให้ผู้ช่วยเรียกใช้ตัวไหนก่อน ถ้าตัวที่เลือกใช้ไม่ได้ ระบบจะสลับไปอีกตัวให้อัตโนมัติ</div>
-        <form method="post" action="{$base}/settings/ai/route" class="mode-row" style="margin-top:12px">
+        <h2>AI ที่ใช้เป็นค่าเริ่มต้น</h2>
+        <div class="hint" style="margin-top:6px">
+            ใช้กับทุกงานที่ไม่ได้เลือก AI ไว้เอง · ตอนสั่งงานในช่องสนทนา ออกข้อสอบ หรือทำแผนการสอน ยังเลือกเปลี่ยนเป็นรายครั้งได้
+            · ถ้าตัวที่เลือกใช้ไม่ได้ ระบบจะสลับไปตัวอื่นให้อัตโนมัติ
+        </div>
+        <form method="post" action="{$base}/settings/ai/default" class="default-ai-form" style="margin-top:12px">
             <input type="hidden" name="_token" value="{$csrf}">
-            <button type="submit" name="route" value="byok" n:class="level-card, $routePref === 'byok' ? is-on">
-                <div class="level-name">AI ของฉัน{if $routePref === 'byok'} · ใช้อยู่{/if}</div>
-                <div class="level-desc">{$keyProviderName} · เร็วกว่า ไม่ต้องรอคิว และไม่ใช้โควตาของส่วนกลาง (ค่าเริ่มต้น)</div>
-            </button>
-            <button type="submit" name="route" value="college" n:class="level-card, $routePref === 'college' ? is-on">
-                <div class="level-name">AI ของส่วนกลาง{if $routePref === 'college'} · ใช้อยู่{/if}</div>
-                <div class="level-desc">ข้อมูลไม่ออกนอกวิทยาลัย · ใช้โควตาเดือนนี้ เหลือ {$quota['left']} จาก {$quota['limit']} ครั้ง</div>
-            </button>
+            <select class="input" name="target" aria-label="AI ที่ใช้เป็นค่าเริ่มต้น">
+                <option value="">อัตโนมัติ · AI ของฉันก่อน แล้วจึงของส่วนกลาง</option>
+                {var $group = null}
+                {foreach $aiOptions as $o}
+                    {if $o['group'] !== $group}
+                        {if $group !== null}</optgroup>{/if}
+                        <optgroup label="{$o['group']}">
+                        {var $group = $o['group']}
+                    {/if}
+                    <option value="{$o['id']}" selected="{$o['id'] === $aiDefault}">{$o['label']}{if !$o['online']} (ปิดอยู่){/if}</option>
+                {/foreach}
+                {if $group !== null}</optgroup>{/if}
+            </select>
+            <button type="submit" class="btn btn-primary">บันทึก</button>
         </form>
     </div>
     {/if}
@@ -155,6 +180,10 @@
                     </div>
                 </div>
                 <div id="wizTestResult"></div>
+                <div class="field" id="wizModelsField" style="margin-top:14px" hidden>
+                    <label>โมเดลที่จะเปิดใช้ · เลือกได้หลายตัว</label>
+                    <div id="wizModels"></div>
+                </div>
             </div>
         </form>
 
@@ -165,8 +194,31 @@
         </div>
     </div>
 </div>
+
+<div class="modal-backdrop" id="modelsModal" hidden>
+    <div class="modal-panel">
+        <div class="modal-head">
+            <div class="grow">
+                <div class="modal-title">เลือกโมเดลที่เปิดใช้</div>
+                <div class="hint" id="modelsModalName"></div>
+            </div>
+            <button type="button" class="icon-btn" data-close-models>✕</button>
+        </div>
+        <form method="post" class="modal-body" id="modelsForm">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <div class="hint" id="modelsLoading" style="margin-bottom:10px">กำลังดึงรายชื่อโมเดลจากผู้ให้บริการ…</div>
+            <div id="modelsPicker"></div>
+        </form>
+        <div class="modal-foot">
+            <button type="button" class="btn" data-close-models>ยกเลิก</button>
+            <div class="grow"></div>
+            <button type="submit" form="modelsForm" class="btn btn-primary">บันทึกโมเดล</button>
+        </div>
+    </div>
+</div>
 {/if}
 
+<script src="{$base}/assets/js/model-picker.js"></script>
 <script>
 (function () {
     var root = document.getElementById('aiSettings'), base = root.dataset.base;
@@ -187,6 +239,8 @@
         document.getElementById('wizProvName2').textContent = names[prov];
         document.getElementById('baseUrlField').hidden = prov !== 'openai_compatible';
         document.getElementById('wizTestResult').innerHTML = '';
+        document.getElementById('wizModelsField').hidden = true;
+        document.getElementById('wizModels').innerHTML = '';
     }
     function open() { modal.hidden = false; document.body.style.overflow = 'hidden'; show(1); }
     function close() { modal.hidden = true; document.body.style.overflow = ''; }
@@ -194,7 +248,11 @@
     root.querySelectorAll('[data-open-wizard]').forEach(function (b) { b.addEventListener('click', open); });
     modal.querySelector('[data-close-wizard]').addEventListener('click', close);
     modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) close(); });
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        if (!modal.hidden) close();
+        if (!document.getElementById('modelsModal').hidden) { document.getElementById('modelsModal').hidden = true; document.body.style.overflow = ''; }
+    });
 
     modal.querySelectorAll('.prov-row').forEach(function (row) {
         row.addEventListener('click', function () {
@@ -226,9 +284,57 @@
                 var box = document.getElementById('wizTestResult');
                 box.className = 'alert ' + (d.ok ? 'alert-success' : 'alert-error');
                 box.style.marginTop = '14px';
-                box.innerHTML = '<span>' + (d.ok ? '✓' : '✕') + '</span><div>' + d.message + '</div>';
+                box.innerHTML = '<span>' + (d.ok ? '✓' : '✕') + '</span><div></div>';
+                box.querySelector('div').textContent = d.message;
+
+                // ทดสอบผ่าน — ให้เลือกโมเดลที่จะเปิดใช้ (ติ๊กตัวที่ผู้ให้บริการแนะนำไว้ให้ก่อน)
+                var field = document.getElementById('wizModelsField');
+                field.hidden = !d.ok;
+                if (d.ok) {
+                    var picker = RvcModelPicker(document.getElementById('wizModels'), { name: 'models[]' });
+                    picker.setModels(d.models || []);
+                    picker.suggest(d.model);
+                }
             });
     }
+
+    /* เลือกโมเดลของบริการที่เชื่อมไว้แล้ว — ดึงรายชื่อด้วยรหัสที่เก็บไว้ ครูไม่ต้องวางรหัสใหม่ */
+    var modelsModal = document.getElementById('modelsModal');
+    var modelsForm = document.getElementById('modelsForm');
+    function closeModels() { modelsModal.hidden = true; document.body.style.overflow = ''; }
+    modelsModal.querySelectorAll('[data-close-models]').forEach(function (b) { b.addEventListener('click', closeModels); });
+    modelsModal.addEventListener('click', function (e) { if (e.target === modelsModal) closeModels(); });
+
+    root.querySelectorAll('[data-edit-models]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id = btn.dataset.editModels;
+            modelsForm.action = base + '/settings/ai/keys/' + id + '/models';
+            document.getElementById('modelsModalName').textContent = btn.dataset.name;
+            var loading = document.getElementById('modelsLoading');
+            loading.hidden = false;
+            loading.textContent = 'กำลังดึงรายชื่อโมเดลจากผู้ให้บริการ…';
+            var picker = RvcModelPicker(document.getElementById('modelsPicker'), {
+                name: 'models[]',
+                selected: JSON.parse(btn.dataset.models || '[]')
+            });
+            modelsModal.hidden = false;
+            document.body.style.overflow = 'hidden';
+
+            fetch(base + '/settings/ai/keys/' + id + '/probe', {
+                method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ _token: csrf })
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                if (d.models && d.models.length) {
+                    picker.setModels(d.models);
+                    loading.hidden = true;
+                } else {
+                    loading.textContent = d.ok
+                        ? 'ผู้ให้บริการไม่ได้บอกรายชื่อโมเดล · พิมพ์ชื่อโมเดลเองด้านล่างได้'
+                        : 'ดึงรายชื่อโมเดลไม่ได้ · ' + d.message;
+                }
+            }).catch(function () { loading.textContent = 'ดึงรายชื่อโมเดลไม่สำเร็จ · พิมพ์ชื่อโมเดลเองได้'; });
+        });
+    });
 
     document.getElementById('wizNextBtn').addEventListener('click', function () {
         if (step < 3) { show(step + 1); return; }

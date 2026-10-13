@@ -6,7 +6,9 @@
     <title>{block title}{/block} · {$appName}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap">
+    {* ไอคอน Material Symbols เฉพาะชื่อที่ใช้จริง (icon_names ต้องเรียงตามตัวอักษร) — display=block กันชื่อไอคอนโผล่เป็นตัวหนังสือระหว่างโหลด *}
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&icon_names=assignment,auto_awesome,chevron_right,class,dark_mode,database,expand_more,fact_check,folder_open,forum,group,home,library_books,light_mode,logout,manage_accounts,memory,menu,notifications,palette,report,school,search,settings,smart_toy,sync_alt,trending_up,waving_hand&display=block">
     <link rel="stylesheet" href="{$base}/assets/css/app.css">
     {if isset($ui)}
         {* สีหลักที่ผู้ดูแลหรือครูเลือกไว้ — เขียน # ในเทมเพลตเอง เพราะ Latte จะ escape # ใน CSS *}
@@ -16,20 +18,26 @@
                 --brandInk: #{$ui['brandInk']};
                 --brandSoft: #{$ui['brandSoft']};
                 --brandLine: #{$ui['brandLine']};
+                --violet: #{$ui['accent']};
+                --bgGradient: linear-gradient(-45deg, #{$ui['bg'][0]}, #{$ui['bg'][1]}, #{$ui['bg'][2]}, #{$ui['bg'][3]});
             }
             :root[data-theme="dark"] {
                 --brand: #{$ui['darkBrand']};
                 --brandInk: #{$ui['darkInk']};
                 --brandSoft: #{$ui['darkSoft']};
                 --brandLine: #{$ui['darkLine']};
+                --violet: #{$ui['darkAccent']};
+                --bgGradient: linear-gradient(-45deg, #{$ui['darkBg'][0]}, #{$ui['darkBg'][1]}, #{$ui['darkBg'][2]}, #{$ui['darkBg'][3]});
             }
         </style>
     {/if}
     <script>
         (function () {
-            var saved = null;
-            try { saved = localStorage.getItem('rvc-theme'); } catch (e) {}
+            var saved = null, folded = null;
+            try { saved = localStorage.getItem('rvc-theme'); folded = localStorage.getItem('rvc-nav'); } catch (e) {}
             if (saved) { document.documentElement.setAttribute('data-theme', saved); }
+            // ย่อเมนูข้างเหลือแต่ไอคอน (จำไว้ข้ามหน้า) — ตั้งก่อนวาดหน้าเพื่อไม่ให้เมนูกระพริบ
+            if (folded === 'mini') { document.documentElement.classList.add('nav-mini'); }
         })();
     </script>
 </head>
@@ -49,95 +57,179 @@
             </form>
         </div>
     {/if}
-    <header class="topbar">
-        <a href="{$base}/" class="brand">
-            <div class="brand-mark">RV</div>
-            <div class="brand-name">{$appName}</div>
-        </a>
-        <div class="topbar-spacer"></div>
-        <button type="button" class="btn btn-sm" onclick="rvcToggleTheme()" id="themeButton">โหมดมืด</button>
-        <div class="who">
-            <div class="avatar">{mb_substr($user['full_name'] ?? '?', 0, 2)}</div>
-            <div class="who-name">
-                {$user['full_name'] ?? 'ผู้ใช้'}
-                <span class="text-muted">· {$roleName}</span>
-            </div>
-        </div>
-        <form method="post" action="{$base}/{isset($impersonatedBy) && $impersonatedBy ? 'impersonate/stop' : 'logout'}">
-            <input type="hidden" name="_token" value="{$csrf}">
-            <button type="submit" class="btn btn-sm">{isset($impersonatedBy) && $impersonatedBy ? 'กลับเป็นผู้ดูแล' : 'ออกจากระบบ'}</button>
-        </form>
-    </header>
+    {* ปุ่มลัดบนแถบเครื่องมือ — ชี้ไปหน้าที่มีอยู่แล้วตามบทบาท *}
+    {var $bellUrl = $teaches ? '/review' : ($role === 'admin' ? '/admin/users' : '/learn')}
+    {var $bellTitle = $teaches ? 'รอตรวจก่อนเผยแพร่' : ($role === 'admin' ? 'ผู้ใช้งานและคำขอสมัคร' : 'วิชาที่เรียน')}
+    {var $gearUrl = $teaches ? '/settings/ai' : ($role === 'admin' ? '/admin/settings' : '/settings/appearance')}
+    {var $gearTitle = $teaches ? 'ผู้ช่วย AI ของฉัน' : ($role === 'admin' ? 'ตั้งค่าระบบ' : 'สีหลักของหน้าจอ')}
 
     <div class="shell">
-        <nav class="sidebar">
-            <a href="{$base}/dashboard" n:class="$page === 'dashboard' ? is-active"><span>⌂</span>หน้าแรก</a>
+        <div class="nav-scrim" id="navScrim" hidden></div>
+        <nav class="sidebar" id="sideNav">
+            <a href="{$base}/" class="side-brand" title="{$appName}">
+                <div class="brand-mark"><span class="msi">school</span></div>
+                <div class="brand-name">{$appName}</div>
+            </a>
 
-            {if $teaches}
-                <a href="{$base}/courses" n:class="$page === 'courses' ? is-active"><span>▤</span>รายวิชาของฉัน</a>
-                <a href="{$base}/students" n:class="$page === 'students' ? is-active"><span>🧑‍🎓</span>นักเรียนของฉัน</a>
-                <a href="{$base}/review" n:class="$page === 'review' ? is-active">
-                    <span>✓</span>รอตรวจก่อนเผยแพร่
-                    {if $rc > 0}<span class="nav-badge">{$rc}</span>{/if}
-                </a>
-                <a href="{$base}/board" n:class="$page === 'board' ? is-active"><span>💬</span>กระดานสนทนา</a>
-                <a href="{$base}/settings/ai" n:class="$page === 'settings' ? is-active"><span>✦</span>ผู้ช่วย AI ของฉัน</a>
-                <a href="{$base}/settings/appearance" n:class="$page === 'appearance' ? is-active"><span>◐</span>สีหลักของหน้าจอ</a>
-            {/if}
+            {*
+                เมนูจัดเป็นกลุ่มยุบ/ขยายได้ — กลุ่มที่มีหน้าปัจจุบันเปิดเสมอ
+                กลุ่มอื่นจำสถานะไว้ใน localStorage (rvc-nav-groups) สคริปต์ท้ายเมนูตั้งค่าก่อนวาดหน้า
+            *}
+            <div class="side-nav" id="sideNavList">
+                <a href="{$base}/dashboard" n:class="$page === 'dashboard' ? is-active" title="หน้าแรก"><span class="msi">home</span><span class="nav-label">หน้าแรก</span></a>
 
-            {if $role === 'student'}
-                <a href="{$base}/learn" n:class="$page === 'learn' ? is-active"><span>▤</span>วิชาที่เรียน</a>
-            {/if}
+                {if $teaches}
+                    <a href="{$base}/courses" n:class="$page === 'courses' ? is-active" title="รายวิชาของฉัน"><span class="msi">class</span><span class="nav-label">รายวิชาของฉัน</span></a>
+                    <a href="{$base}/students" n:class="$page === 'students' ? is-active" title="นักเรียนของฉัน"><span class="msi">group</span><span class="nav-label">นักเรียนของฉัน</span></a>
+                    <a href="{$base}/review" n:class="$page === 'review' ? is-active" title="รอตรวจก่อนเผยแพร่">
+                        <span class="msi">fact_check</span><span class="nav-label">รอตรวจก่อนเผยแพร่</span>
+                        {if $rc > 0}<span class="nav-badge">{$rc}</span>{/if}
+                    </a>
+                    <a href="{$base}/board" n:class="$page === 'board' ? is-active" title="กระดานสนทนา"><span class="msi">forum</span><span class="nav-label">กระดานสนทนา</span></a>
+                {/if}
 
-            {if $oversees}
-                <div class="group-label">งานกำกับดูแล</div>
-                <a href="{$base}/admin/users" n:class="$page === 'admin-users' ? is-active"><span>◉</span>ผู้ใช้งาน</a>
-                <a href="{$base}/admin/courses" n:class="$page === 'admin-courses' ? is-active"><span>▤</span>รายวิชาทั้งระบบ</a>
-            {/if}
+                {if $role === 'student'}
+                    <a href="{$base}/learn" n:class="$page === 'learn' ? is-active" title="วิชาที่เรียน"><span class="msi">school</span><span class="nav-label">วิชาที่เรียน</span></a>
+                {/if}
 
-            {if $role === 'admin'}
-                <div class="group-label">สำหรับผู้ดูแลระบบ</div>
-                <a href="{$base}/admin/ai" n:class="$page === 'admin-ai' ? is-active"><span>▣</span>เครื่อง AI และโควตา</a>
-                <a href="{$base}/admin/rms" n:class="$page === 'admin-rms' ? is-active"><span>⇅</span>โอนข้อมูลจาก RMS</a>
-                <a href="{$base}/admin/migrations" n:class="$page === 'migrations' ? is-active"><span>▤</span>จัดการฐานข้อมูล</a>
-                <a href="{$base}/admin/logs" n:class="$page === 'admin-logs' ? is-active"><span>⚠</span>บันทึกข้อขัดข้อง</a>
-                <a href="{$base}/admin/settings" n:class="$page === 'admin-settings' ? is-active"><span>⚙</span>ตั้งค่าระบบ</a>
-            {/if}
+                {if $oversees}
+                    {var $here = in_array($page, ['admin-users', 'admin-courses'], true)}
+                    <div n:class="nav-group, $here ? is-here" data-group="oversee">
+                        <button type="button" class="group-label" aria-expanded="true">
+                            <span class="grow">งานกำกับดูแล</span><span class="msi">expand_more</span>
+                        </button>
+                        <div class="nav-group-items">
+                            <a href="{$base}/admin/users" n:class="$page === 'admin-users' ? is-active" title="ผู้ใช้งาน"><span class="msi">manage_accounts</span><span class="nav-label">ผู้ใช้งาน</span></a>
+                            <a href="{$base}/admin/courses" n:class="$page === 'admin-courses' ? is-active" title="รายวิชาทั้งระบบ"><span class="msi">library_books</span><span class="nav-label">รายวิชาทั้งระบบ</span></a>
+                        </div>
+                    </div>
+                {/if}
 
-            {if $role === 'admin'}
-                <a href="{$base}/settings/appearance" n:class="$page === 'appearance' ? is-active"><span>◐</span>สีหลักของหน้าจอ</a>
-            {/if}
+                {if $role === 'admin'}
+                    {var $here = in_array($page, ['admin-ai', 'admin-rms'], true)}
+                    <div n:class="nav-group, $here ? is-here" data-group="data">
+                        <button type="button" class="group-label" aria-expanded="true">
+                            <span class="grow">AI และข้อมูล</span><span class="msi">expand_more</span>
+                        </button>
+                        <div class="nav-group-items">
+                            <a href="{$base}/admin/ai" n:class="$page === 'admin-ai' ? is-active" title="เครื่อง AI และโควตา"><span class="msi">memory</span><span class="nav-label">เครื่อง AI และโควตา</span></a>
+                            <a href="{$base}/admin/rms" n:class="$page === 'admin-rms' ? is-active" title="โอนข้อมูลจาก RMS"><span class="msi">sync_alt</span><span class="nav-label">โอนข้อมูลจาก RMS</span></a>
+                        </div>
+                    </div>
+
+                    {var $here = in_array($page, ['migrations', 'admin-logs', 'admin-settings', 'appearance'], true)}
+                    <div n:class="nav-group, $here ? is-here" data-group="system">
+                        <button type="button" class="group-label" aria-expanded="true">
+                            <span class="grow">ดูแลระบบ</span><span class="msi">expand_more</span>
+                        </button>
+                        <div class="nav-group-items">
+                            <a href="{$base}/admin/settings" n:class="$page === 'admin-settings' ? is-active" title="ตั้งค่าระบบ"><span class="msi">settings</span><span class="nav-label">ตั้งค่าระบบ</span></a>
+                            <a href="{$base}/admin/migrations" n:class="$page === 'migrations' ? is-active" title="จัดการฐานข้อมูล"><span class="msi">database</span><span class="nav-label">จัดการฐานข้อมูล</span></a>
+                            <a href="{$base}/admin/logs" n:class="$page === 'admin-logs' ? is-active" title="บันทึกข้อขัดข้อง"><span class="msi">report</span><span class="nav-label">บันทึกข้อขัดข้อง</span></a>
+                            <a href="{$base}/settings/appearance" n:class="$page === 'appearance' ? is-active" title="สีหลักของหน้าจอ"><span class="msi">palette</span><span class="nav-label">สีหลักของหน้าจอ</span></a>
+                        </div>
+                    </div>
+                {elseif $teaches}
+                    {var $here = in_array($page, ['settings', 'appearance'], true)}
+                    <div n:class="nav-group, $here ? is-here" data-group="mine">
+                        <button type="button" class="group-label" aria-expanded="true">
+                            <span class="grow">ตั้งค่าของฉัน</span><span class="msi">expand_more</span>
+                        </button>
+                        <div class="nav-group-items">
+                            <a href="{$base}/settings/ai" n:class="$page === 'settings' ? is-active" title="ผู้ช่วย AI ของฉัน"><span class="msi">auto_awesome</span><span class="nav-label">ผู้ช่วย AI ของฉัน</span></a>
+                            <a href="{$base}/settings/appearance" n:class="$page === 'appearance' ? is-active" title="สีหลักของหน้าจอ"><span class="msi">palette</span><span class="nav-label">สีหลักของหน้าจอ</span></a>
+                        </div>
+                    </div>
+                {/if}
+            </div>
+            <script n:syntax="off">
+                /* ตั้งสถานะยุบ/ขยายของกลุ่มเมนูก่อนวาดหน้า — ค่าเริ่มต้นคือยุบ ยกเว้นกลุ่มที่มีหน้าปัจจุบัน */
+                (function () {
+                    var saved = {};
+                    try { saved = JSON.parse(localStorage.getItem('rvc-nav-groups') || '{}') || {}; } catch (e) {}
+                    document.querySelectorAll('#sideNavList .nav-group').forEach(function (g) {
+                        var open = g.classList.contains('is-here') || saved[g.dataset.group] === true;
+                        g.classList.toggle('is-collapsed', !open);
+                        g.querySelector('.group-label').setAttribute('aria-expanded', open ? 'true' : 'false');
+                    });
+                })();
+            </script>
 
             <div class="spacer"></div>
-            <div class="footnote">{$college}<br>{$term ?? ''}</div>
+
+            {* การ์ดบัญชีผู้ใช้ท้ายเมนู *}
+            <div class="side-profile">
+                <div class="side-profile-top">
+                    <div class="avatar">{mb_substr($user['full_name'] ?? '?', 0, 1)}</div>
+                    <div class="side-profile-who">
+                        <div class="profile-name">{$user['full_name'] ?? 'ผู้ใช้'}</div>
+                        <div class="profile-role">{$roleName}</div>
+                    </div>
+                </div>
+                <div class="side-profile-meta">{$college}{if ($term ?? '') !== ''} · {$term}{/if}</div>
+                <div class="side-profile-btns">
+                    <button type="button" class="btn btn-sm" onclick="rvcToggleTheme()" id="themeButton">โหมดมืด</button>
+                    <form method="post" action="{$base}/{isset($impersonatedBy) && $impersonatedBy ? 'impersonate/stop' : 'logout'}">
+                        <input type="hidden" name="_token" value="{$csrf}">
+                        <button type="submit" class="btn btn-sm"><span class="msi">logout</span>{isset($impersonatedBy) && $impersonatedBy ? 'กลับเป็นผู้ดูแล' : 'ออกจากระบบ'}</button>
+                    </form>
+                </div>
+            </div>
         </nav>
 
-        <main class="content">
-            {foreach $flash as $message}
-                <div class="alert alert-{$message['type']}">{$message['message']}</div>
-            {/foreach}
+        <div class="main">
+            <header class="topbar">
+                <button type="button" class="tool-btn nav-toggle" id="navToggle" aria-label="เปิด/ย่อเมนู" aria-controls="sideNav">
+                    <span class="msi">menu</span>
+                </button>
+                <nav class="crumbs" aria-label="ตำแหน่งปัจจุบัน">
+                    <a href="{$base}/dashboard" title="หน้าแรก"><span class="msi">home</span></a>
+                    <span class="msi crumb-sep">chevron_right</span>
+                    <span class="crumb-here">{include title}</span>
+                </nav>
+                <div class="topbar-spacer"></div>
+                {* ค้นหาเมนู — พิมพ์แล้วกรองเมนูข้าง กด Enter เพื่อไปหน้าแรกที่ตรง *}
+                <label class="tool-search">
+                    <span class="msi">search</span>
+                    <input type="search" id="navSearch" placeholder="ค้นหาเมนู…" autocomplete="off" aria-label="ค้นหาเมนู">
+                </label>
+                <a class="tool-btn" href="{$base}{$bellUrl}" title="{$bellTitle}">
+                    <span class="msi">notifications</span>
+                    {if $teaches && $rc > 0}<span class="tool-badge">{$rc}</span>{/if}
+                </a>
+                <a class="tool-btn" href="{$base}{$gearUrl}" title="{$gearTitle}"><span class="msi">settings</span></a>
+                <button type="button" class="tool-btn" onclick="rvcToggleTheme()" title="สลับโหมดมืด/สว่าง" aria-label="สลับโหมดมืด/สว่าง">
+                    <span class="msi" id="themeIcon">dark_mode</span>
+                </button>
+            </header>
 
-            {include content}
-        </main>
+            <main class="content">
+                {foreach $flash as $message}
+                    <div class="alert alert-{$message['type']}">{$message['message']}</div>
+                {/foreach}
+
+                {include content}
+            </main>
+        </div>
     </div>
 
     <nav class="mobile-nav">
-        <a href="{$base}/dashboard" n:class="$page === 'dashboard' ? is-active"><span>⌂</span>หน้าแรก</a>
+        <a href="{$base}/dashboard" n:class="$page === 'dashboard' ? is-active"><span class="msi">home</span>หน้าแรก</a>
         {if $teaches}
-            <a href="{$base}/courses" n:class="$page === 'courses' ? is-active"><span>▤</span>รายวิชา</a>
+            <a href="{$base}/courses" n:class="$page === 'courses' ? is-active"><span class="msi">class</span>รายวิชา</a>
             <a href="{$base}/review" n:class="$page === 'review' ? is-active">
-                <span>✓{if $rc > 0}<i class="mobile-badge">{$rc}</i>{/if}</span>รอตรวจ
+                <span class="msi">fact_check{if $rc > 0}<i class="mobile-badge">{$rc}</i>{/if}</span>รอตรวจ
             </a>
             {if $oversees}
-                <a href="{$base}/admin/courses" n:class="$page === 'admin-courses' ? is-active"><span>▤</span>ทั้งระบบ</a>
+                <a href="{$base}/admin/courses" n:class="$page === 'admin-courses' ? is-active"><span class="msi">library_books</span>ทั้งระบบ</a>
             {else}
-                <a href="{$base}/board" n:class="$page === 'board' ? is-active"><span>💬</span>สนทนา</a>
+                <a href="{$base}/board" n:class="$page === 'board' ? is-active"><span class="msi">forum</span>สนทนา</a>
             {/if}
         {elseif $role === 'student'}
-            <a href="{$base}/learn" n:class="$page === 'learn' ? is-active"><span>▤</span>วิชาที่เรียน</a>
+            <a href="{$base}/learn" n:class="$page === 'learn' ? is-active"><span class="msi">school</span>วิชาที่เรียน</a>
         {else}
-            <a href="{$base}/admin/ai" n:class="$page === 'admin-ai' ? is-active"><span>▣</span>เครื่อง AI</a>
-            <a href="{$base}/admin/users" n:class="$page === 'admin-users' ? is-active"><span>◉</span>ผู้ใช้</a>
+            <a href="{$base}/admin/ai" n:class="$page === 'admin-ai' ? is-active"><span class="msi">memory</span>เครื่อง AI</a>
+            <a href="{$base}/admin/users" n:class="$page === 'admin-users' ? is-active"><span class="msi">manage_accounts</span>ผู้ใช้</a>
         {/if}
     </nav>
 </div>
@@ -155,16 +247,87 @@
 {/if}
 
 <script>
+    function rvcThemeLabels() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.getElementById('themeButton').textContent = dark ? 'โหมดสว่าง' : 'โหมดมืด';
+        document.getElementById('themeIcon').textContent = dark ? 'light_mode' : 'dark_mode';
+    }
     function rvcToggleTheme() {
         var root = document.documentElement;
         var next = root.getAttribute('data-theme') === 'dark' ? '' : 'dark';
         if (next) { root.setAttribute('data-theme', next); } else { root.removeAttribute('data-theme'); }
         try { localStorage.setItem('rvc-theme', next); } catch (e) {}
-        document.getElementById('themeButton').textContent = next ? 'โหมดสว่าง' : 'โหมดมืด';
+        rvcThemeLabels();
     }
-    if (document.documentElement.getAttribute('data-theme') === 'dark') {
-        document.getElementById('themeButton').textContent = 'โหมดสว่าง';
-    }
+    rvcThemeLabels();
+
+    /* เมนูแฮมเบอร์เกอร์: จอกว้างย่อ/ขยายเมนูข้าง (จำไว้) · จอมือถือเปิดเป็นลิ้นชักทับหน้า */
+    (function () {
+        var root = document.documentElement;
+        var scrim = document.getElementById('navScrim');
+        var mobile = window.matchMedia('(max-width: 860px)');
+
+        function setDrawer(on) {
+            root.classList.toggle('nav-open', on);
+            scrim.hidden = !on;
+        }
+
+        document.getElementById('navToggle').addEventListener('click', function () {
+            if (mobile.matches) { setDrawer(!root.classList.contains('nav-open')); return; }
+            var mini = root.classList.toggle('nav-mini');
+            try { localStorage.setItem('rvc-nav', mini ? 'mini' : ''); } catch (e) {}
+        });
+        scrim.addEventListener('click', function () { setDrawer(false); });
+        mobile.addEventListener('change', function () { setDrawer(false); });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { setDrawer(false); }
+        });
+
+        /* ค้นหาเมนู: กรองลิงก์ในเมนูข้างตามคำที่พิมพ์ · Enter = ไปหน้าแรกที่ตรง */
+        var search = document.getElementById('navSearch');
+        var links = Array.prototype.slice.call(document.querySelectorAll('#sideNav .side-nav a'));
+        var extras = document.querySelectorAll('#sideNav .side-nav .group-label, #sideNav .side-nav .divider');
+        var navList = document.getElementById('sideNavList');
+
+        /* ยุบ/ขยายกลุ่มเมนู แล้วจำไว้ข้ามหน้า */
+        navList.addEventListener('click', function (e) {
+            var head = e.target.closest('.group-label');
+            if (!head) { return; }
+            var group = head.parentNode;
+            var open = group.classList.toggle('is-collapsed') === false;
+            head.setAttribute('aria-expanded', open ? 'true' : 'false');
+            var saved = new Object();   // ไม่ใช้วงเล็บปีกกาเปล่า เพราะ Latte อาจตีความเป็นแท็ก
+            try { saved = JSON.parse(localStorage.getItem('rvc-nav-groups') || 'null') || saved; } catch (err) {}
+            saved[group.dataset.group] = open;
+            try { localStorage.setItem('rvc-nav-groups', JSON.stringify(saved)); } catch (err) {}
+        });
+
+        function matches() {
+            var q = search.value.trim().toLowerCase();
+            return links.filter(function (a) {
+                var label = a.querySelector('.nav-label');
+                return q === '' || (label ? label.textContent : '').toLowerCase().indexOf(q) !== -1;
+            });
+        }
+        search.addEventListener('input', function () {
+            var hit = matches(), q = search.value.trim();
+            links.forEach(function (a) { a.hidden = hit.indexOf(a) === -1; });
+            Array.prototype.forEach.call(extras, function (el) { el.hidden = q !== ''; });
+            // ระหว่างค้นหา แสดงผลจากทุกกลุ่มแม้กลุ่มนั้นยุบอยู่
+            navList.classList.toggle('is-searching', q !== '');
+            if (q !== '' && mobile.matches) { setDrawer(true); }
+        });
+        search.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                var hit = matches();
+                if (hit.length) { e.preventDefault(); window.location.href = hit[0].href; }
+            } else if (e.key === 'Escape') {
+                search.value = '';
+                search.dispatchEvent(new Event('input'));
+            }
+        });
+    })();
     (function () {
         var t = document.getElementById('rvcToast');
         if (t) { setTimeout(function () { t.classList.add('is-out'); }, 2600); }
