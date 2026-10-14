@@ -11,6 +11,9 @@ use App\Support\Db;
  */
 final class QuizRepository
 {
+    /** แบบทดสอบอยู่ในถังขยะได้กี่วันก่อนถูกลบถาวร */
+    public const TRASH_DAYS = 30;
+
     public function __construct(private readonly Db $db)
     {
     }
@@ -19,13 +22,13 @@ final class QuizRepository
     public function forCourse(int $courseId): array
     {
         return $this->db->all(
-            'SELECT q.*, u.title AS unit_title,
+            'SELECT q.*, u.title AS unit_title, u.kind AS unit_kind, u.sort_order AS unit_order,
                     (SELECT COUNT(*) FROM {quiz_questions} qq WHERE qq.quiz_id = q.id) AS question_count,
                     (SELECT COUNT(DISTINCT a.student_id) FROM {quiz_attempts} a WHERE a.quiz_id = q.id AND a.status <> \'in_progress\') AS submitted_count
              FROM {quizzes} q
              LEFT JOIN {units} u ON u.id = q.unit_id
-             WHERE q.course_id = ?
-             ORDER BY q.created_at DESC',
+             WHERE q.course_id = ? AND q.deleted_at IS NULL
+             ORDER BY u.id IS NULL, u.sort_order, u.id, q.kind = \'posttest\', q.created_at DESC',
             [$courseId]
         );
     }
@@ -38,7 +41,7 @@ final class QuizRepository
                     (SELECT COUNT(*) FROM {quiz_questions} qq WHERE qq.quiz_id = q.id) AS question_count,
                     (SELECT COUNT(DISTINCT a.student_id) FROM {quiz_attempts} a WHERE a.quiz_id = q.id AND a.status <> \'in_progress\') AS submitted_count
              FROM {quizzes} q
-             WHERE q.unit_id = ?
+             WHERE q.unit_id = ? AND q.deleted_at IS NULL
              ORDER BY q.kind = \'posttest\', q.created_at',
             [$unitId]
         );
@@ -55,6 +58,7 @@ final class QuizRepository
             'SELECT q.id, q.title, q.kind, q.unit_id, q.time_limit_minutes,
                     u.title AS unit_title,
                     (SELECT COUNT(*) FROM {quiz_questions} qq WHERE qq.quiz_id = q.id) AS question_count,
+                    (SELECT COALESCE(SUM(qq.score), 0) FROM {quiz_questions} qq WHERE qq.quiz_id = q.id) AS total_score,
                     (SELECT a.id FROM {quiz_attempts} a
                       WHERE a.quiz_id = q.id AND a.student_id = ? AND a.status = \'in_progress\'
                       ORDER BY a.id DESC LIMIT 1) AS open_attempt_id,
@@ -67,17 +71,44 @@ final class QuizRepository
                       ORDER BY a.score DESC LIMIT 1) AS best_max_score
              FROM {quizzes} q
              LEFT JOIN {units} u ON u.id = q.unit_id
-             WHERE q.course_id = ? AND q.review_status = \'published\'
+             WHERE q.course_id = ? AND q.review_status = \'published\' AND q.deleted_at IS NULL
              HAVING question_count > 0
              ORDER BY u.sort_order IS NULL, u.sort_order, q.kind = \'posttest\', q.created_at',
             [$studentId, $studentId, $studentId, $studentId, $courseId]
         );
     }
 
-    /** @return array<string,mixed>|null */
+    /** @return array<string,mixed>|null แบบทดสอบที่ใช้งานอยู่ (ชุดในถังขยะถือว่าไม่พบ) */
     public function find(int $id): ?array
     {
-        return $this->db->first('SELECT * FROM {quizzes} WHERE id = ?', [$id]);
+        return $this->db->first('SELECT * FROM {quizzes} WHERE id = ? AND deleted_at IS NULL', [$id]);
+    }
+
+    /** @return array<string,mixed>|null แบบทดสอบในถังขยะของรายวิชานี้ */
+    public function findTrashed(int $id, int $courseId): ?array
+    {
+        return $this->db->first(
+            'SELECT * FROM {quizzes} WHERE id = ? AND course_id = ? AND deleted_at IS NOT NULL',
+            [$id, $courseId]
+        );
+    }
+
+    /** @return list<array<string,mixed>> ถังขยะของทุกรายวิชาที่ครูคนนี้สอน ลบล่าสุดขึ้นก่อน */
+    public function trashedForTeacher(int $teacherId): array
+    {
+        return $this->db->all(
+            'SELECT q.id, q.course_id, q.title, q.kind, q.deleted_at, u.title AS unit_title,
+                    c.code AS course_code, c.name AS course_name,
+                    DATE_ADD(q.deleted_at, INTERVAL ' . self::TRASH_DAYS . ' DAY) AS purge_at,
+                    (SELECT COUNT(*) FROM {quiz_questions} qq WHERE qq.quiz_id = q.id) AS question_count,
+                    (SELECT COUNT(DISTINCT a.student_id) FROM {quiz_attempts} a WHERE a.quiz_id = q.id AND a.status <> \'in_progress\') AS submitted_count
+             FROM {quizzes} q
+             JOIN {courses} c ON c.id = q.course_id
+             LEFT JOIN {units} u ON u.id = q.unit_id
+             WHERE c.teacher_id = ? AND q.deleted_at IS NOT NULL
+             ORDER BY q.deleted_at DESC',
+            [$teacherId]
+        );
     }
 
     /** @return list<array<string,mixed>> ข้อสอบพร้อมตัวเลือกของแบบทดสอบ */
@@ -243,6 +274,41 @@ final class QuizRepository
     public function deleteQuestion(int $quizId, int $questionId): void
     {
         $this->db->run('DELETE FROM {quiz_questions} WHERE id = ? AND quiz_id = ?', [$questionId, $quizId]);
+    }
+
+    /**
+     * ย้ายแบบทดสอบลงถังขยะ · ข้อสอบและผลสอบยังอยู่ครบ กู้คืนได้ภายใน TRASH_DAYS วัน
+     * งาน AI ที่ยังรอตรวจของชุดนี้ถูกปิดเป็น rejected เพื่อไม่ให้ค้างในคิวตรวจ
+     */
+    public function trash(int $quizId): void
+    {
+        $this->db->transaction(function () use ($quizId): void {
+            $this->db->run(
+                "UPDATE {ai_generations} SET review_status = 'rejected'
+                 WHERE target_type = 'quiz' AND target_id = ? AND review_status = 'pending'",
+                [$quizId]
+            );
+            $this->db->run('UPDATE {quizzes} SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL', [$quizId]);
+        });
+    }
+
+    public function restore(int $quizId): void
+    {
+        $this->db->run('UPDATE {quizzes} SET deleted_at = NULL WHERE id = ?', [$quizId]);
+    }
+
+    /** ลบถาวรเฉพาะชุดที่อยู่ในถังขยะ · ข้อสอบ ตัวเลือก และผลสอบของนักเรียนถูกลบตาม (FK ON DELETE CASCADE) */
+    public function destroy(int $quizId): void
+    {
+        $this->db->run('DELETE FROM {quizzes} WHERE id = ? AND deleted_at IS NOT NULL', [$quizId]);
+    }
+
+    /** ลบถาวรทุกชุดที่อยู่ในถังขยะครบ TRASH_DAYS วันแล้ว (ไม่มี cron · เรียกตอนเปิดแท็บแบบทดสอบ) */
+    public function purgeExpired(): int
+    {
+        return $this->db->run(
+            'DELETE FROM {quizzes} WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL ' . self::TRASH_DAYS . ' DAY'
+        );
     }
 
     public function deleteAllQuestions(int $quizId): void

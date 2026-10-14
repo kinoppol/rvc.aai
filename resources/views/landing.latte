@@ -1,27 +1,24 @@
 {layout 'public-layout.latte'}
 
-{block title}{$appName} · เรียนรู้ธุรกิจค้าปลีกยุค AI{/block}
-{block description}{$college} เปิดหลักสูตรนำร่องสาขาการตลาด/ธุรกิจค้าปลีก ผสานผู้ช่วย AI เข้ากับการเรียนการสอนเต็มรูปแบบ{/block}
+{block title}{$appName} · {$college}{/block}
+{block description}ระบบการเรียนรู้ออนไลน์ของ{$college} รวมรายวิชาระดับ ปวช./ปวส. ทุกสาขา พร้อมผู้ช่วย AI สนับสนุนการเรียนการสอน{/block}
 
 {block content}
     <section class="lp-hero">
-        <svg class="lp-hero-deco d1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" width="220" height="220"><path d="M6 7h12l1 13H5L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
-        <svg class="lp-hero-deco d2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" width="260" height="260"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+        <svg class="lp-hero-deco d1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" width="220" height="220"><path d="m12 4 9 4-9 4-9-4 9-4Z"/><path d="M6 11v4c0 1.5 3 3 6 3s6-1.5 6-3v-4"/></svg>
+        <svg class="lp-hero-deco d2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" width="260" height="260"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>
 
         <div class="lp-wrap lp-hero-inner">
             <div class="lp-hero-copy">
                 <div class="lp-eyebrow">{$college}</div>
-                <h1>เรียนรู้ธุรกิจค้าปลีกยุคใหม่<br>ด้วยพลัง <span class="lp-accent-text">AI</span></h1>
+                <h1>เรียนรู้ทักษะวิชาชีพ<br>ได้ทุกที่ ทุกเวลา ด้วย <span class="lp-accent-text">AI</span></h1>
                 <p class="lp-hero-lead">
-                    หลักสูตรนำร่องที่ผสาน AI เข้ากับการเรียนการสอนเต็มรูปแบบ ตั้งแต่การขายหน้าร้าน
-                    การตลาดออนไลน์ ไปจนถึงการวิเคราะห์พฤติกรรมลูกค้า ให้นักเรียนพร้อมทำงานจริงตั้งแต่วันแรก
+                    ระบบการเรียนรู้ออนไลน์ของสถานศึกษา รวมบทเรียน ใบงาน และแบบทดสอบของทุกสาขาวิชาไว้ในที่เดียว
+                    มีผู้ช่วย AI สนับสนุนทั้งครูและนักเรียน เพื่อเตรียมความพร้อมสู่การทำงานจริงในสายอาชีพ
                 </p>
                 <div class="lp-hero-ctas">
                     <a href="#courses" class="lp-btn lp-btn-solid">ดูรายวิชาทั้งหมด</a>
                     <a href="{$base}/login" class="lp-btn lp-btn-ghost-light">เข้าสู่ระบบ</a>
-                </div>
-                <div class="lp-hero-pills">
-                    <span class="lp-pill lp-pill-amber"><span class="lp-pill-dot"></span>โครงการนำร่อง: {$pilotDept ?? 'การตลาด/ธุรกิจค้าปลีก'}</span>
                 </div>
             </div>
         </div>
@@ -32,38 +29,38 @@
             <div class="lp-stat"><b>{$courseCount}</b><span>รายวิชาที่เปิดสอน</span></div>
             <div class="lp-stat"><b>24/7</b><span>ผู้ช่วย AI พร้อมช่วยเรียน</span></div>
             <div class="lp-stat"><b>ปวช./ปวส.</b><span>ระดับที่เปิดสอน</span></div>
-            <div class="lp-stat"><b>{$pilotDept ?? 'ธุรกิจค้าปลีก'}</b><span>สาขานำร่อง</span></div>
+            <div class="lp-stat"><b>{$departmentCount}</b><span>สาขาวิชา</span></div>
         </div>
     </section>
 
     <section class="lp-features" id="features">
         <div class="lp-wrap">
             <div class="lp-section-title">
-                <div class="lp-eyebrow">จุดเด่นของหลักสูตร</div>
-                <h2>เรียนรู้แบบเจาะลึกธุรกิจค้าปลีกยุคดิจิทัล</h2>
-                <p>ผสาน AI เข้ากับทุกขั้นตอนการเรียนรู้ ตั้งแต่ในห้องเรียนจนถึงหน้าร้านจริง</p>
+                <div class="lp-eyebrow">จุดเด่นของระบบ</div>
+                <h2>การเรียนการสอนอาชีวศึกษายุคดิจิทัล</h2>
+                <p>เชื่อมห้องเรียนกับการเรียนรู้ออนไลน์ ให้ทุกสาขาวิชาเรียนได้อย่างต่อเนื่อง</p>
             </div>
             <div class="lp-feat-grid">
                 <article class="lp-feat">
                     <div class="lp-feat-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M6 7h12l1 13H5L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>
                     </div>
-                    <h3>การขายและบริการลูกค้า</h3>
-                    <p>ฝึกปฏิบัติงานขายหน้าร้าน ระบบขาย ณ จุดขาย (POS) และการดูแลลูกค้าตามมาตรฐานธุรกิจค้าปลีกจริง</p>
+                    <h3>บทเรียนออนไลน์ครบวงจร</h3>
+                    <p>เนื้อหา วิดีโอ ใบงาน และแบบทดสอบก่อน–หลังเรียน จัดเป็นหน่วยการเรียนตามแผนการสอนฐานสมรรถนะ</p>
                 </article>
                 <article class="lp-feat">
                     <div class="lp-feat-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.5 2.5-2.5-.5-.5-2.5 2.5-2.5Z"/></svg>
                     </div>
-                    <h3>วิเคราะห์ข้อมูลด้วย AI</h3>
-                    <p>เรียนรู้การใช้ AI วิเคราะห์ยอดขายและพฤติกรรมลูกค้า เพื่อวางแผนการตลาดได้อย่างแม่นยำ</p>
+                    <h3>เน้นทักษะวิชาชีพ</h3>
+                    <p>รายวิชาระดับ ปวช. และ ปวส. ที่มุ่งฝึกปฏิบัติจริง ตามมาตรฐานสมรรถนะของแต่ละสาขาวิชา</p>
                 </article>
                 <article class="lp-feat">
                     <div class="lp-feat-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 3v2M15 3v2M9 19v2M15 19v2M3 9h2M3 15h2M19 9h2M19 15h2"/></svg>
                     </div>
                     <h3>ผู้ช่วย AI ส่วนตัว</h3>
-                    <p>ผู้ช่วย AI ช่วยติวเข้ม สรุปบทเรียน และออกข้อสอบให้ทันที พร้อมใช้งานได้ตลอด 24 ชั่วโมง</p>
+                    <p>ผู้ช่วย AI ช่วยครูออกแบบบทเรียนและข้อสอบ และช่วยนักเรียนทบทวนเนื้อหาได้ตลอด 24 ชั่วโมง</p>
                 </article>
                 <article class="lp-feat">
                     <div class="lp-feat-icon">
@@ -90,9 +87,6 @@
                         <div class="lp-group-head">
                             <h3>{$g['department']}</h3>
                             <span class="lp-count lp-mono">{count($g['courses'])} รายวิชา</span>
-                            {if $pilotDept && $g['department'] === $pilotDept}
-                                <span class="lp-pilot-ribbon">โครงการนำร่อง</span>
-                            {/if}
                         </div>
                         <div class="lp-grid">
                             {foreach $g['courses'] as $c}
@@ -123,7 +117,7 @@
             {else}
                 <div class="lp-empty">
                     <div class="lp-feat-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M6 7h12l1 13H5L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>
                     </div>
                     <h3>ยังไม่มีรายวิชาที่เปิดเผยสู่สาธารณะ</h3>
                     <p>ครูผู้สอนสามารถเปิดการแสดงรายวิชาได้จากเมนู “รายวิชาของฉัน” หลังเข้าสู่ระบบ</p>
@@ -135,7 +129,7 @@
     <section class="lp-cta">
         <div class="lp-wrap lp-cta-inner">
             <div>
-                <h2>พร้อมเริ่มต้นเส้นทางธุรกิจค้าปลีกยุค AI แล้วหรือยัง?</h2>
+                <h2>พร้อมเริ่มต้นเรียนรู้กับ{$college}แล้วหรือยัง?</h2>
                 <p>เข้าสู่ระบบเพื่อดูบทเรียน แบบฝึกหัด และรับคำแนะนำจากผู้ช่วย AI แบบเฉพาะบุคคล</p>
             </div>
             <div class="lp-cta-ctas">

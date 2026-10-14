@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Domain\AttemptRepository;
 use App\Domain\EnrollmentRepository;
+use App\Domain\LearnPathRepository;
 use App\Domain\UnitRepository;
 use App\Domain\QuizRepository;
 use App\Support\Cover;
@@ -31,6 +32,7 @@ final class StudentController
         private readonly UnitRepository $units,
         private readonly QuizRepository $quizzes,
         private readonly AttemptRepository $attempts,
+        private readonly LearnPathRepository $path,
         private readonly Db $db,
     ) {
     }
@@ -52,60 +54,81 @@ final class StudentController
         $courseId = (int) $args['courseId'];
         $this->requireEnrolled($request, $courseId, (int) $user['id']);
 
-        $course = $this->db->first('SELECT c.*, u.full_name AS teacher_name FROM {courses} c LEFT JOIN {users} u ON u.id = c.teacher_id WHERE c.id = ?', [$courseId]);
-        $course = $course === null ? null : Cover::decorate($course);
-
-        $units = array_values(array_filter(
-            $this->units->forCourse($courseId),
-            static fn (array $u): bool => $u['review_status'] === 'published'
-        ));
-        $publishedUnitIds = array_map(static fn (array $u): int => (int) $u['id'], $units);
-
-        // แบบทดสอบของหน่วยที่เผยแพร่แล้วแสดงใต้หน่วยนั้น ส่วนที่ไม่ผูกหน่วย (หรือหน่วยยังไม่เผยแพร่) รวมไว้ท้ายหน้า
-        // เพื่อไม่ให้แบบทดสอบที่ครูเผยแพร่แล้วหายไปจากสายตานักเรียน
-        $quizzesByUnit = [];
-        $otherQuizzes = [];
-        foreach ($this->decorateQuizzes($this->quizzes->publishedForStudent($courseId, (int) $user['id'])) as $q) {
-            if ($q['unit_id'] !== null && in_array((int) $q['unit_id'], $publishedUnitIds, true)) {
-                $quizzesByUnit[(int) $q['unit_id']][] = $q;
-            } else {
-                $otherQuizzes[] = $q;
-            }
+        $course = $this->courseRow($courseId);
+        if ($course === null) {
+            throw new HttpNotFoundException($request, 'ไม่พบรายวิชานี้');
         }
 
-        return $this->view->render($response, 'learn/course', [
-            'page' => 'learn',
-            'course' => $course,
-            'units' => $units,
-            'quizzesByUnit' => $quizzesByUnit,
-            'otherQuizzes' => $otherQuizzes,
-        ]);
+        return $this->view->render($response, 'learn/course',
+            ['page' => 'learn', 'studentName' => (string) $user['full_name']]
+            + $this->courseContext($course, (int) $user['id'], false));
+    }
+
+    /** ครูดูทั้งรายวิชาในมุมมองของนักเรียน · เห็นเฉพาะหน่วยที่เผยแพร่แล้ว เหมือนนักเรียน แต่ไม่มีการบันทึกความคืบหน้า */
+    public function previewCourse(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $course = $this->courseRow((int) $args['courseId']);
+        if ($course === null || (int) $course['teacher_id'] !== (int) $user['id']) {
+            throw new HttpNotFoundException($request, 'ไม่พบรายวิชานี้');
+        }
+
+        $hidden = count(array_filter(
+            $this->units->forCourse((int) $course['id']),
+            static fn (array $u): bool => $u['review_status'] !== 'published'
+        ));
+
+        return $this->view->render($response, 'learn/course',
+            ['page' => 'courses', 'studentName' => '', 'hiddenUnits' => $hidden]
+            + $this->courseContext($course, 0, true));
     }
 
     public function unit(Request $request, Response $response, array $args): Response
     {
         $user = $request->getAttribute('user');
-        $unit = $this->units->find((int) $args['id']);
-        if ($unit === null || $unit['review_status'] !== 'published') {
-            throw new HttpNotFoundException($request, 'ไม่พบหน่วยการเรียนนี้');
+        [$course, $unit] = $this->studentUnit($request, (int) $args['id'], (int) $user['id']);
+
+        return $this->view->render($response, 'learn/unit',
+            ['page' => 'learn', 'studentName' => (string) $user['full_name']]
+            + $this->unitContext($course, $unit, (int) $user['id'], false));
+    }
+
+    /**
+     * ครูดูหน่วยในมุมมองของนักเรียน (อ่านอย่างเดียว) · เปิดได้ทุกสถานะ แม้ยังไม่เผยแพร่
+     * แบบทดสอบแสดงเฉพาะชุดที่นักเรียนมองเห็นจริง (เผยแพร่แล้วและมีข้อสอบ) แต่เริ่มทำไม่ได้
+     */
+    public function preview(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [$course, $unit] = $this->teacherUnit($request, (int) $args['courseId'], (int) $args['id'], (int) $user['id']);
+
+        return $this->view->render($response, 'learn/unit',
+            ['page' => 'courses', 'studentName' => '']
+            + $this->unitContext($course, $unit, 0, true));
+    }
+
+    /** หน้าอ่านส่วนเนื้อหา / ใบงานทีละรายการ · เปิดส่วนเนื้อหา = อ่านแล้ว (นับความคืบหน้า) */
+    public function item(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [$course, $unit] = $this->studentUnit($request, (int) $args['id'], (int) $user['id']);
+
+        if ($args['kind'] === 'section') {
+            $section = $this->units->findSection((int) $args['itemId']);
+            if ($section !== null && (int) $section['unit_id'] === (int) $unit['id']) {
+                $this->path->markSection((int) $section['id'], (int) $user['id']);
+            }
         }
-        $this->requireEnrolled($request, (int) $unit['course_id'], (int) $user['id']);
-        $course = $this->db->first('SELECT * FROM {courses} WHERE id = ?', [(int) $unit['course_id']]);
-        $sections = $this->units->sectionsFor((int) $unit['id']);
 
-        $quizzes = array_values(array_filter(
-            $this->decorateQuizzes($this->quizzes->publishedForStudent((int) $unit['course_id'], (int) $user['id'])),
-            static fn (array $q): bool => (int) $q['unit_id'] === (int) $unit['id']
-        ));
+        return $this->renderItem($request, $response, $args, $course, $unit, (int) $user['id'], false);
+    }
 
-        return $this->view->render($response, 'learn/unit', [
-            'page' => 'learn',
-            'course' => $course,
-            'unit' => $unit,
-            'sections' => $sections,
-            'pretests' => array_values(array_filter($quizzes, static fn (array $q): bool => $q['kind'] === 'pretest')),
-            'posttests' => array_values(array_filter($quizzes, static fn (array $q): bool => $q['kind'] !== 'pretest')),
-        ]);
+    public function previewItem(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [$course, $unit] = $this->teacherUnit($request, (int) $args['courseId'], (int) $args['id'], (int) $user['id']);
+
+        return $this->renderItem($request, $response, $args, $course, $unit, 0, true);
     }
 
     public function startQuiz(Request $request, Response $response, array $args): Response
@@ -243,6 +266,216 @@ final class StudentController
     }
 
     // ---- ภายใน ----
+
+    /** @return array<string,mixed>|null รายวิชาพร้อมชื่อครูและสีปก */
+    private function courseRow(int $courseId): ?array
+    {
+        $course = $this->db->first(
+            'SELECT c.*, u.full_name AS teacher_name FROM {courses} c LEFT JOIN {users} u ON u.id = c.teacher_id WHERE c.id = ?',
+            [$courseId]
+        );
+
+        return $course === null ? null : Cover::decorate($course);
+    }
+
+    /** @return array{0:array<string,mixed>,1:array<string,mixed>} รายวิชา + หน่วยที่นักเรียนคนนี้เปิดได้ */
+    private function studentUnit(Request $request, int $unitId, int $studentId): array
+    {
+        $unit = $this->units->find($unitId);
+        if ($unit === null || $unit['review_status'] !== 'published') {
+            throw new HttpNotFoundException($request, 'ไม่พบหน่วยการเรียนนี้');
+        }
+        $this->requireEnrolled($request, (int) $unit['course_id'], $studentId);
+        $course = $this->courseRow((int) $unit['course_id']);
+        if ($course === null) {
+            throw new HttpNotFoundException($request, 'ไม่พบรายวิชานี้');
+        }
+
+        return [$course, $unit];
+    }
+
+    /** @return array{0:array<string,mixed>,1:array<string,mixed>} รายวิชา + หน่วยของครูเจ้าของรายวิชา (ทุกสถานะ) */
+    private function teacherUnit(Request $request, int $courseId, int $unitId, int $teacherId): array
+    {
+        $course = $this->courseRow($courseId);
+        if ($course === null || (int) $course['teacher_id'] !== $teacherId) {
+            throw new HttpNotFoundException($request, 'ไม่พบรายวิชานี้');
+        }
+        $unit = $this->units->find($unitId);
+        if ($unit === null || (int) $unit['course_id'] !== $courseId) {
+            throw new HttpNotFoundException($request, 'ไม่พบหน่วยการเรียนนี้');
+        }
+
+        return [$course, $unit];
+    }
+
+    /**
+     * ข้อมูลหน้ารายวิชา: หน่วยที่เผยแพร่แล้ว ความคืบหน้ารวม และหน่วยถัดไปที่ควรเรียน
+     * แบบทดสอบที่ไม่ผูกหน่วย (หรือหน่วยยังไม่เผยแพร่) รวมไว้ท้ายหน้า เพื่อไม่ให้ชุดที่เผยแพร่แล้วหายไปจากสายตานักเรียน
+     *
+     * @param array<string,mixed> $course
+     * @return array<string,mixed>
+     */
+    private function courseContext(array $course, int $studentId, bool $preview): array
+    {
+        $courseId = (int) $course['id'];
+        $units = $this->numberUnits(array_values(array_filter(
+            $this->units->forCourse($courseId),
+            static fn (array $u): bool => $u['review_status'] === 'published'
+        )));
+        $path = $this->path->build($courseId, $studentId, $units,
+            $this->decorateQuizzes($this->quizzes->publishedForStudent($courseId, $studentId)));
+
+        $allItems = array_merge(array_merge([], ...array_column($path['units'], 'items')), $path['loose']);
+        $next = null;
+        foreach ($units as $u) {
+            $p = $path['units'][(int) $u['id']];
+            if ($p['done'] < $p['total']) {
+                $next = $u;
+                break;
+            }
+        }
+
+        return [
+            'preview' => $preview,
+            'course' => $course,
+            'units' => $units,
+            'path' => $path['units'],
+            'looseQuizzes' => $path['loose'],
+            'totals' => LearnPathRepository::summary($allItems),
+            'typeCounts' => $this->typeCounts($allItems),
+            'nextUnit' => $next,
+            // ลิงก์ไปหน้าหน่วย: นักเรียน /learn/units/{id} · ครู /courses/{c}/units/{id}/preview
+            'unitBase' => $preview ? '/courses/' . $courseId . '/units/' : '/learn/units/',
+            'unitSuffix' => $preview ? '/preview' : '',
+        ];
+    }
+
+    /**
+     * ข้อมูลหน้าหน่วย: เลขหน่วย รายการเรียงตามลำดับ ความคืบหน้า และรายการถัดไปที่ควรเรียน
+     *
+     * @param array<string,mixed> $course
+     * @param array<string,mixed> $unit
+     * @return array<string,mixed>
+     */
+    private function unitContext(array $course, array $unit, int $studentId, bool $preview): array
+    {
+        $courseId = (int) $course['id'];
+        $units = $this->numberUnits(array_values(array_filter(
+            $this->units->forCourse($courseId),
+            static fn (array $u): bool => $u['review_status'] === 'published' || (int) $u['id'] === (int) $unit['id']
+        )));
+        $current = $unit;
+        foreach ($units as $u) {
+            if ((int) $u['id'] === (int) $unit['id']) {
+                $current = $u;
+            }
+        }
+
+        $path = $this->path->build($courseId, $studentId, $units,
+            $this->decorateQuizzes($this->quizzes->publishedForStudent($courseId, $studentId)));
+        $p = $path['units'][(int) $unit['id']] ?? ['items' => [], 'done' => 0, 'total' => 0, 'minutes' => 0];
+
+        $next = null;
+        foreach ($p['items'] as $it) {
+            if ($it['counts'] && !$it['done']) {
+                $next = $it;
+                break;
+            }
+        }
+
+        return [
+            'preview' => $preview,
+            'course' => $course,
+            'unit' => $current,
+            'items' => $p['items'],
+            'progress' => $p,
+            'typeCounts' => $this->typeCounts($p['items']),
+            'nextItem' => $next,
+            'itemBase' => $preview
+                ? '/courses/' . $courseId . '/units/' . $unit['id'] . '/preview'
+                : '/learn/units/' . $unit['id'],
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $course
+     * @param array<string,mixed> $unit
+     */
+    private function renderItem(Request $request, Response $response, array $args, array $course, array $unit, int $studentId, bool $preview): Response
+    {
+        $ctx = $this->unitContext($course, $unit, $studentId, $preview);
+        $kind = (string) $args['kind'];
+        $itemId = (int) $args['itemId'];
+
+        $pos = null;
+        foreach ($ctx['items'] as $i => $it) {
+            if ($it['kind'] === $kind && $it['id'] === $itemId) {
+                $pos = $i;
+            }
+        }
+        if ($pos === null) {
+            throw new HttpNotFoundException($request, 'ไม่พบเนื้อหานี้');
+        }
+
+        $record = $kind === 'section'
+            ? $this->units->findSection($itemId)
+            : $this->db->first('SELECT * FROM {assignments} WHERE id = ?', [$itemId]);
+
+        return $this->view->render($response, 'learn/item', [
+            'page' => $preview ? 'courses' : 'learn',
+            'item' => $ctx['items'][$pos],
+            'record' => $record,
+            'position' => $pos + 1,
+            'prevItem' => $ctx['items'][$pos - 1] ?? null,
+            'nextInPath' => $ctx['items'][$pos + 1] ?? null,
+        ] + $ctx);
+    }
+
+    /**
+     * เติมเลขหน่วย (หน่วยสอบไม่นับเลข) ให้ตรงกับหน้าครู
+     *
+     * @param list<array<string,mixed>> $units
+     * @return list<array<string,mixed>>
+     */
+    private function numberUnits(array $units): array
+    {
+        $no = 0;
+        foreach ($units as $i => $u) {
+            $exam = UnitRepository::isExam($u);
+            $units[$i]['is_exam'] = $exam;
+            $units[$i]['no'] = $exam ? null : ++$no;
+            $units[$i]['kind_label'] = $exam ? UnitRepository::KINDS[$u['kind']] : 'หน่วยที่ ' . $no;
+        }
+
+        return $units;
+    }
+
+    /**
+     * จำนวนรายการแยกตามประเภท เช่น "2 บทความ, 1 วิดีโอ และ 2 แบบทดสอบ"
+     *
+     * @param list<array<string,mixed>> $items
+     */
+    private function typeCounts(array $items): string
+    {
+        $counts = [];
+        foreach ($items as $it) {
+            $label = match ($it['kind']) {
+                'section' => $it['label'],
+                'quiz' => 'แบบทดสอบ',
+                default => 'ใบงาน',
+            };
+            $counts[$label] = ($counts[$label] ?? 0) + 1;
+        }
+        $parts = [];
+        foreach ($counts as $label => $n) {
+            $parts[] = $n . ' ' . $label;
+        }
+        $last = array_pop($parts);
+
+        return $parts ? implode(', ', $parts) . ' และ ' . $last : (string) $last;
+    }
+
 
     /**
      * เติมข้อความที่หน้ารายการแบบทดสอบใช้: ชนิด ปุ่ม และสถานะการทำของนักเรียน

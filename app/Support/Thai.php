@@ -27,6 +27,24 @@ final class Thai
         return sprintf('%d %s %d', (int) date('j', $ts), self::MONTHS[(int) date('n', $ts)], (int) date('Y', $ts) + 543);
     }
 
+    /**
+     * วันที่แบบเอกสารราชการ แยกส่วนให้เติมในช่อง "วันที่ … เดือน … พ.ศ. …"
+     * 2026-10-16 → ['day' => 16, 'month' => 'ตุลาคม', 'year' => 2569] · ว่าง/ผิดรูป → null
+     *
+     * @return array{day:int, month:string, year:int}|null
+     */
+    public static function formalDate(DateTimeInterface|string|null $when): ?array
+    {
+        $ts = self::timestamp($when);
+        if ($ts === null) {
+            return null;
+        }
+        $months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+        return ['day' => (int) date('j', $ts), 'month' => $months[(int) date('n', $ts) - 1], 'year' => (int) date('Y', $ts) + 543];
+    }
+
     /** เพิ่มเวลาต่อท้ายวันที่ เช่น "10 ก.ย. 2569 15:04" */
     public static function dateTime(DateTimeInterface|string|null $when): string
     {

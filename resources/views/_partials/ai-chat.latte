@@ -11,21 +11,29 @@
 
 <section class="aichat-panel" id="aichatPanel" role="dialog" aria-label="ช่องสนทนากับผู้ช่วย AI"
          data-base="{$base}" data-token="{$csrf}" data-user="{$user['id'] ?? 0}" hidden>
+    {* หัวหน้าต่างคือแท็บสลับผู้ช่วย AI / เครื่องมือเลย (class-tools.js จัดการการสลับ) — ไม่มีชื่อหัวซ้ำกับแท็บ *}
     <header class="aichat-head">
-        <span class="aichat-head-icon msi" aria-hidden="true">smart_toy</span>
-        <div class="aichat-head-title">
-            ผู้ช่วย AI
-            <div class="aichat-head-sub" id="aichatStatus">กำลังตรวจการเชื่อมต่อ…</div>
-        </div>
+        <nav class="aichat-tabs" role="tablist" aria-label="สลับผู้ช่วย AI / เครื่องมือ">
+            <button type="button" class="aichat-tab is-on" role="tab" aria-selected="true" data-pane-btn="chat">
+                <span class="msi" aria-hidden="true">smart_toy</span>ผู้ช่วย AI
+            </button>
+            <button type="button" class="aichat-tab" role="tab" aria-selected="false" data-pane-btn="tools">
+                <span class="msi" aria-hidden="true">construction</span>เครื่องมือ
+            </button>
+        </nav>
         <button type="button" class="aichat-icon-btn" id="aichatClear" title="ล้างบทสนทนา">↺</button>
         <button type="button" class="aichat-icon-btn" id="aichatClose" title="ปิด">✕</button>
     </header>
 
-    {* เลือก AI ที่จะตอบในช่องสนทนานี้ — แสดงเมื่อมีให้เลือกมากกว่าหนึ่งตัว *}
-    <label class="aichat-pick" id="aichatPick" hidden>
-        <span class="msi" aria-hidden="true">smart_toy</span>
-        <select id="aichatAi" aria-label="เลือก AI ที่จะใช้ตอบ"></select>
-    </label>
+    <div class="aichat-pane" data-pane="chat">
+    {* สถานะการเชื่อมต่อ + เลือก AI ที่จะตอบ (ตัวเลือกแสดงเมื่อมีให้เลือกมากกว่าหนึ่งตัว) *}
+    <div class="aichat-statusbar">
+        <div class="aichat-head-sub" id="aichatStatus">กำลังตรวจการเชื่อมต่อ…</div>
+        <label class="aichat-pick" id="aichatPick" hidden>
+            <span class="msi" aria-hidden="true">smart_toy</span>
+            <select id="aichatAi" aria-label="เลือก AI ที่จะใช้ตอบ"></select>
+        </label>
+    </div>
 
     <div class="aichat-log" id="aichatLog" aria-live="polite">
         <div class="aichat-empty" id="aichatEmpty">
@@ -67,7 +75,11 @@
             <button type="submit" class="aichat-send" id="aichatSend" title="ส่ง">➤</button>
         </div>
     </form>
+    </div>
+
+    {include 'class-tools.latte'}
 </section>
+<script src="{$base}/assets/js/class-tools.js?v={$assetVer ?? 1}" defer></script>
 
 <script>
 (function () {
@@ -90,6 +102,7 @@
 
     function setStatus(text, tone) {
         statusEl.textContent = text;
+        statusEl.title = text; // ข้อความยาวถูกตัดด้วย … — ชี้เมาส์ดูเต็มได้
         statusEl.className = 'aichat-head-sub is-' + (tone || 'ok');
         fabDot.hidden = false;
         fabDot.className = 'aichat-fab-dot is-' + (tone || 'ok');
@@ -721,7 +734,8 @@
         fab.setAttribute('aria-expanded', 'true');
         checkStatus();
         state.open = true; save();
-        setTimeout(function () { input.focus(); }, 40);
+        // โฟกัสช่องพิมพ์เฉพาะเมื่ออยู่แท็บผู้ช่วย AI (แท็บเครื่องมือซ่อนช่องพิมพ์ไว้)
+        setTimeout(function () { if (!form.closest('[data-pane]').hidden) { input.focus(); } }, 40);
     }
 
     function close() {

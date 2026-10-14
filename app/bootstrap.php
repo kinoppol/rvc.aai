@@ -78,6 +78,13 @@ $builder->addDefinitions([
         'college' => (string) $settings->get('college_name') ?: $config->get('app.college'),
         'version' => $config->get('app.version'),
         'base' => Url::base(),
+        // ต่อท้าย URL ของ app.css/ui.js ให้เบราว์เซอร์โหลดใหม่ทุกครั้งที่ไฟล์เปลี่ยน แทนการใช้ไฟล์เก่าในแคช
+        'assetVer' => (string) max(
+            (int) @filemtime(Paths::root() . '/public/assets/css/app.css'),
+            (int) @filemtime(Paths::root() . '/public/assets/js/ui.js'),
+            (int) @filemtime(Paths::root() . '/public/assets/js/class-tools.js'),
+            1
+        ),
         'user' => null,
         'ui' => Palette::tokens($settings->uiPrimary()['hex']),
     ]),

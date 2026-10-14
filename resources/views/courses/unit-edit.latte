@@ -30,6 +30,11 @@
                     {/foreach}
                 </select>
             </div>
+            <div class="field unit-weeks" data-lesson-only n:attr="hidden: $isExam">
+                <label for="weeks">จำนวนสัปดาห์</label>
+                <input class="input mono" type="number" id="weeks" name="weeks" min="1" max="30"
+                       value="{$unit['weeks'] ?? ''}" placeholder="แบ่งอัตโนมัติ" title="เว้นว่าง = แผนการสอนแบ่งสัปดาห์ที่เหลือให้เท่า ๆ กัน">
+            </div>
         </div>
 
         <div class="field">
@@ -71,26 +76,63 @@
     {if $sections}
         <div class="list" style="margin-bottom:0">
             {foreach $sections as $s}
+                {* ประเภท / แก้ไข / ลบ เป็นไอคอน · ชี้เมาส์แล้วมีป้ายบอก (data-tip) *}
+                {var $typeTip = $s['type'] === 'video' ? 'วีดิโอ' : ($s['type'] === 'pdf' ? 'เอกสาร PDF' : 'เนื้อหาข้อความ')}
                 <div class="list-row">
+                    <span class="icon-act is-type section-type-{$s['type']}" data-tip="{$typeTip}" aria-label="{$typeTip}" role="img">
+                        <span class="msi" aria-hidden="true">{$s['type'] === 'video' ? 'smart_display' : ($s['type'] === 'pdf' ? 'description' : 'article')}</span>
+                    </span>
                     <div class="list-main">
-                        <div class="list-title">
-                            {if $s['type'] === 'video'}📹 {elseif $s['type'] === 'pdf'}📄 {else}📝 {/if}
-                            {$s['title']}
-                        </div>
-                        <div class="list-meta mono" style="font-size:12px">
-                            {if $s['type'] === 'video'}{$s['video_url']|truncate:60}
-                            {elseif $s['type'] === 'pdf'}{$s['file_name'] ?? $s['file_path']}
-                            {else}เนื้อหาข้อความ{/if}
-                        </div>
+                        <div class="list-title">{$s['title']}</div>
+                        {if $s['type'] !== 'text'}
+                            <div class="list-meta mono" style="font-size:12px">
+                                {$s['type'] === 'video' ? ($s['video_url']|truncate:60) : ($s['file_name'] ?? $s['file_path'])}
+                            </div>
+                        {/if}
                     </div>
-                    <span class="tag tag-muted">{$s['type']}</span>
+                    <button type="button" class="icon-act" data-tip="แก้ไขส่วนนี้" aria-label="แก้ไข {$s['title']}"
+                            data-reveal="editSection{$s['id']}" aria-expanded="false" aria-controls="editSection{$s['id']}">
+                        <span class="msi" aria-hidden="true">edit</span>
+                    </button>
                     <form method="post" action="{$base}/courses/{$course['id']}/units/{$unit['id']}/sections/{$s['id']}/delete"
                           data-confirm-title="ลบส่วนนี้" data-confirm-ok="ลบส่วนนี้" data-confirm-danger
                           data-confirm="ลบส่วนนี้ออกจากหน่วยการเรียนใช่หรือไม่" style="display:inline">
                         <input type="hidden" name="_token" value="{$csrf}">
-                        <button type="submit" class="btn btn-sm btn-ghost-danger">ลบ</button>
+                        <button type="submit" class="icon-act is-danger" data-tip="ลบส่วนนี้" aria-label="ลบ {$s['title']}">
+                            <span class="msi" aria-hidden="true">delete</span>
+                        </button>
                     </form>
                 </div>
+                {* แก้ไขส่วนนี้ (เปิดจากปุ่ม "แก้ไข" · เปิดได้ทีละฟอร์ม) *}
+                <form method="post" action="{$base}/courses/{$course['id']}/units/{$unit['id']}/sections/{$s['id']}"
+                      id="editSection{$s['id']}" class="ai-draft-form section-edit reveal-panel" hidden>
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <div class="ai-draft-form-head" style="margin-bottom:12px">
+                        <div class="step-label">แก้ไขส่วนเนื้อหา</div>
+                        <button type="button" class="btn btn-sm btn-ghost" data-reveal="editSection{$s['id']}">ปิด</button>
+                    </div>
+                    <div class="field">
+                        <label for="secTitle{$s['id']}">ชื่อส่วน</label>
+                        <input class="input" type="text" id="secTitle{$s['id']}" name="title" value="{$s['title']}" maxlength="191" required>
+                    </div>
+                    {if $s['type'] === 'text'}
+                        <div class="field">
+                            <label for="secContent{$s['id']}">เนื้อหา</label>
+                            <textarea class="input" id="secContent{$s['id']}" name="content" rows="14">{$s['content']}</textarea>
+                        </div>
+                    {elseif $s['type'] === 'video'}
+                        <div class="field">
+                            <label for="secVideo{$s['id']}">URL วีดิโอ <span class="required">*</span></label>
+                            <input class="input" type="url" id="secVideo{$s['id']}" name="video_url" value="{$s['video_url']}" required>
+                        </div>
+                    {else}
+                        <p class="hint">ไฟล์ PDF แก้ได้เฉพาะชื่อ · ถ้าต้องการเปลี่ยนไฟล์ ให้ลบส่วนนี้แล้วเพิ่มใหม่</p>
+                    {/if}
+                    <div class="form-actions" style="margin-top:4px">
+                        <button type="submit" class="btn btn-primary btn-sm">บันทึกการแก้ไข</button>
+                        <button type="button" class="btn btn-sm btn-ghost" data-reveal="editSection{$s['id']}">ยกเลิก</button>
+                    </div>
+                </form>
             {/foreach}
         </div>
     {else}
@@ -177,9 +219,9 @@
             <button type="button" class="btn btn-sm btn-ghost" data-reveal="addSectionPanel">ปิด</button>
         </div>
         <div class="tabs" style="margin-bottom:16px" id="sectionTypeTabs">
-            <a class="tab is-active" data-section-tab="text" href="#">📝 ข้อความ</a>
-            <a class="tab" data-section-tab="video" href="#">📹 วีดิโอ</a>
-            <a class="tab" data-section-tab="pdf" href="#">📄 PDF</a>
+            <a class="tab is-active" data-section-tab="text" href="#"><span class="msi">article</span>ข้อความ</a>
+            <a class="tab" data-section-tab="video" href="#"><span class="msi">smart_display</span>วีดิโอ</a>
+            <a class="tab" data-section-tab="pdf" href="#"><span class="msi">picture_as_pdf</span>PDF</a>
         </div>
 
         {* TEXT *}

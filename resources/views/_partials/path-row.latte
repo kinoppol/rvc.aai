@@ -1,0 +1,33 @@
+{* แถวหนึ่งรายการในเส้นทางการเรียน — ส่ง it:, no:, itemBase:, preview: มาจากหน้าที่ include
+   ส่วนเนื้อหา/ใบงานเป็นลิงก์ · แบบทดสอบเป็นปุ่มเริ่มทำ (ปิดไว้ในมุมมองตัวอย่างของครู) *}
+{capture $inner}
+    <span class="path-no">{$no}</span>
+    <span class="path-main">
+        <span class="path-tags">
+            <span class="path-type path-tone-{$it['tone']}"><span class="msi" aria-hidden="true">{$it['icon']}</span>{$it['label']}</span>
+            {if $it['score']}<span class="path-pill">{$it['score']}</span>{/if}
+            {if $it['meta']}<span class="path-meta">{$it['meta']}</span>{/if}
+        </span>
+        <span class="path-title">{$it['title']}</span>
+        {if $it['kind'] === 'quiz' && !$preview && $it['quiz']['state'] !== 'ยังไม่ได้ทำ'}
+            <span class="path-state path-state-{$it['quiz']['state_kind']}">{$it['quiz']['state']}</span>
+        {/if}
+    </span>
+    {if $it['counts']}
+        <span n:class="path-check, $it['done'] ? is-done" title="{$it['done'] ? 'ทำแล้ว' : 'ยังไม่ได้ทำ'}"><span class="msi" aria-hidden="true">check</span></span>
+    {else}
+        <span class="path-check is-optional" title="ส่งกับครูผู้สอน ไม่นับในความคืบหน้า"><span class="msi" aria-hidden="true">arrow_forward</span></span>
+    {/if}
+{/capture}
+{if $it['kind'] === 'quiz'}
+    {if $preview}
+        <div class="path-row is-static" title="ตัวอย่างมุมมองนักเรียน · เริ่มทำแบบทดสอบไม่ได้">{$inner|noescape}</div>
+    {else}
+        <form class="path-form" method="post" action="{$base}/learn/quizzes/{$it['id']}/start">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <button type="submit" n:class="path-row, $it['done'] ? is-done" title="{$it['quiz']['action']}">{$inner|noescape}</button>
+        </form>
+    {/if}
+{else}
+    <a n:class="path-row, $it['done'] ? is-done" href="{$base}{$itemBase}/{$it['kind']}/{$it['id']}">{$inner|noescape}</a>
+{/if}

@@ -1,0 +1,88 @@
+{layout '../layout.latte'}
+
+{block title}{$item['title']}{/block}
+
+{* อ่านส่วนเนื้อหา / ใบงานทีละรายการ พร้อมปุ่มก่อนหน้า-ถัดไปตามลำดับในหน่วย *}
+{define navLink, $target, $dir}
+    {var $text = $dir === 'prev' ? 'ก่อนหน้า' : 'ถัดไป'}
+    {if $target['kind'] === 'quiz'}
+        {if $preview}
+            <button class="learn-nav-btn" type="button" disabled>
+                {if $dir === 'prev'}<span class="msi" aria-hidden="true">arrow_back</span>{/if}
+                <span><small>{$text} · {$target['label']}</small>{$target['title']}</span>
+                {if $dir === 'next'}<span class="msi" aria-hidden="true">arrow_forward</span>{/if}
+            </button>
+        {else}
+            <form method="post" action="{$base}/learn/quizzes/{$target['id']}/start">
+                <input type="hidden" name="_token" value="{$csrf}">
+                <button class="learn-nav-btn" type="submit">
+                    {if $dir === 'prev'}<span class="msi" aria-hidden="true">arrow_back</span>{/if}
+                    <span><small>{$text} · {$target['label']}</small>{$target['title']}</span>
+                    {if $dir === 'next'}<span class="msi" aria-hidden="true">arrow_forward</span>{/if}
+                </button>
+            </form>
+        {/if}
+    {else}
+        <a class="learn-nav-btn" href="{$base}{$itemBase}/{$target['kind']}/{$target['id']}">
+            {if $dir === 'prev'}<span class="msi" aria-hidden="true">arrow_back</span>{/if}
+            <span><small>{$text} · {$target['label']}</small>{$target['title']}</span>
+            {if $dir === 'next'}<span class="msi" aria-hidden="true">arrow_forward</span>{/if}
+        </a>
+    {/if}
+{/define}
+
+{block content}
+<div class="learn-page">
+    <a class="back-link" href="{$base}{$itemBase}">← {$unit['kind_label'] ?? 'หน่วยการเรียน'} · {$unit['title']}</a>
+    {if $preview}
+        <div class="preview-banner">
+            <span class="msi" aria-hidden="true">visibility</span>
+            <div><b>มุมมองของนักเรียน</b> · การเปิดดูในโหมดนี้ไม่นับเป็นความคืบหน้าของนักเรียน</div>
+        </div>
+    {/if}
+
+    <div class="learn-item-head">
+        <span class="path-type path-tone-{$item['tone']}"><span class="msi" aria-hidden="true">{$item['icon']}</span>{$item['label']}</span>
+        <span class="path-meta">รายการที่ {$position} จาก {count($items)}{if $item['meta']} · {$item['meta']}{/if}</span>
+    </div>
+    <h1 class="learn-item-title">{$item['title']}</h1>
+
+    <section class="learn-card learn-item-body">
+        {if $item['kind'] === 'section'}
+            {if $record['type'] === 'text'}
+                <div class="learn-text learn-reading">{$record['content']}</div>
+            {elseif $record['type'] === 'video'}
+                <div class="learn-video">
+                    <iframe src="{$record['video_url']}" allowfullscreen loading="lazy" title="{$item['title']}"></iframe>
+                </div>
+            {else}
+                <div class="learn-file">
+                    <span class="msi" aria-hidden="true">description</span>
+                    <span>{$record['file_name'] ?? 'ไฟล์ PDF'}</span>
+                </div>
+            {/if}
+        {else}
+            {if $record['description']}
+                <div class="learn-text learn-reading">{$record['description']}</div>
+            {else}
+                <p class="learn-text">ครูยังไม่ได้ใส่รายละเอียดของใบงานนี้</p>
+            {/if}
+            <p class="learn-note">
+                <span class="msi" aria-hidden="true">info</span>
+                ใบงานนี้ส่งกับครูผู้สอนตามที่ครูกำหนด{if $item['score']} · เต็ม {$item['score']}{/if}{if $record['due_at']} · กำหนดส่ง {App\Support\Thai::dateTime($record['due_at'])}{/if}
+            </p>
+        {/if}
+    </section>
+
+    <nav class="learn-nav" aria-label="รายการก่อนหน้าและถัดไป">
+        <div>{if $prevItem}{include navLink, $prevItem, 'prev'}{/if}</div>
+        <div>
+            {if $nextInPath}
+                {include navLink, $nextInPath, 'next'}
+            {else}
+                <a class="learn-nav-btn" href="{$base}{$itemBase}"><span><small>จบหน่วยแล้ว</small>กลับไปหน้าหน่วย</span><span class="msi" aria-hidden="true">arrow_forward</span></a>
+            {/if}
+        </div>
+    </nav>
+</div>
+{/block}

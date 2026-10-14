@@ -15,6 +15,7 @@ use App\Support\Cover;
 use App\Support\Csrf;
 use App\Support\Db;
 use App\Support\Flash;
+use App\Support\Semester;
 use App\Support\Thai;
 use App\Support\Url;
 use App\Support\View;
@@ -383,9 +384,18 @@ final class CourseController
             'credits' => max(0, min(9.9, (float) ($data['credits'] ?? 3))),
             'theory_hours' => max(0, min(255, (int) ($data['theory_hours'] ?? 0))),
             'practice_hours' => max(0, min(255, (int) ($data['practice_hours'] ?? 0))),
+            // ว่าง = ใช้จำนวนสัปดาห์ปกติตามระดับชั้นจากรหัสวิชา (Semester::defaultWeeks)
+            'weeks' => ((int) ($data['weeks'] ?? 0)) > 0 ? min(Semester::MAX_WEEKS, (int) $data['weeks']) : null,
             'description' => trim((string) ($data['description'] ?? '')) ?: null,
             'objectives' => trim((string) ($data['objectives'] ?? '')) ?: null,
             'competencies' => trim((string) ($data['competencies'] ?? '')) ?: null,
+            // ข้อมูลหน้าปก/ลักษณะรายวิชาของแผนการสอนที่สั่งพิมพ์
+            'program_type' => mb_substr(trim((string) ($data['program_type'] ?? '')), 0, 191) ?: null,
+            'major' => mb_substr(trim((string) ($data['major'] ?? '')), 0, 191) ?: null,
+            'plan_date' => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($data['plan_date'] ?? '')) === 1
+                && checkdate((int) substr($data['plan_date'], 5, 2), (int) substr($data['plan_date'], 8, 2), (int) substr($data['plan_date'], 0, 4))
+                ? $data['plan_date'] : null,
+            'learning_outcomes' => trim((string) ($data['learning_outcomes'] ?? '')) ?: null,
             'term_id' => $termId,
             'classroom_id' => $classroomId,
             // สีหน้าปก — ว่าง = ให้ระบบสุ่มจาก id วิชา (สีเดิมเสมอ)
@@ -490,6 +500,97 @@ final class CourseController
         return $this->back($response);
     }
 
+    /** ย้ายแบบทดสอบที่ซ้ำหรือเลิกใช้ลงถังขยะ · ข้อสอบและผลสอบยังอยู่ กู้คืนได้ภายใน 30 วัน */
+    public function deleteQuiz(Request $request, Response $response, array $args): Response
+    {
+        return $this->quizTrashAction($request, $response, $args, 'trash');
+    }
+
+    /** กู้แบบทดสอบคืนจากถังขยะ */
+    public function restoreQuiz(Request $request, Response $response, array $args): Response
+    {
+        return $this->quizTrashAction($request, $response, $args, 'restore');
+    }
+
+    /** ลบถาวรทันทีจากถังขยะ (ไม่ต้องรอครบ 30 วัน) · ผลสอบของนักเรียนถูกลบไปด้วย */
+    public function destroyQuiz(Request $request, Response $response, array $args): Response
+    {
+        return $this->quizTrashAction($request, $response, $args, 'destroy');
+    }
+
+    /**
+     * ถังขยะ (เมนูด้านข้าง): แบบทดสอบที่ลบจากทุกรายวิชาของครู จัดกลุ่มตามรายวิชา
+     * ล้างชุดที่ครบ 30 วันก่อน แล้วบอกจำนวนวันที่เหลือก่อนถูกลบถาวร
+     */
+    public function trash(Request $request, Response $response): Response
+    {
+        $user = $request->getAttribute('user');
+        $this->quizzes->purgeExpired();
+
+        $groups = [];
+        foreach ($this->quizzes->trashedForTeacher((int) $user['id']) as $q) {
+            $q['days_left'] = max(0, (int) ceil((strtotime((string) $q['purge_at']) - time()) / 86400));
+            $groups[(int) $q['course_id']] ??= ['id' => (int) $q['course_id'], 'code' => $q['course_code'], 'name' => $q['course_name'], 'quizzes' => []];
+            $groups[(int) $q['course_id']]['quizzes'][] = $q;
+        }
+
+        return $this->view->render($response, 'courses/trash', [
+            'page' => 'trash',
+            'groups' => array_values($groups),
+        ]);
+    }
+
+    /** @param 'trash'|'restore'|'destroy' $action */
+    private function quizTrashAction(Request $request, Response $response, array $args, string $action): Response
+    {
+        $user = $request->getAttribute('user');
+        $course = $this->requireOwnedCourse($request, (int) $args['id'], (int) $user['id']);
+        // ย้ายลงถังขยะจากแท็บแบบทดสอบ · กู้คืน/ลบถาวรจากหน้าถังขยะ (เมนูด้านข้าง)
+        $tabUrl = Url::to($action === 'trash' ? '/courses/' . $course['id'] . '?tab=quizzes' : '/trash');
+
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่');
+
+            return $response->withHeader('Location', $tabUrl)->withStatus(302);
+        }
+
+        $quizId = (int) $args['quizId'];
+        $quiz = $action === 'trash'
+            ? $this->quizzes->find($quizId)
+            : $this->quizzes->findTrashed($quizId, (int) $course['id']);
+        if ($quiz === null || (int) $quiz['course_id'] !== (int) $course['id']) {
+            throw new HttpNotFoundException($request, 'ไม่พบแบบทดสอบนี้');
+        }
+
+        $students = $this->db->int('SELECT COUNT(DISTINCT student_id) FROM {quiz_attempts} WHERE quiz_id = ?', [$quizId]);
+        $meta = ['title' => $quiz['title'], 'students' => $students];
+
+        switch ($action) {
+            case 'trash':
+                $this->quizzes->trash($quizId);
+                $this->auth->log('quiz.trash', 'quiz#' . $quizId, $meta);
+                Flash::success(sprintf(
+                    'ย้าย "%s" ไปที่ถังขยะแล้ว · กู้คืนได้จากเมนูถังขยะภายใน %d วัน ก่อนถูกลบถาวร',
+                    $quiz['title'],
+                    QuizRepository::TRASH_DAYS
+                ));
+                break;
+            case 'restore':
+                $this->quizzes->restore($quizId);
+                $this->auth->log('quiz.restore', 'quiz#' . $quizId, $meta);
+                Flash::success('กู้คืน "' . $quiz['title'] . '" แล้ว · ผลสอบของนักเรียนกลับมาครบ');
+                break;
+            default:
+                $this->quizzes->destroy($quizId);
+                $this->auth->log('quiz.delete', 'quiz#' . $quizId, $meta);
+                Flash::success('ลบ "' . $quiz['title'] . '" ถาวรแล้ว'
+                    . ($students > 0 ? sprintf(' · รวมผลสอบของนักเรียน %d คน', $students) : ''));
+        }
+
+        return $response->withHeader('Location', $tabUrl)->withStatus(302);
+    }
+
     /**
      * กลับไปหน้าฟอร์มเดิม เพื่อให้ครูแก้ข้อมูลต่อได้ทันทีเมื่อบันทึกไม่ผ่าน
      *
@@ -524,7 +625,7 @@ final class CourseController
 
         $data += match ($tab) {
             'units'    => ['units' => $this->decorateUnits($this->units->forCourse($course['id']))],
-            'quizzes'  => ['quizzes' => $this->quizzes->forCourse((int) $course['id'])],
+            'quizzes'  => ['quizGroups' => $this->quizGroups((int) $course['id'])],
             'worksheets' => [
                 'worksheets' => $this->assignments->forCourse((int) $course['id'], 'worksheet'),
                 'lessonUnits' => array_values(array_filter(
@@ -594,11 +695,46 @@ final class CourseController
         return $units;
     }
 
+    /**
+     * แบบทดสอบจัดกลุ่มตามหน่วยการเรียน เรียงตามลำดับหน่วย (ก่อนเรียนขึ้นก่อนหลังเรียน)
+     * แบบทดสอบที่ยังไม่ผูกกับหน่วยไปอยู่กลุ่มท้ายสุด
+     *
+     * @return list<array{no:?string,title:string,is_exam:bool,quizzes:list<array<string,mixed>>}>
+     */
+    private function quizGroups(int $courseId): array
+    {
+        $byUnit = [];
+        foreach ($this->quizzes->forCourse($courseId) as $q) {
+            $byUnit[(int) ($q['unit_id'] ?? 0)][] = $q;
+        }
+
+        $groups = [];
+        foreach ($this->decorateUnits($this->units->forCourse($courseId)) as $u) {
+            if (isset($byUnit[(int) $u['id']])) {
+                $groups[] = [
+                    'no' => $u['no'],
+                    'title' => $u['title'],
+                    'is_exam' => $u['is_exam'],
+                    'quizzes' => $byUnit[(int) $u['id']],
+                ];
+                unset($byUnit[(int) $u['id']]);
+            }
+        }
+
+        // ยังไม่ผูกหน่วย หรือผูกกับหน่วยที่ไม่อยู่ในรายวิชานี้แล้ว
+        $loose = array_merge([], ...array_values($byUnit));
+        if ($loose) {
+            $groups[] = ['no' => null, 'title' => 'ยังไม่ผูกกับหน่วยการเรียน', 'is_exam' => false, 'quizzes' => $loose];
+        }
+
+        return $groups;
+    }
+
     /** @return array{scoreQuizzes:list<array<string,mixed>>,scoreRows:list<array<string,mixed>>} */
     private function scoreBoard(int $courseId): array
     {
         $quizzes = $this->db->all(
-            "SELECT id, title FROM {quizzes} WHERE course_id = ? AND kind = 'posttest' AND review_status = 'published' ORDER BY created_at",
+            "SELECT id, title FROM {quizzes} WHERE course_id = ? AND kind = 'posttest' AND review_status = 'published' AND deleted_at IS NULL ORDER BY created_at",
             [$courseId]
         );
         $students = $this->enrollments->studentsInCourse($courseId);

@@ -33,6 +33,7 @@ final class Prompt
             'unit_outline' => self::unitOutline($spec),
             'assignment' => self::assignment($spec),
             'unit_content' => self::unitContent($spec),
+            'course_outcomes' => self::courseOutcomes($spec),
             default => $userPrompt,
         };
 
@@ -117,7 +118,7 @@ final class Prompt
      */
     private static function unitOutline(array $spec): string
     {
-        $count = max(2, min(20, (int) ($spec['count'] ?? 8)));
+        $count = max(1, min(20, (int) ($spec['count'] ?? 8)));
         $description = trim((string) ($spec['description'] ?? '')) ?: '(ไม่ได้ระบุ ให้อนุมานจากชื่อวิชา)';
         $existing = (array) ($spec['existing'] ?? []);
         // ระบุให้ชัดว่า "หน่วยใหม่เพิ่มอีก N หน่วย ไม่นับของเดิม" — คำสั่งเดิมกำกวม โมเดลแบบคิดก่อนตอบ
@@ -136,6 +137,7 @@ final class Prompt
 
 สิ่งที่ครูสั่งเพิ่ม:
 {$note}";
+        $scheduleText = self::outlineSchedule((array) ($spec['schedule'] ?? []));
 
         return <<<TXT
             {$what}
@@ -143,7 +145,7 @@ final class Prompt
             คำอธิบายรายวิชา:
             {$description}
 
-            {$existingText}{$noteText}
+            {$existingText}{$scheduleText}{$noteText}
 
             ข้อกำหนดของคำตอบ — สำคัญมาก ห้ามผิดรูปแบบ:
             1. ตอบเป็น NDJSON เท่านั้น หนึ่งหน่วยต่อหนึ่งบรรทัด ห้ามครอบด้วย ``` ห้ามมีคำอธิบายนอก JSON เริ่มตอบด้วย JSON บรรทัดแรกได้ทันที
@@ -154,6 +156,70 @@ final class Prompt
             5. ใช้ภาษาไทยและบริบทงานอาชีพจริง ไม่ตั้งชื่อหน่วยกว้างลอย ๆ
             6. ต้องครบ {$count} หน่วยพอดี แล้วปิดท้ายด้วยบรรทัด {"done":true,"total":{$count}}
             TXT;
+    }
+
+    /**
+     * สรุปผลลัพธ์การเรียนรู้ระดับรายวิชา (Course Learning Outcomes) จากข้อมูลรายวิชาที่ครูกรอก
+     *
+     * @param array<string,mixed> $spec
+     */
+    private static function courseOutcomes(array $spec): string
+    {
+        $count = max(2, min(8, (int) ($spec['count'] ?? 4)));
+        $or = static fn (string $k): string => trim((string) ($spec[$k] ?? '')) ?: '(ไม่ได้ระบุ)';
+
+        return <<<TXT
+            สรุปผลลัพธ์การเรียนรู้ระดับรายวิชา {$count} ข้อ ของรายวิชา {$spec['course_code']} {$spec['course_name']}
+            ตามแนวแผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ หลักสูตร สอศ. พ.ศ. 2567
+
+            คำอธิบายรายวิชา:
+            {$or('description')}
+
+            จุดประสงค์รายวิชา:
+            {$or('objectives')}
+
+            สมรรถนะรายวิชา:
+            {$or('competencies')}
+
+            ข้อกำหนดของคำตอบ — สำคัญมาก ห้ามผิดรูปแบบ:
+            1. ตอบเป็น NDJSON เท่านั้น หนึ่งข้อต่อหนึ่งบรรทัด ห้ามครอบด้วย ``` ห้ามมีคำอธิบายนอก JSON
+            2. แต่ละบรรทัดใช้รูปแบบนี้ {"outcome":"ผลลัพธ์การเรียนรู้หนึ่งข้อ"}
+            3. แต่ละข้อขึ้นต้นด้วยคำกริยาที่วัดได้ (เช่น อธิบาย ปฏิบัติ ติดตั้ง วิเคราะห์ ออกแบบ แก้ปัญหา) ระบุสิ่งที่ผู้เรียนทำได้เมื่อจบรายวิชา และเงื่อนไข/เกณฑ์ตามบริบทงานอาชีพจริง
+            4. กระชับ ข้อละหนึ่งประโยค ยาวไม่เกินประมาณ 30 คำ ไม่ยกตัวอย่างยาว ๆ ในวงเล็บหรือหลังคำว่า "เช่น"
+            5. ครอบคลุมทั้งด้านความรู้ ทักษะ และคุณลักษณะที่พึงประสงค์ ไม่ลอกจุดประสงค์หรือสมรรถนะมาตรง ๆ ไม่ใส่เลขข้อ
+            6. ต้องครบ {$count} ข้อ แล้วปิดท้ายด้วยบรรทัด {"done":true,"total":{$count}}
+            TXT;
+    }
+
+    /**
+     * ตารางสัปดาห์ที่ระบบวางไว้ให้หน่วยใหม่ (จาก UnitOutlineController) — ให้ขนาดเนื้อหาพอดีกับเวลา
+     * และแบ่งเนื้อหาเป็นครึ่งก่อน/หลังสอบกลางภาค
+     *
+     * @param array<string,mixed> $s
+     */
+    private static function outlineSchedule(array $s): string
+    {
+        if (empty($s['units'])) {
+            return '';
+        }
+
+        $lines = [sprintf(
+            "\n\nตารางเวลา: ภาคเรียนนี้เรียน %d สัปดาห์รวมวัดผล สัปดาห์ละ %d ชั่วโมง (ทฤษฎี + ปฏิบัติ) · ระบบแบ่งเวลาให้หน่วยใหม่แล้ว ให้ขนาดเนื้อหาแต่ละหน่วยพอดีกับเวลานี้",
+            (int) $s['weeks'],
+            (int) $s['weekly']
+        )];
+        foreach ((array) $s['units'] as $u) {
+            $range = $u['from'] === $u['to'] ? "สัปดาห์ที่ {$u['from']}" : "สัปดาห์ที่ {$u['from']}–{$u['to']}";
+            $lines[] = "- หน่วยที่ {$u['no']}: {$u['weeks']} สัปดาห์ ({$range}, {$u['hours']} ชั่วโมง)";
+        }
+        if (!empty($s['midterm_week'])) {
+            $lines[] = "- สอบกลางภาคสัปดาห์ที่ {$s['midterm_week']} หลังหน่วยที่ {$s['midterm_after']} — หน่วยที่ 1–{$s['midterm_after']} ต้องครอบคลุมเนื้อหาครึ่งแรกของวิชาครบในตัว ส่วนหน่วยหลังจากนั้นเป็นครึ่งหลัง";
+        }
+        if (!empty($s['final_week'])) {
+            $lines[] = "- สอบปลายภาคสัปดาห์ที่ {$s['final_week']} (ไม่ต้องร่างหน่วยสอบ ระบบสร้างให้เอง)";
+        }
+
+        return implode("\n", $lines);
     }
 
     /** @param array<string,mixed> $spec */

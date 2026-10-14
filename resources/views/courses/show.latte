@@ -8,43 +8,49 @@
         <div class="course-header-inner">
             <div class="course-head-top">
                 <div class="course-head-info course-banner" style="--cc:#{$course['color']};--ca:#{$course['accent']}">
-                    {if $course['cover_url']}<img class="cover-img" src="{$course['cover_url']}" alt="">{/if}
+                    {* ชั้นพื้นหลัง (รูปปก + วงแสง) ตัดขอบแยกไว้ — แบนเนอร์เองไม่ตัด เมนู AI จึงยื่นออกนอกแบนเนอร์ได้ *}
+                    <div class="banner-bg" aria-hidden="true">
+                        {if $course['cover_url']}<img class="cover-img" src="{$course['cover_url']}" alt="">{/if}
+                    </div>
                     <div class="course-head-code">{$course['code']} · {$course['classroom_name'] ?? 'ยังไม่ระบุกลุ่มเรียน'}</div>
                     <h1>{$course['name']}</h1>
                     <div class="course-head-stats">
                         {$course['student_count']} นักเรียน · {$course['unit_count']} หน่วยการเรียน
                     </div>
-                </div>
-                <a class="btn" href="{$base}/courses/{$course['id']}/edit" style="align-self:center">แก้ไขรายวิชา</a>
-                <a class="btn" href="{$base}/courses/{$course['id']}/plan-print" target="_blank" style="align-self:center">🖨 พิมพ์แผนการสอน</a>
-                {if $course['ai_quiz_enabled'] || $course['ai_lesson_plan_enabled']}
-                    <div class="ai-menu" data-ai-menu>
-                        <button type="button" class="btn btn-ai" data-ai-toggle>
-                            <span>✦</span> ให้ AI ช่วย <span class="caret">▾</span>
-                        </button>
-                        <div class="ai-menu-panel" hidden>
-                            {if $course['ai_quiz_enabled']}
-                                <a href="{$base}/courses/{$course['id']}/quizzes/create">
-                                    <div class="t">ออกข้อสอบจากหน่วยการเรียน</div>
-                                    <div class="d">เลือกหน่วยแล้วให้ร่างข้อสอบให้</div>
-                                </a>
-                            {/if}
-                            {if $course['ai_lesson_plan_enabled']}
-                                <a href="{$base}/courses/{$course['id']}/lesson-plan">
-                                    <div class="t">ทำแผนการจัดการเรียนรู้</div>
-                                    <div class="d">ร่างตามแบบฟอร์ม สอศ.</div>
-                                </a>
-                            {/if}
-                            <div class="ai-menu-note">ผลลัพธ์ทุกชิ้นจะอยู่ในสถานะรอครูตรวจก่อนเผยแพร่</div>
-                        </div>
+                    <div class="banner-actions">
+                        <a class="btn btn-icon-text" href="{$base}/courses/{$course['id']}/edit"><span class="msi" aria-hidden="true">edit</span>แก้ไขรายวิชา</a>
+                        <a class="btn btn-icon-text" href="{$base}/courses/{$course['id']}/preview" title="เปิดดูรายวิชานี้แบบที่นักเรียนเห็น"><span class="msi" aria-hidden="true">visibility</span>มุมมองนักเรียน</a>
+                        <a class="btn btn-icon-text" href="{$base}/courses/{$course['id']}/plan-print" target="_blank"><span class="msi" aria-hidden="true">print</span>พิมพ์แผนการสอน</a>
+                        {if $course['ai_quiz_enabled'] || $course['ai_lesson_plan_enabled']}
+                            <div class="ai-menu" data-ai-menu>
+                                <button type="button" class="btn btn-ai" data-ai-toggle>
+                                    <span>✦</span> ให้ AI ช่วย <span class="caret">▾</span>
+                                </button>
+                                <div class="ai-menu-panel" hidden>
+                                    {if $course['ai_quiz_enabled']}
+                                        <a href="{$base}/courses/{$course['id']}/quizzes/create">
+                                            <div class="t">ออกข้อสอบจากหน่วยการเรียน</div>
+                                            <div class="d">เลือกหน่วยแล้วให้ร่างข้อสอบให้</div>
+                                        </a>
+                                    {/if}
+                                    {if $course['ai_lesson_plan_enabled']}
+                                        <a href="{$base}/courses/{$course['id']}/lesson-plan">
+                                            <div class="t">ทำแผนการจัดการเรียนรู้</div>
+                                            <div class="d">ร่างตามแบบฟอร์ม สอศ.</div>
+                                        </a>
+                                    {/if}
+                                    <div class="ai-menu-note">ผลลัพธ์ทุกชิ้นจะอยู่ในสถานะรอครูตรวจก่อนเผยแพร่</div>
+                                </div>
+                            </div>
+                        {/if}
                     </div>
-                {/if}
+                </div>
             </div>
 
             <div class="tabs">
-                {var $tabs = ['units' => 'หน่วยการเรียน', 'quizzes' => 'แบบทดสอบ', 'worksheets' => 'ใบงาน', 'tasks' => 'งานที่มอบหมาย', 'students' => 'นักเรียน', 'scores' => 'คะแนน']}
-                {foreach $tabs as $key => $label}
-                    <a href="{$base}/courses/{$course['id']}?tab={$key}" n:class="tab, $tab === $key ? is-active">{$label}</a>
+                {var $tabs = ['units' => ['หน่วยการเรียน', 'library_books'], 'quizzes' => ['แบบทดสอบ', 'quiz'], 'worksheets' => ['ใบงาน', 'description'], 'tasks' => ['งานที่มอบหมาย', 'assignment'], 'students' => ['นักเรียน', 'group'], 'scores' => ['คะแนน', 'leaderboard']]}
+                {foreach $tabs as $key => [$label, $icon]}
+                    <a href="{$base}/courses/{$course['id']}?tab={$key}" n:class="tab, $tab === $key ? is-active"><span class="msi">{$icon}</span>{$label}</a>
                 {/foreach}
             </div>
         </div>
@@ -77,31 +83,50 @@
             </div>
 
         {elseif $tab === 'quizzes'}
-            <div class="list">
-                {foreach $quizzes as $q}
-                    <div class="list-row">
-                        <div class="list-main">
-                            <div class="list-title">{$q['title']}</div>
-                            <div class="list-meta">
-                                {$q['kind'] === 'pretest' ? 'ก่อนเรียน' : 'หลังเรียน'}
-                                · {$q['unit_title'] ?? 'ยังไม่ผูกกับหน่วยการเรียน'}
-                                · {$q['question_count']} ข้อ
-                                {if $q['submitted_count'] > 0} · ส่งแล้ว {$q['submitted_count']} คน{/if}
-                            </div>
-                        </div>
-                        {if $q['review_status'] === 'published'}<span class="tag tag-ok">เผยแพร่แล้ว</span>
-                        {elseif $q['review_status'] === 'pending'}<span class="tag tag-warn">รอตรวจ</span>
-                        {else}<span class="tag">ฉบับร่าง</span>{/if}
-                        <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/quizzes/{$q['id']}/review">เปิดดู</a>
+            {* จัดกลุ่มตามหน่วย · ไอคอน/สีแยกก่อนเรียน (ฟ้า) หลังเรียน (เขียว) และข้อสอบของหน่วยสอบ (ม่วง) *}
+            {foreach $quizGroups as $g}
+                <div class="list quiz-group">
+                    <div class="quiz-group-head">
+                        {if $g['no'] !== null}<span n:class="quiz-group-no, $g['is_exam'] ? is-exam">{$g['no']}</span>{/if}
+                        <span class="quiz-group-title">{$g['no'] === null || $g['is_exam'] ? '' : 'หน่วยที่ ' . ltrim($g['no'], '0') . ' · '}{$g['title']}</span>
+                        <span class="quiz-group-count">{count($g['quizzes'])} ชุด</span>
                     </div>
-                {/foreach}
-                {if !$quizzes}
+                    {foreach $g['quizzes'] as $q}
+                        {var $qk = $g['is_exam'] ? 'exam' : ($q['kind'] === 'pretest' ? 'pre' : 'post')}
+                        <div class="list-row">
+                            <span class="quiz-kind-icon quiz-kind-{$qk}" aria-hidden="true">
+                                <span class="msi">{$qk === 'exam' ? 'edit_note' : ($qk === 'pre' ? 'flag' : 'task_alt')}</span>
+                            </span>
+                            <div class="list-main">
+                                <div class="list-title">{$q['title']}</div>
+                                <div class="list-meta">
+                                    <span class="quiz-kind-label quiz-kind-{$qk}">{$qk === 'exam' ? 'ข้อสอบ' : ($qk === 'pre' ? 'ก่อนเรียน' : 'หลังเรียน')}</span>
+                                    · {$q['question_count']} ข้อ
+                                    {if $q['submitted_count'] > 0} · ส่งแล้ว {$q['submitted_count']} คน{/if}
+                                </div>
+                            </div>
+                            {if $q['review_status'] === 'published'}<span class="tag tag-ok">เผยแพร่แล้ว</span>
+                            {elseif $q['review_status'] === 'pending'}<span class="tag tag-warn">รอตรวจ</span>
+                            {else}<span class="tag">ฉบับร่าง</span>{/if}
+                            <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/quizzes/{$q['id']}/review">เปิดดู</a>
+                            <form method="post" action="{$base}/courses/{$course['id']}/quizzes/{$q['id']}/delete"
+                                  data-confirm-title="ย้ายไปถังขยะ" data-confirm-ok="ย้ายไปถังขยะ" data-confirm-danger
+                                  data-confirm="ย้าย &quot;{$q['title']}&quot; ไปที่ถังขยะใช่หรือไม่ · นักเรียนจะมองไม่เห็นชุดนี้ทันที{$q['submitted_count'] > 0 ? ' และผลสอบของนักเรียน ' . $q['submitted_count'] . ' คนจะถูกซ่อนจากหน้าคะแนน' : ''} · กู้คืนได้ภายใน {App\Domain\QuizRepository::TRASH_DAYS} วัน ก่อนถูกลบถาวร (ดูได้ที่เมนูถังขยะ)">
+                                <input type="hidden" name="_token" value="{$csrf}">
+                                <button type="submit" class="btn btn-sm btn-danger">ลบ</button>
+                            </form>
+                        </div>
+                    {/foreach}
+                </div>
+            {/foreach}
+            {if !$quizGroups}
+                <div class="list">
                     <div class="empty">
                         <h3>ยังไม่มีแบบทดสอบในรายวิชานี้</h3>
                         <p>แบบทดสอบที่สร้างด้วยผู้ช่วย AI ทุกฉบับจะมาอยู่ที่นี่ ทั้งฉบับร่างและที่เผยแพร่แล้ว</p>
                     </div>
-                {/if}
-            </div>
+                </div>
+            {/if}
             {if $course['ai_quiz_enabled']}
                 <div class="list-actions">
                     <a class="btn" href="{$base}/courses/{$course['id']}/quizzes/create">✦ สร้างแบบทดสอบด้วย AI</a>
@@ -200,13 +225,21 @@
                     <div class="join-invite-code">
                         <div class="join-label">รหัสเข้าร่วม</div>
                         <div class="join-code mono">{$joinCode}</div>
-                        <button type="button" class="btn btn-sm" data-copy="{$joinCode}">คัดลอกรหัส</button>
+                        <div class="join-invite-actions">
+                            <button type="button" class="btn btn-sm" data-copy="{$joinCode}">คัดลอกรหัส</button>
+                            <button type="button" class="btn btn-sm" data-present="code" title="แสดงรหัสเต็มหน้าจอสำหรับฉายบนโปรเจกเตอร์">
+                                <span class="msi" aria-hidden="true">fullscreen</span>ขยายรหัส
+                            </button>
+                        </div>
                     </div>
                     <div class="join-invite-link">
                         <div class="join-label">ลิงก์เข้าร่วม</div>
                         <input class="input mono" value="{$joinUrl}" readonly onfocus="this.select()">
                         <div class="join-invite-actions">
                             <button type="button" class="btn btn-sm" data-copy="{$joinUrl}">คัดลอกลิงก์</button>
+                            <button type="button" class="btn btn-sm" data-present="qr" title="แสดง QR Code ลิงก์เข้าร่วมเต็มหน้าจอ ให้นักเรียนสแกนด้วยมือถือ">
+                                <span class="msi" aria-hidden="true">qr_code_2</span>QR Code เต็มจอ
+                            </button>
                             <form method="post" action="{$base}/courses/{$course['id']}/join"
                                   data-confirm-title="สร้างรหัสใหม่" data-confirm-ok="สร้างรหัสใหม่" data-confirm-danger
                                   data-confirm="รหัสและลิงก์เดิมจะใช้ไม่ได้ทันที · นักเรียนที่เข้าร่วมแล้วยังอยู่ในรายวิชาครบ">
@@ -214,6 +247,36 @@
                                 <button class="btn btn-sm" name="do" value="regenerate">สร้างรหัสใหม่</button>
                             </form>
                         </div>
+                    </div>
+                </div>
+                {* ฉายรหัส / QR Code เต็มจอ (public/assets/js/join-present.js) *}
+                <div class="join-present" id="joinPresent" hidden role="dialog" aria-modal="true" aria-label="ฉายรหัสเข้าร่วมรายวิชา"
+                     data-code="{$joinCode}" data-url="{$joinUrl}">
+                    <div class="join-present-bar">
+                        <div class="join-present-switch" role="tablist">
+                            <button type="button" data-mode="code"><span class="msi" aria-hidden="true">pin</span>รหัส</button>
+                            <button type="button" data-mode="qr"><span class="msi" aria-hidden="true">qr_code_2</span>QR Code</button>
+                        </div>
+                        <button type="button" class="join-present-close" data-present-close title="ปิด (Esc)">
+                            <span class="msi" aria-hidden="true">close</span>
+                        </button>
+                    </div>
+                    <div class="join-present-body">
+                        <div class="join-present-course">{$course['code']} {$course['name']}</div>
+                        <div class="join-present-view" data-view="code">
+                            <div class="join-present-hint">เข้าสู่ระบบแล้วกรอกรหัสเข้าร่วมรายวิชา</div>
+                            <div class="join-present-code mono">{$joinCode}</div>
+                            <div class="join-present-hint join-present-learn"></div>
+                        </div>
+                        <div class="join-present-view" data-view="qr" hidden>
+                            <div class="join-present-hint">สแกนด้วยกล้องมือถือเพื่อเข้าร่วมรายวิชา</div>
+                            <div class="join-present-qr" id="joinPresentQr" aria-label="QR Code ลิงก์เข้าร่วมรายวิชา" role="img"></div>
+                            <div class="join-present-url mono">{$joinUrl}</div>
+                            <div class="join-present-hint">หรือกรอกรหัส <b class="mono">{$joinCode}</b></div>
+                        </div>
+                        {if !$course['join_enabled']}
+                            <div class="join-present-off">ปิดการเข้าร่วมอยู่ · เปิดการเข้าร่วมก่อนให้นักเรียนสแกนหรือกรอกรหัส</div>
+                        {/if}
                     </div>
                 </div>
             </div>
@@ -378,4 +441,6 @@
         });
     });
 </script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" defer></script>
+<script src="{$base}/assets/js/join-present.js" defer></script>
 {/block}

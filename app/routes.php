@@ -17,7 +17,9 @@ use App\Controllers\AiChatController;
 use App\Controllers\AppearanceController;
 use App\Controllers\AssignmentController;
 use App\Controllers\AuthController;
+use App\Controllers\ClassToolsController;
 use App\Controllers\CourseController;
+use App\Controllers\CourseOutcomesController;
 use App\Controllers\DashboardController;
 use App\Controllers\ImpersonationController;
 use App\Controllers\JoinController;
@@ -81,10 +83,16 @@ return static function (App $app): void {
         $group->post('/ai/chat/create-unit', [AiChatController::class, 'createUnit'])
             ->add(new RoleMiddleware(Roles::TEACHING));
 
+        // แท็บเครื่องมือในหน้าต่างผู้ช่วย: รายชื่อนักเรียนของรายวิชาให้วงล้อสุ่มชื่อ
+        $group->get('/tools/roster', [ClassToolsController::class, 'roster'])
+            ->add(new RoleMiddleware(Roles::TEACHING));
+
         $group->group('/courses', function (RouteCollectorProxy $t): void {
             $t->get('', [CourseController::class, 'index'])->setName('courses');
             $t->post('/{id:[0-9]+}/landing', [CourseController::class, 'landingVisibility']);
             $t->get('/new', [CourseController::class, 'edit'])->setName('course.new');
+            // ผู้ช่วยสรุปผลลัพธ์การเรียนรู้ระดับรายวิชาจากค่าบนฟอร์มรายวิชา (ตอบ JSON ยังไม่บันทึก)
+            $t->post('/draft-outcomes', [CourseOutcomesController::class, 'draft']);
             $t->post('', [CourseController::class, 'save']);
             $t->get('/{id:[0-9]+}', [CourseController::class, 'show'])->setName('course.show');
             // พิมพ์แผนการจัดการเรียนรู้ตามแบบฟอร์ม สอศ. หลักสูตร พ.ศ. 2567
@@ -92,6 +100,9 @@ return static function (App $app): void {
             $t->get('/{id:[0-9]+}/edit', [CourseController::class, 'edit']);
             $t->post('/{id:[0-9]+}', [CourseController::class, 'save']);
             $t->post('/{id:[0-9]+}/archive', [CourseController::class, 'archive']);
+            $t->post('/{id:[0-9]+}/quizzes/{quizId:[0-9]+}/delete', [CourseController::class, 'deleteQuiz']);
+            $t->post('/{id:[0-9]+}/quizzes/{quizId:[0-9]+}/restore', [CourseController::class, 'restoreQuiz']);
+            $t->post('/{id:[0-9]+}/quizzes/{quizId:[0-9]+}/destroy', [CourseController::class, 'destroyQuiz']);
             // รหัส/ลิงก์ให้นักเรียนเข้าร่วมรายวิชาเอง — เปิด ปิด หรือสุ่มรหัสใหม่
             $t->post('/{id:[0-9]+}/join', [CourseController::class, 'joinSettings']);
             // ครูเพิ่มนักเรียนที่มีบัญชีอยู่แล้วเข้ารายวิชาโดยระบุอีเมล
@@ -105,6 +116,9 @@ return static function (App $app): void {
 
             $t->get('/{courseId:[0-9]+}/units/new', [UnitController::class, 'edit']);
             $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/edit', [UnitController::class, 'edit']);
+            $t->get('/{courseId:[0-9]+}/preview', [StudentController::class, 'previewCourse']);
+            $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/preview', [StudentController::class, 'preview']);
+            $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/preview/{kind:section|worksheet}/{itemId:[0-9]+}', [StudentController::class, 'previewItem']);
             $t->post('/{courseId:[0-9]+}/units[/{id:[0-9]+}]', [UnitController::class, 'save']);
             // ใบงานของหน่วยการเรียน — เขียนเองหรือให้ผู้ช่วย AI ร่างให้แล้วแก้ต่อ
             $t->get('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments/new', [AssignmentController::class, 'edit']);
@@ -126,6 +140,7 @@ return static function (App $app): void {
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft', [UnitController::class, 'draftContent']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft/save', [UnitController::class, 'saveDraftContent']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections', [UnitController::class, 'addSection']);
+            $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections/{sectionId:[0-9]+}', [UnitController::class, 'updateSection']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections/{sectionId:[0-9]+}/delete', [UnitController::class, 'deleteSection']);
 
             $t->get('/{courseId:[0-9]+}/quizzes/create', [QuizWizardController::class, 'create']);
@@ -158,6 +173,9 @@ return static function (App $app): void {
             $s->post('/{id:[0-9]+}', [TeacherStudentsController::class, 'update']);
         })->add(new RoleMiddleware(Roles::TEACHING));
 
+        // ถังขยะของครู: แบบทดสอบที่ลบไว้จากทุกรายวิชา (กู้คืน/ลบถาวรผ่าน /courses/{id}/quizzes/{quizId}/restore|destroy)
+        $group->get('/trash', [CourseController::class, 'trash'])->add(new RoleMiddleware(Roles::TEACHING));
+
         $group->group('/board', function (RouteCollectorProxy $b): void {
             $b->get('', [BoardController::class, 'index'])->setName('board');
             $b->get('/new', [BoardController::class, 'newGroup']);
@@ -182,6 +200,7 @@ return static function (App $app): void {
             $s->post('/join', [JoinController::class, 'join']);
             $s->get('/{courseId:[0-9]+}', [StudentController::class, 'course']);
             $s->get('/units/{id:[0-9]+}', [StudentController::class, 'unit']);
+            $s->get('/units/{id:[0-9]+}/{kind:section|worksheet}/{itemId:[0-9]+}', [StudentController::class, 'item']);
             $s->post('/quizzes/{quizId:[0-9]+}/start', [StudentController::class, 'startQuiz']);
             $s->get('/attempts/{attemptId:[0-9]+}', [StudentController::class, 'take']);
             $s->post('/attempts/{attemptId:[0-9]+}/answer', [StudentController::class, 'answer']);

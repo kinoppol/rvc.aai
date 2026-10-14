@@ -70,6 +70,18 @@
                 </select>
             </div>
 
+            <div class="field">
+                <label for="cWeeks">สัปดาห์เรียนรวมวัดผล</label>
+                <input class="input mono" id="cWeeks" name="weeks" type="number" min="1" max="30"
+                       value="{$course['weeks'] ?? ''}" placeholder="ตามระดับชั้น">
+            </div>
+            <div class="field" style="grid-column:span 2;align-self:end">
+                <div class="hint">
+                    ชั่วโมงต่อสัปดาห์ = ท + ป · เว้นว่างไว้ให้ใช้ค่าปกติ: ปวช. (รหัส 2) 18 สัปดาห์รวมวัดผล ·
+                    ปวส. (รหัส 3) เรียน 15 สัปดาห์ บวกสัปดาห์สอบต่อท้าย · ทล.บ. (รหัส 26-4) 18 สัปดาห์รวมวัดผล
+                </div>
+            </div>
+
             <div class="field" style="grid-column:1 / -1">
                 <label for="cDesc">คำอธิบายรายวิชา</label>
                 <textarea class="input" id="cDesc" name="description" rows="4"
@@ -86,6 +98,40 @@
                 <textarea class="input" id="cComp" name="competencies" rows="4"
                           placeholder="ข้อละบรรทัด เช่น&#10;ประมวลความรู้เกี่ยวกับ…&#10;ปฏิบัติงาน…ตามหลักการ">{$course['competencies'] ?? ''}</textarea>
                 <div class="hint">จุดประสงค์และสมรรถนะรายวิชาใช้ในหน้า “ลักษณะรายวิชา” ของแผนการสอนที่สั่งพิมพ์</div>
+            </div>
+
+            {* ข้อมูลสำหรับแผนการจัดการเรียนรู้ (สอศ. 2567) ที่สั่งพิมพ์ *}
+            <div class="field" style="grid-column:1 / -1;margin-bottom:0">
+                <div class="step-label">ข้อมูลแผนการจัดการเรียนรู้</div>
+            </div>
+            <div class="field">
+                <label for="cProgram">ประเภทวิชา</label>
+                <input class="input" id="cProgram" name="program_type" maxlength="191" list="programTypes"
+                       value="{$course['program_type'] ?? ''}" placeholder="เช่น อุตสาหกรรม">
+                <datalist id="programTypes">
+                    {foreach ['อุตสาหกรรม', 'พาณิชยกรรม/บริหารธุรกิจ', 'ศิลปกรรมและเศรษฐกิจสร้างสรรค์', 'คหกรรม', 'เกษตรกรรมและประมง', 'อุตสาหกรรมการท่องเที่ยว', 'อุตสาหกรรมแฟชั่นและสิ่งทอ', 'อุตสาหกรรมดิจิทัลและเทคโนโลยีสารสนเทศ', 'อุตสาหกรรมบันเทิง'] as $p}
+                        <option value="{$p}"></option>
+                    {/foreach}
+                </datalist>
+            </div>
+            <div class="field">
+                <label for="cMajor">สาขาวิชา</label>
+                <input class="input" id="cMajor" name="major" maxlength="191"
+                       value="{$course['major'] ?? ''}" placeholder="เช่น เทคโนโลยีสารสนเทศ">
+            </div>
+            <div class="field">
+                <label for="cPlanDate">วันที่จัดทำแผน</label>
+                <input class="input" id="cPlanDate" name="plan_date" type="date" value="{$course['plan_date'] ?? ''}">
+            </div>
+            <div class="field" style="grid-column:1 / -1">
+                <label for="cClo">ผลลัพธ์การเรียนรู้ระดับรายวิชา</label>
+                <textarea class="input" id="cClo" name="learning_outcomes" rows="4"
+                          placeholder="ข้อละบรรทัด เช่น&#10;อธิบายหลักการ… ได้ถูกต้อง&#10;ปฏิบัติงาน… ได้ตามมาตรฐาน">{$course['learning_outcomes'] ?? ''}</textarea>
+                <div class="clo-ai">
+                    <button type="button" class="btn btn-sm" id="cloDraft"
+                            data-url="{$base}/courses/draft-outcomes" data-token="{$csrf}">✦ ให้ AI สรุปจากคำอธิบาย จุดประสงค์ และสมรรถนะ</button>
+                    <span class="hint" id="cloStatus">ผู้ช่วยร่างให้ แล้วครูแก้ไขต่อได้ก่อนบันทึก</span>
+                </div>
             </div>
         </div>
 
@@ -154,4 +200,5 @@
     {/if}
 </div>
 <script src="{$base}/assets/js/cover-picker.js"></script>
+<script src="{$base}/assets/js/outcomes-draft.js"></script>
 {/block}

@@ -21,8 +21,8 @@ final class UnitRepository
         return $this->db->all(
             'SELECT u.*,
                     (SELECT COUNT(*) FROM {unit_sections} s WHERE s.unit_id = u.id) AS section_count,
-                    (SELECT COUNT(*) FROM {quizzes} q WHERE q.unit_id = u.id AND q.kind = \'pretest\') AS has_pretest,
-                    (SELECT COUNT(*) FROM {quizzes} q WHERE q.unit_id = u.id AND q.kind = \'posttest\') AS has_posttest,
+                    (SELECT COUNT(*) FROM {quizzes} q WHERE q.unit_id = u.id AND q.kind = \'pretest\' AND q.deleted_at IS NULL) AS has_pretest,
+                    (SELECT COUNT(*) FROM {quizzes} q WHERE q.unit_id = u.id AND q.kind = \'posttest\' AND q.deleted_at IS NULL) AS has_posttest,
                     (SELECT COUNT(*) FROM {assignments} a WHERE a.unit_id = u.id AND a.kind = \'worksheet\') AS has_assignment
              FROM {units} u
              WHERE u.course_id = ?

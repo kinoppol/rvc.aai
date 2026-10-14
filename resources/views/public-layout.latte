@@ -9,7 +9,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{block title}{$appName}{/block}</title>
     <meta name="description" content="{block description}{$college}{/block}">
-    <link rel="stylesheet" href="{$base}/assets/css/landing.css">
+    <link rel="stylesheet" href="{$base}/assets/css/landing.css?v={$assetVer ?? 1}">
 </head>
 <body>
 <div class="lp">
@@ -37,7 +37,7 @@
                     <span class="lp-logo-mark">RV</span>
                     <h4 style="margin:0">{$appName}</h4>
                 </div>
-                <p>ระบบจัดการเรียนรู้ที่ผสาน AI เข้ากับการเรียนการสอน นำร่องที่สาขาการตลาด/ธุรกิจค้าปลีกของ{$college}</p>
+                <p>ระบบจัดการเรียนรู้ของ{$college} ที่ผสาน AI เข้ากับการเรียนการสอนทุกสาขาวิชา</p>
             </div>
             <div class="lp-footer-col">
                 <h4>เมนู</h4>

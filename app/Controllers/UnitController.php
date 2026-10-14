@@ -112,6 +112,9 @@ final class UnitController
             'competencies' => trim((string) ($data['competencies'] ?? '')) ?: null,
             'review_status' => ($data['action'] ?? '') === 'publish' ? 'published' : 'draft',
         ];
+        // หน่วยสอบใช้ 1 สัปดาห์เสมอ · หน่วยการเรียนเว้นว่าง = แผนการสอนแบ่งให้เอง
+        $weeks = (int) ($data['weeks'] ?? 0);
+        $fields['weeks'] = $fields['kind'] === 'lesson' && $weeks > 0 ? min(30, $weeks) : null;
 
         $unitId = (int) ($args['id'] ?? 0);
         if ($unitId > 0) {
@@ -250,6 +253,46 @@ final class UnitController
             $this->units->deleteSection($sectionId);
             Flash::success('ลบส่วนเนื้อหาแล้ว');
         }
+
+        return $this->redirectToUnit($response, $courseId, $unitId);
+    }
+
+    /** แก้ไขส่วนเนื้อหาที่บันทึกไว้แล้ว: ชื่อ + เนื้อหา (ข้อความ) หรือ URL (วีดิโอ) · PDF แก้ได้แค่ชื่อ */
+    public function updateSection(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $courseId = (int) $args['courseId'];
+        $unitId = (int) $args['id'];
+        $this->requireOwnedCourse($request, $courseId, (int) $user['id']);
+
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ');
+
+            return $this->redirectToUnit($response, $courseId, $unitId);
+        }
+
+        $section = $this->units->findSection((int) $args['sectionId']);
+        if ($section === null || (int) $section['unit_id'] !== $unitId) {
+            throw new HttpNotFoundException($request, 'ไม่พบส่วนเนื้อหานี้');
+        }
+
+        $title = trim((string) ($data['title'] ?? ''));
+        $fields = ['title' => $title !== '' ? $title : (string) $section['title']];
+        if ($section['type'] === 'text') {
+            $fields['content'] = trim((string) ($data['content'] ?? '')) ?: null;
+        } elseif ($section['type'] === 'video') {
+            $url = trim((string) ($data['video_url'] ?? ''));
+            if ($url === '') {
+                Flash::error('กรุณากรอก URL วีดิโอ');
+
+                return $this->redirectToUnit($response, $courseId, $unitId);
+            }
+            $fields['video_url'] = $url;
+        }
+
+        $this->units->updateSection((int) $section['id'], $fields);
+        Flash::success('บันทึกการแก้ไข "' . $fields['title'] . '" แล้ว');
 
         return $this->redirectToUnit($response, $courseId, $unitId);
     }

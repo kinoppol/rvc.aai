@@ -2,7 +2,12 @@
   แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ ตามแบบฟอร์ม สอศ. หลักสูตร พ.ศ. 2567 — หน้าสำหรับสั่งพิมพ์ (A4)
   ทั้งเอกสารแก้ไขได้ (contenteditable) เพื่อให้ครูเติมส่วนที่ระบบยังไม่มีข้อมูลก่อนพิมพ์ ข้อความที่แก้จะไม่ถูกบันทึกลงระบบ
 *}
-{var $level = str_starts_with((string) $course['code'], '3') ? 'ประกาศนียบัตรวิชาชีพชั้นสูง (ปวส.)' : 'ประกาศนียบัตรวิชาชีพ (ปวช.)'}
+{* ระดับหลักสูตรจากรหัสวิชา (App\Support\Semester::level) *}
+{var $levelText = $level === 'ปวส.' ? 'ประกาศนียบัตรวิชาชีพชั้นสูง (ปวส.)' : ($level === 'ปริญญาตรี (ทล.บ.)' ? 'ปริญญาตรีสายเทคโนโลยีหรือสายปฏิบัติการ (ทล.บ.)' : 'ประกาศนียบัตรวิชาชีพ (ปวช.)')}
+{var $dots = '........................'}
+{var $programType = $course['program_type'] ?: $dots}
+{var $major = $course['major'] ?: ($teacher['subject_area'] ?? '') ?: $dots}
+{var $dateText = $planDate ? 'วันที่ ' . $planDate['day'] . ' เดือน ' . $planDate['month'] . ' พ.ศ. ' . $planDate['year'] : 'วันที่ ...... เดือน .................... พ.ศ. ..........'}
 {var $credits = rtrim(rtrim(number_format((float) $course['credits'], 1, '.', ''), '0'), '.')}
 {var $tpn = $course['theory_hours'] . '-' . $course['practice_hours'] . '-' . $credits}
 {var $termText = $term ? 'ภาคเรียนที่ ' . $term['semester'] . ' ปีการศึกษา ' . $term['academic_year'] : 'ภาคเรียนที่ ...... ปีการศึกษา ..........'}
@@ -75,6 +80,7 @@
         .muted { color: #555; }
         .excerpt { font-size: 14pt; color: #222; }
         .cover { display: flex; flex-direction: column; justify-content: space-between; text-align: center; }
+        .cover .logo { display: block; width: 3.4cm; height: auto; margin: 0 auto 16pt; }
         .cover .big { font-size: 26pt; font-weight: 700; line-height: 1.3; }
         .cover .mid { font-size: 20pt; font-weight: 700; line-height: 1.4; }
         .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 24pt 16pt; margin-top: 24pt; text-align: center; }
@@ -107,14 +113,15 @@
 {* ───────── ปก ───────── *}
 <section class="sheet cover front" contenteditable="true">
     <div>
+        <img class="logo" src="{$base}/assets/img/ovec-logo.jpg" alt="ตราสำนักงานคณะกรรมการการอาชีวศึกษา">
         <p class="big">แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ</p>
         <p class="mid" style="margin-top:18pt">รหัสวิชา {$course['code']} ชื่อวิชา {$course['name']}</p>
         <p class="mid">ท-ป-น {$tpn}</p>
     </div>
     <div>
-        <p class="mid">หลักสูตร{$level}</p>
+        <p class="mid">หลักสูตร{$levelText}</p>
         <p class="mid">พุทธศักราช 2567</p>
-        <p class="mid">ประเภทวิชา ........................ สาขาวิชา {$teacher['subject_area'] ?? '........................'}</p>
+        <p class="mid">ประเภทวิชา{$programType} สาขาวิชา{$major}</p>
     </div>
     <div>
         <p class="mid">จัดทำโดย</p>
@@ -132,11 +139,16 @@
 <section class="sheet front" contenteditable="true">
     <h2>ลักษณะรายวิชา</h2>
     <p><b>รหัสวิชา</b> {$course['code']} <b>ชื่อวิชา</b> {$course['name']} <b>ท-ป-น</b> {$tpn}</p>
-    <p><b>หน่วยกิต</b> {$credits} <b>เวลาเรียน</b> {$weekly} ชั่วโมงต่อสัปดาห์ รวม {$totalHours} ชั่วโมง</p>
+    <p><b>หน่วยกิต</b> {$credits} <b>เวลาเรียน</b> {$weekly} ชั่วโมงต่อสัปดาห์ (ท + ป) · {$weeks} สัปดาห์รวมวัดผล รวม {$totalHours} ชั่วโมง</p>
+    <p><b>ประเภทวิชา</b> {$programType} <b>สาขาวิชา</b> {$major}</p>
     {if $course['classroom_name']}<p><b>กลุ่มเรียน</b> {$course['classroom_name']}</p>{/if}
 
     <h3>ผลลัพธ์การเรียนรู้ระดับรายวิชา</h3>
-    <p class="dots"></p><p class="dots"></p>
+    {if $courseOutcomes}
+        <ol>{foreach $courseOutcomes as $o}<li>{$o}</li>{/foreach}</ol>
+    {else}
+        <p class="dots"></p><p class="dots"></p>
+    {/if}
 
     <h3>จุดประสงค์รายวิชา เพื่อให้</h3>
     {if $courseObjectives}
@@ -168,6 +180,7 @@
         <div>
             <p>ลงชื่อ ........................................ ครูผู้สอน</p>
             <p>({$teacherName})</p>
+            <p>{$dateText}</p>
         </div>
         <div>
             <p>ลงชื่อ ........................................ หัวหน้าแผนกวิชา</p>
@@ -195,14 +208,14 @@
     <p class="center">รหัสวิชา {$course['code']} ชื่อวิชา {$course['name']} ท-ป-น {$tpn}</p>
     <table>
         <thead>
-            <tr><th>หน่วยที่</th><th>ชื่อหน่วยการเรียนรู้</th><th>สอนครั้งที่</th><th>จำนวนชั่วโมง</th></tr>
+            <tr><th>หน่วยที่</th><th>ชื่อหน่วยการเรียนรู้</th><th>สัปดาห์ที่</th><th>จำนวนชั่วโมง</th></tr>
         </thead>
         <tbody>
             {foreach $plans as $p}
                 <tr>
                     <td class="num">{$p['no']}</td>
                     <td>{$p['unit']['title']}</td>
-                    <td class="num">{$p['session_from']}{if $p['session_to'] > $p['session_from']}–{$p['session_to']}{/if}</td>
+                    <td class="num">{$p['week_from']}{if $p['week_to'] > $p['week_from']}–{$p['week_to']}{/if}</td>
                     <td class="num">{$p['hours']}</td>
                 </tr>
             {else}
@@ -211,7 +224,7 @@
             <tr><th colspan="3">รวม</th><th>{$totalHours}</th></tr>
         </tbody>
     </table>
-    <p class="muted" style="font-size:14pt;margin-top:6pt">หมายเหตุ ชั่วโมงแต่ละหน่วยระบบแบ่งให้เท่า ๆ กันจากเวลาเรียน {$weekly} ชั่วโมง × 18 สัปดาห์ (หน่วยสอบใช้ 1 สัปดาห์) แก้ไขตัวเลขให้ตรงกับการสอนจริงได้</p>
+    <p class="muted" style="font-size:14pt;margin-top:6pt">หมายเหตุ เวลาเรียน {$weekly} ชั่วโมงต่อสัปดาห์ (ท + ป) × {$weeks} สัปดาห์รวมวัดผล · หน่วยสอบใช้ 1 สัปดาห์ หน่วยที่ไม่ได้กำหนดจำนวนสัปดาห์ระบบแบ่งสัปดาห์ที่เหลือให้เท่า ๆ กัน แก้ไขตัวเลขให้ตรงกับการสอนจริงได้{if $lastWeek > $weeks} · <b>สัปดาห์ที่กำหนดในหน่วยรวมกันเกิน {$weeks} สัปดาห์ของภาคเรียน</b>{/if}</p>
 </section>
 
 {* ───────── แผนรายหน่วย (ไม่รวมหน่วยสอบ) ───────── *}
@@ -224,7 +237,7 @@
             <td rowspan="2" style="width:62%"><b>แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ</b><br>รหัสวิชา {$course['code']} ชื่อวิชา {$course['name']}</td>
             <td class="center"><b>หน่วยที่ {$p['no']}</b></td>
         </tr>
-        <tr><td class="center">สอนครั้งที่ {$p['session_from']}{if $p['session_to'] > $p['session_from']}–{$p['session_to']}{/if}</td></tr>
+        <tr><td class="center">สัปดาห์ที่ {$p['week_from']}{if $p['week_to'] > $p['week_from']}–{$p['week_to']}{/if}</td></tr>
         <tr>
             <td><b>ชื่อหน่วย</b> {$u['title']}</td>
             <td class="center">จำนวน {$p['hours']} ชั่วโมง</td>

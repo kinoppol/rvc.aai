@@ -8,10 +8,10 @@
     <div class="sub">สถานะเครื่องในห้องเซิร์ฟเวอร์ · ครูนำร่อง {$teacherCount} คน · {$term ?? ''}</div>
 
     <div class="tabs">
-        <a href="{$base}/admin/ai?tab=overview" n:class="tab, $tab === 'overview' ? is-active">ภาพรวม</a>
-        <a href="{$base}/admin/ai?tab=settings" n:class="tab, $tab === 'settings' ? is-active">การตั้งค่า</a>
-        <a href="{$base}/admin/ai?tab=quota" n:class="tab, $tab === 'quota' ? is-active">จำกัดการใช้งาน</a>
-        <a href="{$base}/admin/ai?tab=courses" n:class="tab, $tab === 'courses' ? is-active">ฟังก์ชัน AI รายวิชา</a>
+        <a href="{$base}/admin/ai?tab=overview" n:class="tab, $tab === 'overview' ? is-active"><span class="msi">dashboard</span>ภาพรวม</a>
+        <a href="{$base}/admin/ai?tab=settings" n:class="tab, $tab === 'settings' ? is-active"><span class="msi">settings</span>การตั้งค่า</a>
+        <a href="{$base}/admin/ai?tab=quota" n:class="tab, $tab === 'quota' ? is-active"><span class="msi">data_usage</span>จำกัดการใช้งาน</a>
+        <a href="{$base}/admin/ai?tab=courses" n:class="tab, $tab === 'courses' ? is-active"><span class="msi">auto_awesome</span>ฟังก์ชัน AI รายวิชา</a>
     </div>
 
     {if $tab === 'overview'}

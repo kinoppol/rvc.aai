@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap">
-    <link rel="stylesheet" href="{$base}/assets/css/app.css">
+    <link rel="stylesheet" href="{$base}/assets/css/app.css?v={$assetVer ?? 1}">
     {if isset($ui)}
         {* สีหลักของระบบ — เขียน # ในเทมเพลตเอง เพราะ Latte จะ escape # ที่ตามด้วย ( หรือ ) ใน context ของ CSS *}
         <style>

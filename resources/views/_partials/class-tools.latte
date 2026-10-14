@@ -1,0 +1,163 @@
+{*
+    แท็บ "เครื่องมือ" ในหน้าต่างผู้ช่วย — ตัวช่วยจัดกิจกรรมในชั้นเรียน ทำงานในเบราว์เซอร์ทั้งหมด
+    (public/assets/js/class-tools.js · เสียงสร้างด้วย Web Audio ไม่มีไฟล์เสียง)
+      • นาฬิกา: นับถอยหลัง (มีเสียงเตือนเมื่อหมดเวลา เลือกแบบเสียงได้) / จับเวลา
+      • วงล้อสุ่มชื่อ: รายชื่อจากรายวิชา (/tools/roster) หรือพิมพ์เพิ่มเอง · นำชื่อออกอัตโนมัติหรือกดเองได้
+    รวมอยู่ใน ai-chat.latte ภายใน .aichat-panel
+*}
+<div class="aichat-pane ctools" data-pane="tools" id="ctools" hidden
+     data-roster="{in_array($user['role'] ?? '', ['teacher', 'supervisor'], true) ? 1 : 0}">
+    <div class="ctools-bar">
+        <div class="ctools-seg" role="tablist" aria-label="เลือกเครื่องมือ">
+            <button type="button" class="is-on" data-tool-btn="timer"><span class="msi" aria-hidden="true">timer</span>นาฬิกา</button>
+            <button type="button" data-tool-btn="wheel"><span class="msi" aria-hidden="true">casino</span>วงล้อสุ่มชื่อ</button>
+        </div>
+        <button type="button" class="aichat-icon-btn ctools-full" id="ctoolsFull" title="ขยายเต็มจอ (แสดงบนจอโปรเจกเตอร์)">
+            <span class="msi" aria-hidden="true">fullscreen</span>
+        </button>
+    </div>
+
+    <div class="ctools-body">
+        {* ───────── นาฬิกา ───────── *}
+        <section class="ctool" data-tool="timer">
+            <div class="ctools-mode" role="radiogroup" aria-label="โหมดนาฬิกา">
+                <button type="button" class="is-on" data-timer-mode="down">นับถอยหลัง</button>
+                <button type="button" data-timer-mode="up">จับเวลา</button>
+            </div>
+
+            <div class="ctimer-face" id="ctimerFace">
+                <svg class="ctimer-ring" viewBox="0 0 120 120" aria-hidden="true">
+                    <circle cx="60" cy="60" r="54" class="ctimer-track"></circle>
+                    <circle cx="60" cy="60" r="54" class="ctimer-arc" id="ctimerArc"></circle>
+                </svg>
+                <div class="ctimer-read">
+                    <div class="ctimer-time" id="ctimerTime" aria-live="off">05:00</div>
+                    <div class="ctimer-sub" id="ctimerSub">พร้อมเริ่ม</div>
+                </div>
+            </div>
+
+            <div class="ctimer-set" id="ctimerSet">
+                <div class="ctimer-presets">
+                    <button type="button" data-preset="60">1 นาที</button>
+                    <button type="button" data-preset="180">3 นาที</button>
+                    <button type="button" data-preset="300">5 นาที</button>
+                    <button type="button" data-preset="600">10 นาที</button>
+                    <button type="button" data-preset="900">15 นาที</button>
+                </div>
+                <div class="ctimer-inputs">
+                    <label>นาที <input type="number" class="input mono" id="ctimerMin" min="0" max="180" value="5"></label>
+                    <span class="ctimer-colon">:</span>
+                    <label>วินาที <input type="number" class="input mono" id="ctimerSec" min="0" max="59" value="0"></label>
+                </div>
+            </div>
+
+            <div class="ctools-actions">
+                <button type="button" class="btn btn-primary" id="ctimerGo"><span class="msi" aria-hidden="true">play_arrow</span><span>เริ่ม</span></button>
+                <button type="button" class="btn" id="ctimerLap" hidden><span class="msi" aria-hidden="true">flag</span>บันทึกรอบ</button>
+                <button type="button" class="btn" id="ctimerReset"><span class="msi" aria-hidden="true">restart_alt</span>รีเซ็ต</button>
+            </div>
+            <ol class="ctimer-laps" id="ctimerLaps" hidden></ol>
+
+            <div class="ctools-opt" id="ctimerAlarmRow">
+                <label for="ctimerAlarm"><span class="msi" aria-hidden="true">notifications_active</span>เสียงเมื่อหมดเวลา</label>
+                <select class="input" id="ctimerAlarm">
+                    <option value="bell">ระฆังโรงเรียน</option>
+                    <option value="chime">กริ่งติ๊งต่อง</option>
+                    <option value="beep">บี๊บดิจิทัล</option>
+                    <option value="melody">ทำนองสั้น</option>
+                    <option value="siren">ไซเรน</option>
+                    <option value="none">ไม่มีเสียง</option>
+                </select>
+                <button type="button" class="aichat-icon-btn" data-preview="alarm" title="ทดลองฟัง"><span class="msi" aria-hidden="true">volume_up</span></button>
+            </div>
+        </section>
+
+        {* ───────── วงล้อสุ่มชื่อ ───────── *}
+        <section class="ctool" data-tool="wheel" hidden>
+            <div class="ctools-opt" id="cwheelCourseRow">
+                <label for="cwheelCourse"><span class="msi" aria-hidden="true">class</span>รายวิชา</label>
+                <select class="input" id="cwheelCourse"><option value="0">กำลังโหลด…</option></select>
+                <button type="button" class="aichat-icon-btn" id="cwheelReload" title="โหลดรายชื่อใหม่ทั้งหมด"><span class="msi" aria-hidden="true">sync</span></button>
+            </div>
+
+            <div class="cwheel-stage" id="cwheelStage">
+                <div class="cwheel-pointer" aria-hidden="true"></div>
+                <canvas class="cwheel-canvas" id="cwheelCanvas" aria-label="วงล้อรายชื่อนักเรียน"></canvas>
+                <button type="button" class="cwheel-spin" id="cwheelSpin">หมุน</button>
+                <div class="cwheel-empty" id="cwheelEmpty" hidden>ยังไม่มีรายชื่อบนวงล้อ</div>
+            </div>
+
+            <div class="cwheel-result" id="cwheelResult" hidden>
+                <span class="msi" aria-hidden="true">emoji_events</span>
+                <span class="cwheel-winner" id="cwheelWinner"></span>
+                <button type="button" class="btn btn-sm" id="cwheelRemove">นำชื่อออก</button>
+            </div>
+
+            <div class="ctools-opt">
+                <label class="ctools-check"><input type="checkbox" id="cwheelAuto"> นำชื่อออกจากวงล้ออัตโนมัติเมื่อสุ่มได้</label>
+            </div>
+            {* ขานชื่อด้วยเสียงอ่านของเบราว์เซอร์ (Web Speech) — ต้องมีเสียงภาษาไทยในเครื่อง *}
+            <div class="cspeak" id="cspeak" hidden>
+                <div class="ctools-opt">
+                    <label class="ctools-check"><input type="checkbox" id="cwheelSpeak"> อ่านออกเสียงขานชื่อผู้ถูกสุ่ม</label>
+                </div>
+                <div class="ctools-opt" id="cspeakVoiceRow">
+                    <label for="cspeakVoice"><span class="msi" aria-hidden="true">record_voice_over</span>เสียงอ่าน</label>
+                    <select class="input" id="cspeakVoice"></select>
+                    <button type="button" class="aichat-icon-btn" id="cspeakTest" title="ทดลองฟัง"><span class="msi" aria-hidden="true">volume_up</span></button>
+                </div>
+                <div class="ctools-opt" id="cspeakRateRow">
+                    <label for="cspeakRate"><span class="msi" aria-hidden="true">speed</span>ความเร็ว</label>
+                    <select class="input" id="cspeakRate">
+                        <option value="0.75">ช้า</option>
+                        <option value="0.9">ปกติ</option>
+                        <option value="1.1">เร็ว</option>
+                    </select>
+                </div>
+                <div class="cspeak-help" id="cspeakHelp" hidden>
+                    <b>เครื่องนี้ยังไม่มีเสียงอ่านภาษาไทย</b> จึงอ่านชื่อออกเสียงไม่ได้ · เลือกได้สองทาง
+                    <ol>
+                        <li>เปิดหน้านี้ด้วย <b>Microsoft Edge</b> ซึ่งมีเสียงภาษาไทยในตัว (เช่น Premwadee, Niwat)</li>
+                        <li>เพิ่มเสียงไทยให้ Windows: การตั้งค่า → เวลาและภาษา → คำพูด (Speech) → เพิ่มเสียง → ภาษาไทย แล้วปิดเปิดเบราว์เซอร์ใหม่</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="ctools-opt">
+                <label for="cwheelMusic"><span class="msi" aria-hidden="true">music_note</span>เพลงขณะหมุน</label>
+                <select class="input" id="cwheelMusic">
+                    <option value="tick">เสียงติ๊กตามช่อง</option>
+                    <option value="drum">กลองรัว</option>
+                    <option value="fun">ดนตรีสนุก</option>
+                    <option value="game">เกมโชว์</option>
+                    <option value="none">ไม่มีเสียง</option>
+                </select>
+                <button type="button" class="aichat-icon-btn" data-preview="music" title="ทดลองฟัง"><span class="msi" aria-hidden="true">volume_up</span></button>
+            </div>
+            <div class="ctools-opt">
+                <label for="cwheelEffect"><span class="msi" aria-hidden="true">celebration</span>เสียงเมื่อได้ชื่อ</label>
+                <select class="input" id="cwheelEffect">
+                    <option value="fanfare">แตรฉลอง</option>
+                    <option value="applause">เสียงปรบมือ</option>
+                    <option value="tada">ทาดา</option>
+                    <option value="ding">ติ๊ง</option>
+                    <option value="none">ไม่มีเสียง</option>
+                </select>
+                <button type="button" class="aichat-icon-btn" data-preview="effect" title="ทดลองฟัง"><span class="msi" aria-hidden="true">volume_up</span></button>
+            </div>
+
+            <details class="cwheel-names" id="cwheelNames">
+                <summary>รายชื่อบนวงล้อ <b id="cwheelCount">0</b> คน · นำออกแล้ว <b id="cwheelOutCount">0</b></summary>
+                <form class="cwheel-add" id="cwheelAdd">
+                    <input class="input" id="cwheelAddName" maxlength="80" placeholder="พิมพ์ชื่อเพิ่ม แล้วกด Enter">
+                    <button type="submit" class="btn btn-sm">เพิ่ม</button>
+                </form>
+                <div class="cwheel-chips" id="cwheelIn"></div>
+                <div class="cwheel-out-head" id="cwheelOutHead" hidden>
+                    <span>นำออกแล้ว · กดชื่อเพื่อคืนกลับวงล้อ</span>
+                    <button type="button" class="btn btn-sm" id="cwheelRestoreAll">คืนชื่อทั้งหมด</button>
+                </div>
+                <div class="cwheel-chips is-out" id="cwheelOut"></div>
+            </details>
+        </section>
+    </div>
+</div>

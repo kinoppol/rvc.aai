@@ -3,74 +3,91 @@
 {block title}{$unit['title']}{/block}
 
 {block content}
-<div class="form-page">
-    <a class="back-link" href="{$base}/learn/{$course['id']}">← กลับไปที่ {$course['name']}</a>
-    <h1>{$unit['title']}</h1>
-    {var $isExam = App\Domain\UnitRepository::isExam($unit)}
-
-    {* บทนำ *}
-    {if $unit['key_content'] || $unit['objectives'] || $unit['competencies']}
-        <div class="card" style="margin-top:18px">
-            <h2 style="font:600 15px/1.4 var(--sans);margin-bottom:12px">{$isExam ? 'คำชี้แจงการสอบ' : 'บทนำ'}</h2>
-            {if $unit['key_content']}
-                <div style="margin-bottom:10px">
-                    {if !$isExam}<div style="font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:4px">สาระสำคัญ</div>{/if}
-                    <div style="white-space:pre-line;line-height:1.7;font-size:15px">{$unit['key_content']}</div>
-                </div>
-            {/if}
-            {if $unit['objectives']}
-                <div style="margin-bottom:10px">
-                    <div style="font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:4px">จุดประสงค์การเรียนรู้</div>
-                    <div style="white-space:pre-line;line-height:1.7;font-size:15px">{$unit['objectives']}</div>
-                </div>
-            {/if}
-            {if $unit['competencies']}
+{var $preview = $preview ?? false}
+{var $isExam = App\Domain\UnitRepository::isExam($unit)}
+{var $pct = $progress['total'] ? (int) round($progress['done'] * 100 / $progress['total']) : 0}
+<div class="learn-page">
+    {if $preview}
+        {* ครูเปิดดูในมุมมองนักเรียน · ปุ่มทำแบบทดสอบถูกปิดไว้ *}
+        <a class="back-link" href="{$base}/courses/{$course['id']}/preview">← กลับไปที่ {$course['name']} (มุมมองนักเรียน)</a>
+        <div class="preview-banner">
+            <span class="msi" aria-hidden="true">visibility</span>
+            <div>
+                <b>มุมมองของนักเรียน</b> · หน้านี้คือสิ่งที่นักเรียนจะเห็น ปุ่มทำแบบทดสอบถูกปิดไว้ในโหมดนี้
+                {if $unit['review_status'] !== 'published'}<br><span class="preview-warn">หน่วยนี้ยังไม่เผยแพร่ นักเรียนยังมองไม่เห็น</span>{/if}
+            </div>
+            <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/units/{$unit['id']}/edit">แก้ไขหน่วย</a>
+        </div>
+    {else}
+        <a class="back-link" href="{$base}/learn/{$course['id']}">← กลับไปที่ {$course['name']}</a>
+        {if $progress['total'] && $pct === 100}
+            <div class="learn-congrats">
+                <span class="learn-medal" aria-hidden="true"><span class="msi">emoji_events</span></span>
                 <div>
-                    <div style="font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:4px">สมรรถนะ</div>
-                    <div style="white-space:pre-line;line-height:1.7;font-size:15px">{$unit['competencies']}</div>
+                    <div class="learn-congrats-title">ยอดเยี่ยมมาก {$studentName}</div>
+                    <div class="learn-congrats-sub">คุณเรียนครบทุกรายการของ{$unit['kind_label'] ?? 'หน่วยนี้'} แล้ว</div>
                 </div>
-            {/if}
-        </div>
+                <a class="btn btn-sm" href="{$base}/learn/{$course['id']}">ไปหน่วยถัดไป</a>
+            </div>
+        {/if}
     {/if}
 
-    {if $pretests}
-        <h2 class="learn-section-title">แบบทดสอบก่อนเรียน</h2>
-        <div class="list">
-            {foreach $pretests as $q}{include '../_partials/quiz-row.latte', q: $q}{/foreach}
+    <section class="learn-hero" style="--cc:#{$course['color']};--ca:#{$course['accent']}">
+        <div class="learn-chips">
+            <span>{$unit['kind_label'] ?? 'หน่วยการเรียน'}</span>
+            <span>{$course['code']} {$course['name']}</span>
         </div>
-    {/if}
-
-    {* เนื้อหา *}
-    {if $sections}
-        <div style="margin-top:24px">
-            <h2 style="font:600 15px/1.4 var(--sans);margin-bottom:12px">เนื้อหา</h2>
-            {foreach $sections as $s}
-                <div class="card" style="margin-bottom:14px">
-                    <div style="font-weight:600;margin-bottom:10px">{$s['title']}</div>
-                    {if $s['type'] === 'text'}
-                        <div style="white-space:pre-line;line-height:1.8;font-size:15px">{$s['content']}</div>
-                    {elseif $s['type'] === 'video'}
-                        <div style="aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden">
-                            <iframe src="{$s['video_url']}" style="width:100%;height:100%;border:0" allowfullscreen loading="lazy"></iframe>
-                        </div>
-                    {elseif $s['type'] === 'pdf'}
-                        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:8px">
-                            <span style="font-size:22px">📄</span>
-                            <span style="font-size:14px">{$s['file_name'] ?? 'ไฟล์ PDF'}</span>
-                        </div>
+        <h1>{$unit['title']}</h1>
+        <div class="learn-hero-meta">
+            <span class="msi" aria-hidden="true">schedule</span>
+            {if $progress['minutes']}ประมาณ {$progress['minutes']} นาที · {/if}{count($items)} รายการ
+        </div>
+        {if $typeCounts}<div class="learn-hero-sub">{$typeCounts}</div>{/if}
+        <div class="learn-progress">
+            {if $nextItem}
+                {var $ctaText = $progress['done'] ? 'เรียนต่อ' : 'เริ่มเรียน'}
+                {if $nextItem['kind'] === 'quiz'}
+                    {if $preview}
+                        <button class="learn-cta" type="button" disabled>{$ctaText}</button>
+                    {else}
+                        <form method="post" action="{$base}/learn/quizzes/{$nextItem['id']}/start">
+                            <input type="hidden" name="_token" value="{$csrf}">
+                            <button class="learn-cta" type="submit">{$ctaText}</button>
+                        </form>
                     {/if}
-                </div>
-            {/foreach}
+                {else}
+                    <a class="learn-cta" href="{$base}{$itemBase}/{$nextItem['kind']}/{$nextItem['id']}">{$ctaText}</a>
+                {/if}
+            {/if}
+            <div class="learn-bar" style="--p:{$pct}" role="progressbar" aria-valuenow="{$pct}" aria-valuemin="0" aria-valuemax="100"><span></span></div>
+            <b>{$pct}%</b>
         </div>
-    {elseif !$unit['key_content'] && !$unit['objectives'] && !$pretests && !$posttests}
-        <div class="empty" style="margin-top:18px"><h3>ครูยังไม่ได้ใส่เนื้อหาในหน่วยนี้</h3></div>
-    {/if}
+    </section>
 
-    {if $posttests}
-        <h2 class="learn-section-title">{$isExam ? 'แบบทดสอบ' : 'แบบทดสอบหลังเรียน'}</h2>
-        <div class="list">
-            {foreach $posttests as $q}{include '../_partials/quiz-row.latte', q: $q}{/foreach}
-        </div>
-    {/if}
+    <section class="learn-card">
+        {if $unit['key_content']}
+            <h2 class="learn-h">{$isExam ? 'คำชี้แจงการสอบ' : 'สาระสำคัญ'}</h2>
+            <p class="learn-text">{$unit['key_content']}</p>
+        {/if}
+        {if $unit['objectives']}
+            <h2 class="learn-h">จุดประสงค์การเรียนรู้</h2>
+            <p class="learn-text">{$unit['objectives']}</p>
+        {/if}
+        {if $unit['competencies']}
+            <h2 class="learn-h">สมรรถนะ</h2>
+            <p class="learn-text">{$unit['competencies']}</p>
+        {/if}
+
+        <h2 class="learn-list-title">{$isExam ? 'การสอบ' : 'เนื้อหาหน่วย'} ({count($items)} รายการ)</h2>
+        {if $items}
+            <div class="path-list">
+                {foreach $items as $it}
+                    {include '../_partials/path-row.latte', it: $it, no: $iterator->counter, itemBase: $itemBase, preview: $preview}
+                {/foreach}
+            </div>
+        {else}
+            <div class="empty"><h3>ครูยังไม่ได้ใส่เนื้อหาในหน่วยนี้</h3></div>
+        {/if}
+    </section>
 </div>
 {/block}

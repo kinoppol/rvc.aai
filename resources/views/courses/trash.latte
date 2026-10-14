@@ -1,0 +1,59 @@
+{layout '../layout.latte'}
+
+{block title}ถังขยะ{/block}
+
+{block content}
+{* แบบทดสอบที่ครูลบจากทุกรายวิชา · กู้คืนหรือลบถาวรได้ · ระบบลบถาวรเองเมื่อครบ 30 วัน *}
+<div class="page-head">
+    <div>
+        <h1>ถังขยะ</h1>
+        <p class="sub">แบบทดสอบที่ลบไว้จะอยู่ที่นี่ {App\Domain\QuizRepository::TRASH_DAYS} วัน กู้คืนได้พร้อมผลสอบของนักเรียน เมื่อครบกำหนดระบบจะลบถาวรให้เอง</p>
+    </div>
+</div>
+
+{foreach $groups as $g}
+    <div class="list quiz-group">
+        <div class="quiz-group-head">
+            <span class="quiz-group-title">{$g['code']} · {$g['name']}</span>
+            <span class="quiz-group-count">{count($g['quizzes'])} ชุด</span>
+        </div>
+        {foreach $g['quizzes'] as $q}
+            <div class="list-row is-trashed">
+                <span class="quiz-kind-icon quiz-kind-{$q['kind'] === 'pretest' ? 'pre' : 'post'}" aria-hidden="true">
+                    <span class="msi">{$q['kind'] === 'pretest' ? 'flag' : 'task_alt'}</span>
+                </span>
+                <div class="list-main">
+                    <div class="list-title">{$q['title']}</div>
+                    <div class="list-meta">
+                        {$q['kind'] === 'pretest' ? 'ก่อนเรียน' : 'หลังเรียน'}
+                        · {$q['unit_title'] ?? 'ยังไม่ผูกกับหน่วยการเรียน'}
+                        · {$q['question_count']} ข้อ
+                        {if $q['submitted_count'] > 0} · ผลสอบ {$q['submitted_count']} คน{/if}
+                        · ลบเมื่อ {App\Support\Thai::dateTime($q['deleted_at'])}
+                    </div>
+                </div>
+                <span n:class="tag, $q['days_left'] <= 3 ? tag-warn">{$q['days_left'] > 0 ? 'เหลือ ' . $q['days_left'] . ' วัน' : 'ลบวันนี้'}</span>
+                <form method="post" action="{$base}/courses/{$g['id']}/quizzes/{$q['id']}/restore">
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <button type="submit" class="icon-act" data-tip="กู้คืน" aria-label="กู้คืน {$q['title']}"><span class="msi" aria-hidden="true">restore_from_trash</span></button>
+                </form>
+                <form method="post" action="{$base}/courses/{$g['id']}/quizzes/{$q['id']}/destroy"
+                      data-confirm-title="ลบถาวร" data-confirm-ok="ลบถาวร" data-confirm-danger
+                      data-confirm="ลบ &quot;{$q['title']}&quot; ถาวรใช่หรือไม่ · {$q['submitted_count'] > 0 ? 'ผลสอบของนักเรียน ' . $q['submitted_count'] . ' คนจะถูกลบไปด้วย และ' : ''}กู้คืนไม่ได้อีก">
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <button type="submit" class="icon-act is-danger" data-tip="ลบถาวร" aria-label="ลบถาวร {$q['title']}"><span class="msi" aria-hidden="true">delete_forever</span></button>
+                </form>
+            </div>
+        {/foreach}
+    </div>
+{/foreach}
+
+{if !$groups}
+    <div class="list">
+        <div class="empty">
+            <h3>ถังขยะว่างเปล่า</h3>
+            <p>แบบทดสอบที่ลบจากแท็บ "แบบทดสอบ" ของรายวิชาจะมาอยู่ที่นี่ {App\Domain\QuizRepository::TRASH_DAYS} วันก่อนถูกลบถาวร</p>
+        </div>
+    </div>
+{/if}
+{/block}

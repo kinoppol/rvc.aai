@@ -31,9 +31,38 @@
           data-busy="กำลังร่างรายชื่อหน่วย…">
         <input type="hidden" name="_token" value="{$csrf}">
 
-        <div class="field">
-            <label for="count">จำนวนหน่วยที่ต้องการ</label>
-            <input class="input" type="number" id="count" name="count" min="2" max="20" value="{$count}" style="width:120px">
+        {* ตารางภาคเรียน: ระบบวางสัปดาห์ของแต่ละหน่วยและสัปดาห์สอบเอง (App\Support\Semester · ตัวอย่างสดใน semester-plan.js) *}
+        <div class="semester-box" id="semesterBox"
+             data-teaching="{$level['teaching']}" data-included="{$level['examsIncluded'] ? 1 : 0}"
+             data-existing="{$existingLessons}" data-weekly="{$weekly}" data-auto="{$weeksSaved ? 0 : 1}">
+            <div class="step-label">ตารางภาคเรียน</div>
+            <div class="semester-grid">
+                <div class="field">
+                    <label for="weeks">สัปดาห์เรียนรวมวัดผล</label>
+                    <input class="input mono" type="number" id="weeks" name="weeks" min="1" max="30" value="{$weeks}">
+                </div>
+                <div class="field">
+                    <label for="count">จำนวนหน่วยการเรียน{if $existingLessons} (ใหม่){/if}</label>
+                    <input class="input mono" type="number" id="count" name="count" min="1" max="20" value="{$count}">
+                </div>
+                <div class="field semester-exams">
+                    <span class="label">การสอบ</span>
+                    <label><input type="checkbox" name="midterm" value="1" id="midterm" n:attr="checked: $midterm"> สอบกลางภาค</label>
+                    <label><input type="checkbox" name="final" value="1" id="final" n:attr="checked: $final"> สอบปลายภาค</label>
+                </div>
+            </div>
+            <div class="hint">
+                {if $level['label']}{$level['label']} · {/if}
+                {if $level['examsIncluded']}
+                    เรียน {$level['teaching']} สัปดาห์รวมวัดผล สอบปลายภาคสัปดาห์สุดท้าย
+                {else}
+                    เรียน {$level['teaching']} สัปดาห์ไม่รวมวัดผล สัปดาห์สอบต่อท้าย (สอบปลายภาค = สัปดาห์ที่ {$level['teaching'] + 1})
+                {/if}
+                · สัปดาห์ละ {$weekly} ชั่วโมง (ท + ป) · มีสอบกลางภาคต้องมีสอบปลายภาคด้วย
+                · ระบบวางสอบกลางภาคให้ใกล้กลางภาคเรียนที่สุดตรงรอยต่อของหน่วย
+            </div>
+            <div class="semester-strip" id="semesterStrip" aria-hidden="true"></div>
+            <div class="hint" id="semesterSummary"></div>
         </div>
 
         <div class="field">
@@ -61,22 +90,39 @@
             <input type="hidden" name="_token" value="{$csrf}">
 
             <h2 style="font:600 15px/1.4 var(--sans)">ผู้ช่วยร่างมา {count($proposed)} หน่วย</h2>
-            <div class="card-sub">ติ๊กหน่วยที่ต้องการ แล้วกดบันทึก · บันทึกเป็นฉบับร่างให้แก้เนื้อหาต่อได้</div>
+            <div class="card-sub">
+                ติ๊กหน่วยที่ต้องการ แล้วกดบันทึก · บันทึกเป็นฉบับร่างให้แก้เนื้อหาต่อได้
+                · ตาราง {$plan['weeks']} สัปดาห์{if $plan['midterm'] || $plan['final']} ระบบสร้าง/จัดวางหน่วยสอบให้ตอนบันทึก{/if}
+                (สัปดาห์ของแต่ละหน่วยแก้ได้ที่หน้าแก้ไขหน่วย)
+            </div>
 
             <div class="list" style="margin-top:6px">
+                {var $after = $plan['midtermAfter']}
                 {foreach $proposed as $i => $u}
+                    {var $g = $existingLessons + $i}
+                    {var $slot = $plan['units'][$g] ?? null}
+                    {if $after !== null && ($g === $after || ($i === 0 && $after < $existingLessons))}
+                        <div class="outline-exam"><span class="msi">fact_check</span> สอบกลางภาค · สัปดาห์ที่ {$plan['midtermWeek']}</div>
+                    {/if}
                     <label class="outline-row">
                         <input type="checkbox" name="pick[]" value="{$i}" checked>
-                        <span class="outline-no mono">{sprintf('%02d', $iterator->counter)}</span>
+                        <span class="outline-no mono">{sprintf('%02d', $g + 1)}</span>
                         <span class="outline-main">
                             <span class="outline-title">{$u['title']}</span>
                             {if $u['key_content']}<span class="outline-sub">{$u['key_content']}</span>{/if}
                             {if $u['objectives']}<span class="outline-sub">จุดประสงค์: {$u['objectives']}</span>{/if}
                             {if $u['competencies']}<span class="outline-sub">สมรรถนะ: {$u['competencies']}</span>{/if}
                         </span>
-                        {if $u['hours']}<span class="tag">{$u['hours']} ชม.</span>{/if}
+                        {if $slot}
+                            <span class="tag" title="{$slot['weeks']} สัปดาห์ · {$u['hours']} ชั่วโมง">
+                                สัปดาห์ {$slot['from']}{if $slot['to'] > $slot['from']}–{$slot['to']}{/if} · {$u['hours']} ชม.
+                            </span>
+                        {/if}
                     </label>
                 {/foreach}
+                {if $plan['finalWeek']}
+                    <div class="outline-exam"><span class="msi">fact_check</span> สอบปลายภาค · สัปดาห์ที่ {$plan['finalWeek']}</div>
+                {/if}
             </div>
 
             <div class="form-actions" style="margin-top:16px">
@@ -100,4 +146,5 @@
         </script>
     {/if}
 </div>
+<script src="{$base}/assets/js/semester-plan.js"></script>
 {/block}

@@ -8,6 +8,8 @@ use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
 use App\Domain\UnitRepository;
 use App\Support\Db;
+use App\Support\Semester;
+use App\Support\Thai;
 use App\Support\View;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -21,9 +23,6 @@ use Slim\Exception\HttpNotFoundException;
  */
 final class PlanPrintController
 {
-    /** จำนวนสัปดาห์ต่อภาคเรียนตามหลักสูตร สอศ. */
-    private const WEEKS = 18;
-
     public function __construct(
         private readonly View $view,
         private readonly CourseRepository $courses,
@@ -49,38 +48,37 @@ final class PlanPrintController
             : null;
         $teacher = $this->db->first('SELECT full_name, subject_area FROM {users} WHERE id = ?', [$course['teacher_id']]);
 
+        // ชั่วโมงต่อสัปดาห์ = ท + ป (น คือหน่วยกิต)
         $weekly = (int) $course['theory_hours'] + (int) $course['practice_hours'];
-        $totalHours = $weekly * self::WEEKS;
-
         $units = $this->units->forCourse((int) $course['id']);
-
-        // หน่วยสอบกลางภาค/ปลายภาคใช้เวลา 1 สัปดาห์ · เวลาที่เหลือแบ่งเท่า ๆ กันให้หน่วยการเรียน
-        $examCount = count(array_filter($units, [UnitRepository::class, 'isExam']));
-        $lessonHours = $this->spreadHours(max(0, $totalHours - $examCount * $weekly), count($units) - $examCount);
+        $kinds = array_column($units, 'kind');
+        $weeks = (int) ($course['weeks'] ?? 0) ?: Semester::defaultWeeks(
+            (string) $course['code'],
+            in_array('midterm', $kinds, true),
+            in_array('final', $kinds, true)
+        );
+        $schedule = $this->schedule($units, $weeks, $weekly);
+        $totalHours = array_sum(array_column($schedule, 'hours'));
 
         $plans = [];
-        $sessionNo = 1;
         $lessonNo = 0;
-        foreach ($units as $u) {
+        foreach ($units as $i => $u) {
             $exam = UnitRepository::isExam($u);
             $unitId = (int) $u['id'];
             $sections = $this->units->sectionsFor($unitId);
             $quizzes = $this->db->all(
                 'SELECT q.title, q.kind, (SELECT COUNT(*) FROM {quiz_questions} qq WHERE qq.quiz_id = q.id) AS question_count
-                 FROM {quizzes} q WHERE q.unit_id = ? ORDER BY q.kind = \'posttest\', q.id',
+                 FROM {quizzes} q WHERE q.unit_id = ? AND q.deleted_at IS NULL ORDER BY q.kind = \'posttest\', q.id',
                 [$unitId]
             );
-            $h = $exam ? $weekly : $lessonHours[$lessonNo];
-            $sessions = $weekly > 0 ? max(1, (int) ceil($h / $weekly)) : 1;
-
             $plans[] = [
                 // หน่วยสอบไม่นับเลขหน่วย และไม่มีแผนรายหน่วย (มีแต่ในตารางเวลา)
                 'no'           => $exam ? UnitRepository::KINDS[$u['kind']] : ++$lessonNo,
                 'exam'         => $exam,
                 'unit'         => $u,
-                'hours'        => $h,
-                'session_from' => $sessionNo,
-                'session_to'   => $sessionNo + $sessions - 1,
+                'hours'        => $schedule[$i]['hours'],
+                'week_from'    => $schedule[$i]['from'],
+                'week_to'      => $schedule[$i]['to'],
                 'key_content'  => $this->lines($u['key_content']),
                 'objectives'   => $this->lines($u['objectives']),
                 'competencies' => $this->lines($u['competencies']),
@@ -94,7 +92,6 @@ final class PlanPrintController
                 'pretests'     => array_values(array_filter($quizzes, fn ($q) => $q['kind'] === 'pretest')),
                 'posttests'    => array_values(array_filter($quizzes, fn ($q) => $q['kind'] === 'posttest')),
             ];
-            $sessionNo += $sessions;
         }
 
         return $this->view->render($response, 'plan/print', [
@@ -102,30 +99,70 @@ final class PlanPrintController
             'term'        => $term,
             'teacher'     => $teacher,
             'weekly'      => $weekly,
+            'weeks'       => $weeks,
+            'lastWeek'    => max([0, ...array_column($schedule, 'to')]),
             'totalHours'  => $totalHours,
             'plans'       => $plans,
             'description' => $this->lines($course['description']),
             'courseObjectives'   => $this->lines($course['objectives'] ?? null),
             'courseCompetencies' => $this->lines($course['competencies'] ?? null),
+            'courseOutcomes'     => $this->lines($course['learning_outcomes'] ?? null),
+            'planDate'           => Thai::formalDate($course['plan_date'] ?? null),
+            'level'              => Semester::level((string) $course['code'])['label'],
         ]);
     }
 
     /**
-     * แบ่งชั่วโมงรวมทั้งภาคให้หน่วยการเรียนเท่า ๆ กัน (เศษไปอยู่หน่วยแรก ๆ)
+     * วางสัปดาห์และชั่วโมงของทุกหน่วยตามลำดับ
      *
-     * @return list<int>
+     * หน่วยสอบใช้ 1 สัปดาห์เต็มเสมอ · หน่วยการเรียนที่ครูกำหนดสัปดาห์ไว้ (units.weeks) ใช้ตามนั้น
+     * ที่เหลือแบ่งสัปดาห์ที่ยังว่างให้เท่า ๆ กันเป็นจำนวนเต็มสัปดาห์ — ถ้าหน่วยมากกว่าสัปดาห์ที่ว่าง
+     * จึงแบ่งเป็นชั่วโมงแทน (หลายหน่วยอยู่ในสัปดาห์เดียวกันได้) ตารางจึงไม่ล้นจำนวนสัปดาห์ของภาค
+     *
+     * @param list<array<string,mixed>> $units
+     * @return list<array{hours:int, from:int, to:int}>
      */
-    private function spreadHours(int $total, int $count): array
+    private function schedule(array $units, int $weeks, int $weekly): array
     {
-        if ($count === 0) {
-            return [];
+        // คำนวณตำแหน่งเป็นชั่วโมง · วิชาที่ยังไม่กรอก ท/ป ถือว่าสัปดาห์ละ 1 หน่วยไว้วางตาราง แต่แสดง 0 ชั่วโมง
+        $per = max(1, $weekly);
+        $exams = count(array_filter($units, [UnitRepository::class, 'isExam']));
+        $fixed = 0;
+        $open = [];
+        foreach ($units as $i => $u) {
+            if (UnitRepository::isExam($u)) {
+                continue;
+            }
+            if ((int) ($u['weeks'] ?? 0) > 0) {
+                $fixed += (int) $u['weeks'];
+            } else {
+                $open[] = $i;
+            }
         }
-        $base = intdiv($total, $count);
-        $extra = $total % $count;
+
+        $free = max(0, $weeks - $exams - $fixed);
+        $shares = count($open) <= $free
+            ? array_map(static fn (int $w): int => $w * $per, Semester::spread($free, count($open)))
+            : Semester::spread($free * $per, count($open));
+        $openHours = $open === [] ? [] : array_combine($open, $shares);
 
         $out = [];
-        for ($i = 0; $i < $count; $i++) {
-            $out[] = $base + ($i < $extra ? 1 : 0);
+        $cursor = 0;
+        foreach ($units as $i => $u) {
+            if (UnitRepository::isExam($u)) {
+                $cursor = (int) ceil($cursor / $per) * $per; // สอบเริ่มต้นสัปดาห์ใหม่เสมอ
+                $h = $per;
+            } else {
+                $h = isset($openHours[$i]) ? $openHours[$i] : (int) $u['weeks'] * $per;
+            }
+
+            $from = intdiv($cursor, $per) + 1;
+            $cursor += $h;
+            $out[$i] = [
+                'hours' => $weekly > 0 ? $h : 0,
+                'from' => $from,
+                'to' => max($from, (int) ceil($cursor / $per)),
+            ];
         }
 
         return $out;

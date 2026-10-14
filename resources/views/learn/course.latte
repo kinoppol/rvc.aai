@@ -3,50 +3,103 @@
 {block title}{$course['name']}{/block}
 
 {block content}
-<div class="course-page">
-    <div class="course-header">
-        <div class="course-header-inner">
-            <div class="course-banner" style="--cc:#{$course['color']};--ca:#{$course['accent']}">
-            {if $course['cover_url']}<img class="cover-img" src="{$course['cover_url']}" alt="">{/if}
-            <div class="course-head-code">{$course['code']} · ผู้สอน {$course['teacher_name'] ?? '—'}</div>
-            <h1>{$course['name']}</h1>
-            <div class="course-head-stats">{count($units)} หน่วยการเรียน</div>
+{var $preview = $preview ?? false}
+{var $pct = $totals['total'] ? (int) round($totals['done'] * 100 / $totals['total']) : 0}
+<div class="learn-page">
+    {if $preview}
+        {* ครูเปิดดูทั้งรายวิชาในมุมมองนักเรียน · ไม่บันทึกความคืบหน้า ปุ่มทำแบบทดสอบถูกปิด *}
+        <a class="back-link" href="{$base}/courses/{$course['id']}?tab=units">← กลับไปหน้าจัดการรายวิชา</a>
+        <div class="preview-banner">
+            <span class="msi" aria-hidden="true">visibility</span>
+            <div>
+                <b>มุมมองของนักเรียน</b> · หน้านี้คือสิ่งที่นักเรียนจะเห็น การเปิดดูไม่นับเป็นความคืบหน้า และปุ่มทำแบบทดสอบถูกปิดไว้
+                {if $hiddenUnits}<br><span class="preview-warn">มีอีก {$hiddenUnits} หน่วยที่ยังไม่เผยแพร่ นักเรียนจึงยังมองไม่เห็น</span>{/if}
+            </div>
+            <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/edit">แก้ไขรายวิชา</a>
+        </div>
+    {else}
+        <a class="back-link" href="{$base}/learn">← รายวิชาของฉัน</a>
+    {/if}
+
+    {if !$preview && $totals['total'] && $pct === 100}
+        <div class="learn-congrats">
+            <span class="learn-medal" aria-hidden="true"><span class="msi">emoji_events</span></span>
+            <div>
+                <div class="learn-congrats-title">ขอแสดงความยินดีกับคุณ {$studentName}</div>
+                <div class="learn-congrats-sub">เยี่ยมมาก! คุณเรียนครบทุกเนื้อหาและทำแบบทดสอบครบทุกชุดของรายวิชานี้แล้ว</div>
             </div>
         </div>
-    </div>
+    {/if}
 
-    <div class="course-body">
+    {* ส่วนหัวรายวิชา: สีเข้มตามสีปกของรายวิชา · ความคืบหน้ารวมทุกหน่วย *}
+    <section class="learn-hero" style="--cc:#{$course['color']};--ca:#{$course['accent']}">
+        <div class="learn-chips">
+            <span>{$course['code']}</span>
+            {if (int) $course['credits'] > 0}<span>{(int) $course['theory_hours']}-{(int) $course['practice_hours']}-{(int) $course['credits']}</span>{/if}
+        </div>
+        <h1>{$course['name']}</h1>
+        <p class="learn-hero-desc">ผู้สอน {$course['teacher_name'] ?? '—'}</p>
+        <div class="learn-hero-meta">
+            <span class="msi" aria-hidden="true">schedule</span>
+            {if $totals['minutes']}ประมาณ {$totals['minutes']} นาที · {/if}{count($units)} หน่วยการเรียน
+        </div>
+        {if $typeCounts}<div class="learn-hero-sub">{$typeCounts}</div>{/if}
+        <div class="learn-progress">
+            {if $nextUnit}
+                <a class="learn-cta" href="{$base}{$unitBase}{$nextUnit['id']}{$unitSuffix}">{$totals['done'] ? 'เรียนต่อ' : 'เริ่มเรียน'}</a>
+            {/if}
+            <div class="learn-bar" style="--p:{$pct}" role="progressbar" aria-valuenow="{$pct}" aria-valuemin="0" aria-valuemax="100"><span></span></div>
+            <b>{$pct}%</b>
+        </div>
+    </section>
+
+    <section class="learn-card">
+        {if $course['description']}
+            <h2 class="learn-h">รายละเอียดรายวิชา</h2>
+            <p class="learn-text">{$course['description']}</p>
+        {/if}
+        {if $course['objectives']}
+            <h2 class="learn-h">จุดประสงค์รายวิชา</h2>
+            <p class="learn-text">{$course['objectives']}</p>
+        {/if}
+        {if $course['competencies']}
+            <h2 class="learn-h">สมรรถนะรายวิชา</h2>
+            <p class="learn-text">{$course['competencies']}</p>
+        {/if}
+
+        <h2 class="learn-list-title">เนื้อหารายวิชา ({count($units)} หน่วย)</h2>
         {if $units}
-            <div class="list">
-                {var $no = 0}
+            <div class="path-list">
                 {foreach $units as $u}
-                    {* หน่วยสอบกลางภาค/ปลายภาคไม่นับเลขหน่วย *}
-                    {var $exam = App\Domain\UnitRepository::isExam($u)}
-                    {if !$exam}{do $no++}{/if}
-                    <a n:class="list-row, $exam ? 'is-exam is-published'" href="{$base}/learn/units/{$u['id']}" style="color:inherit">
-                        <div class="list-no">{$exam ? 'สอบ' : sprintf('%02d', $no)}</div>
-                        <div class="list-main">
-                            <div class="list-title">{$u['title']}</div>
-                            {if $u['key_content']}<div class="list-meta">{$u['key_content']}</div>{/if}
-                        </div>
+                    {var $p = $path[(int) $u['id']]}
+                    {var $done = $p['total'] > 0 && $p['done'] === $p['total']}
+                    <a n:class="path-row, $done ? is-done" href="{$base}{$unitBase}{$u['id']}{$unitSuffix}">
+                        <span class="path-no">{$u['no'] ?? 'สอบ'}</span>
+                        <span class="path-main">
+                            <span class="path-tags">
+                                <span n:class="path-type, $u['is_exam'] ? path-tone-exam : path-tone-unit">{$u['kind_label']}</span>
+                                <span class="path-pill">{count($p['items'])} รายการ</span>
+                                {if $p['minutes']}<span class="path-meta">{$p['minutes']} นาที</span>{/if}
+                            </span>
+                            <span class="path-title">{$u['title']}</span>
+                            {if $p['total'] && !$done && $p['done']}<span class="path-state">ทำแล้ว {$p['done']} จาก {$p['total']} รายการ</span>{/if}
+                        </span>
+                        <span n:class="path-check, $done ? is-done"><span class="msi" aria-hidden="true">check</span></span>
                     </a>
-                    {foreach $quizzesByUnit[(int) $u['id']] ?? [] as $q}
-                        {include '../_partials/quiz-row.latte', q: $q}
-                    {/foreach}
                 {/foreach}
             </div>
-        {elseif !$otherQuizzes}
+        {else}
             <div class="empty"><h3>ยังไม่มีหน่วยการเรียนที่เผยแพร่</h3></div>
         {/if}
 
-        {if $otherQuizzes}
-            <h2 class="learn-section-title">แบบทดสอบ</h2>
-            <div class="list">
-                {foreach $otherQuizzes as $q}
-                    {include '../_partials/quiz-row.latte', q: $q}
+        {if $looseQuizzes}
+            <h2 class="learn-list-title">แบบทดสอบเพิ่มเติม</h2>
+            <div class="path-list">
+                {foreach $looseQuizzes as $it}
+                    {include '../_partials/path-row.latte', it: $it, no: $iterator->counter, itemBase: '', preview: $preview}
                 {/foreach}
             </div>
         {/if}
-    </div>
+    </section>
 </div>
 {/block}
