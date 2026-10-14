@@ -34,7 +34,8 @@ final class RmsClient
     public static function normalizeUrl(string $url): ?string
     {
         $url = rtrim(trim($url), '/');
-        if (preg_match('#^https?://[^/\s?#]+(?::\d+)?(?:/[^\s?#]*)?$#i', $url) !== 1) {
+        // ใช้ ~ คั่น pattern เพราะใน pattern มี # อยู่ — ถ้าใช้ # คั่น preg_match จะพังและปฏิเสธทุก URL
+        if (preg_match('~^https?://[^/\s?#]+(?:/[^\s?#]*)?$~i', $url) !== 1) {
             return null;
         }
 
