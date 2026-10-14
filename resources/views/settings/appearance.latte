@@ -3,6 +3,7 @@
 {block title}สีหลักของหน้าจอ{/block}
 
 {block content}
+{if ($user['role'] ?? '') === 'admin'}{include '../_partials/system-tabs.latte'}{/if}
 <div class="wizard-page" style="max-width:820px" id="appearancePage" data-pairs="{json_encode($pairs)}">
     <h1>สีหลักของหน้าจอ</h1>
     <div class="sub">

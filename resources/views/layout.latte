@@ -81,6 +81,7 @@
                 โหมดเริ่มต้นตามหน้าที่เปิดอยู่ (หน้า /admin/* = ผู้ดูแลระบบ) ปุ่มสลับเปลี่ยนแค่เมนู ไม่เปลี่ยนหน้า
             *}
             {var $dual = $role === 'admin' && $teaches}
+            {var $systemHere = $role === 'admin' && in_array($page, ['admin-overview', 'admin-settings', 'appearance', 'admin-ai', 'admin-rms', 'migrations', 'admin-logs'], true)}
             {var $navMode = $dual && (str_starts_with((string) $page, 'admin') || in_array($page, ['migrations', 'appearance'], true)) ? 'admin' : 'teach'}
             {if $dual}
                 <div class="nav-mode-switch" role="tablist" aria-label="ชุดเมนู">
@@ -139,30 +140,10 @@
                 {/if}
 
                 {if $role === 'admin'}
-                    {var $here = in_array($page, ['admin-ai', 'admin-rms'], true)}
-                    <div n:class="nav-group, $here ? is-here" data-group="data">
-                        <button type="button" class="group-label" aria-expanded="true">
-                            <span class="grow">AI และข้อมูล</span><span class="msi">expand_more</span>
-                        </button>
-                        <div class="nav-group-items">
-                            <a href="{$base}/admin/ai" n:class="$page === 'admin-ai' ? is-active" title="เครื่อง AI และโควตา"><span class="msi">memory</span><span class="nav-label">เครื่อง AI และโควตา</span></a>
-                            <a href="{$base}/admin/rms" n:class="$page === 'admin-rms' ? is-active" title="โอนข้อมูลจาก RMS"><span class="msi">sync_alt</span><span class="nav-label">โอนข้อมูลจาก RMS</span></a>
-                        </div>
-                    </div>
-
-                    {var $here = in_array($page, ['admin-overview', 'migrations', 'admin-logs', 'admin-settings', 'appearance'], true)}
-                    <div n:class="nav-group, $here ? is-here" data-group="system">
-                        <button type="button" class="group-label" aria-expanded="true">
-                            <span class="grow">ดูแลระบบ</span><span class="msi">expand_more</span>
-                        </button>
-                        <div class="nav-group-items">
-                            {if $teaches}<a href="{$base}/admin/overview" n:class="$page === 'admin-overview' ? is-active" title="ภาพรวมระบบ"><span class="msi">dashboard</span><span class="nav-label">ภาพรวมระบบ</span></a>{/if}
-                            <a href="{$base}/admin/settings" n:class="$page === 'admin-settings' ? is-active" title="ตั้งค่าระบบ"><span class="msi">settings</span><span class="nav-label">ตั้งค่าระบบ</span></a>
-                            <a href="{$base}/admin/migrations" n:class="$page === 'migrations' ? is-active" title="จัดการฐานข้อมูล"><span class="msi">database</span><span class="nav-label">จัดการฐานข้อมูล</span></a>
-                            <a href="{$base}/admin/logs" n:class="$page === 'admin-logs' ? is-active" title="บันทึกข้อขัดข้อง"><span class="msi">report</span><span class="nav-label">บันทึกข้อขัดข้อง</span></a>
-                            <a href="{$base}/settings/appearance" n:class="$page === 'appearance' ? is-active" title="สีหลักของหน้าจอ"><span class="msi">palette</span><span class="nav-label">สีหลักของหน้าจอ</span></a>
-                        </div>
-                    </div>
+                    {* ทุกหน้าของผู้ดูแลระบบรวมอยู่ใต้ "ตั้งค่าระบบ" แยกเป็นแท็บใน _partials/system-tabs.latte
+                       data-keywords ให้ช่องค้นหาเมนูยังหาแท็บย่อยเจอ *}
+                    <a href="{$base}/admin/settings" n:class="$systemHere ? is-active" title="ตั้งค่าระบบ"
+                       data-keywords="ภาพรวมระบบ สีของระบบ สีหลักของหน้าจอ เครื่อง AI โควตา โอนข้อมูล RMS ฐานข้อมูล migration บันทึกข้อขัดข้อง log วิธีเข้าสู่ระบบ SSO RVC-ONE"><span class="msi">settings</span><span class="nav-label">ตั้งค่าระบบ</span></a>
                 {/if}
                 </div>
             </div>
@@ -251,7 +232,7 @@
         {elseif $role === 'student'}
             <a href="{$base}/learn" n:class="$page === 'learn' ? is-active"><span class="msi">school</span>วิชาที่เรียน</a>
         {else}
-            <a href="{$base}/admin/ai" n:class="$page === 'admin-ai' ? is-active"><span class="msi">memory</span>เครื่อง AI</a>
+            <a href="{$base}/admin/settings" n:class="$systemHere ? is-active"><span class="msi">settings</span>ตั้งค่าระบบ</a>
             <a href="{$base}/admin/users" n:class="$page === 'admin-users' ? is-active"><span class="msi">manage_accounts</span>ผู้ใช้</a>
         {/if}
     </nav>
@@ -340,7 +321,8 @@
             var q = search.value.trim().toLowerCase();
             return links.filter(function (a) {
                 var label = a.querySelector('.nav-label');
-                return q === '' || (label ? label.textContent : '').toLowerCase().indexOf(q) !== -1;
+                var text = (label ? label.textContent : '') + ' ' + (a.dataset.keywords || '');
+                return q === '' || text.toLowerCase().indexOf(q) !== -1;
             });
         }
         search.addEventListener('input', function () {

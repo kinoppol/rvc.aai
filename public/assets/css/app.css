@@ -900,6 +900,11 @@ dialog.modal .modal-foot {
 .tab:hover { color: var(--brand); background: var(--brandSoft); }
 .tab.is-active { color: var(--brandInk); background: var(--brand); box-shadow: var(--shadowBrand); }
 
+/* แท็บของเมนู "ตั้งค่าระบบ" (_partials/system-tabs.latte) อยู่บนสุดของทุกหน้าในเมนูนี้ */
+.sys-nav { display: flex; justify-content: center; margin: 0 0 22px; }
+.sys-nav .tabs { margin-top: 0; }
+@media (max-width: 860px) { .sys-nav { justify-content: flex-start; } }
+
 .course-body { max-width: 1180px; margin: 0 auto; padding: 24px 32px 60px; }
 
 /* ---------- รายการทั่วไป ---------- */

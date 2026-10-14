@@ -1,0 +1,28 @@
+{*
+    แท็บของเมนู "ตั้งค่าระบบ" (ผู้ดูแลระบบเท่านั้น) — รวมทุกหน้าที่เคยกระจายอยู่ในเมนู "AI และข้อมูล" และ "ดูแลระบบ"
+    แต่ละแท็บยังเป็นหน้าของตัวเอง แท็บที่เลือกดูจาก $page · เพิ่มหน้าใหม่ = เพิ่มแถวในรายการนี้ และเพิ่มชื่อ page ใน $systemHere ของ layout.latte
+*}
+{var $systemTabs = [
+    ['/admin/overview', ['admin-overview', 'dashboard'], 'dashboard', 'ภาพรวม'],
+    ['/admin/settings', ['admin-settings'], 'settings', 'ทั่วไป'],
+    ['/settings/appearance', ['appearance'], 'palette', 'สีของระบบ'],
+    ['/admin/ai', ['admin-ai'], 'memory', 'เครื่อง AI'],
+    ['/admin/rms', ['admin-rms'], 'sync_alt', 'RMS'],
+    ['/admin/migrations', ['migrations'], 'database', 'ฐานข้อมูล'],
+    ['/admin/logs', ['admin-logs'], 'report', 'ข้อขัดข้อง'],
+]}
+<nav class="sys-nav" aria-label="ตั้งค่าระบบ">
+    <div class="tabs">
+        {foreach $systemTabs as [$href, $pages, $icon, $label]}
+            <a href="{$base}{$href}" n:class="tab, in_array($page, $pages, true) ? is-active"
+               aria-current="{in_array($page, $pages, true) ? 'page' : null}"><span class="msi">{$icon}</span>{$label}</a>
+        {/foreach}
+    </div>
+</nav>
+<script n:syntax="off">
+    /* จอแคบแท็บเลื่อนแนวนอนได้ — เลื่อนแท็บของหน้านี้มาให้เห็น */
+    (function () {
+        var on = document.querySelector('.sys-nav .tab.is-active');
+        if (on && on.scrollIntoView) { on.scrollIntoView({ block: 'nearest', inline: 'center' }); }
+    })();
+</script>
