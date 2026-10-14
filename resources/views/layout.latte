@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap">
     {* ไอคอน Material Symbols เฉพาะชื่อที่ใช้จริง (icon_names ต้องเรียงตามตัวอักษร) — display=block กันชื่อไอคอนโผล่เป็นตัวหนังสือระหว่างโหลด *}
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&icon_names=assignment,auto_awesome,chevron_right,class,dark_mode,database,expand_more,fact_check,folder_open,forum,group,home,library_books,light_mode,logout,manage_accounts,memory,menu,notifications,palette,report,school,search,settings,smart_toy,sync_alt,trending_up,waving_hand&display=block">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&icon_names=assignment,auto_awesome,calendar_month,chevron_right,class,dark_mode,database,expand_more,fact_check,folder_open,forum,group,home,info,library_books,light_mode,logout,manage_accounts,memory,menu,notifications,palette,report,school,search,settings,smart_toy,sync_alt,trending_up,waving_hand&display=block">
     <link rel="stylesheet" href="{$base}/assets/css/app.css">
     {if isset($ui)}
         {* สีหลักที่ผู้ดูแลหรือครูเลือกไว้ — เขียน # ในเทมเพลตเอง เพราะ Latte จะ escape # ใน CSS *}
@@ -168,7 +168,6 @@
                 </div>
                 <div class="side-profile-meta">{$college}{if ($term ?? '') !== ''} · {$term}{/if}</div>
                 <div class="side-profile-btns">
-                    <button type="button" class="btn btn-sm" onclick="rvcToggleTheme()" id="themeButton">โหมดมืด</button>
                     <form method="post" action="{$base}/{isset($impersonatedBy) && $impersonatedBy ? 'impersonate/stop' : 'logout'}">
                         <input type="hidden" name="_token" value="{$csrf}">
                         <button type="submit" class="btn btn-sm"><span class="msi">logout</span>{isset($impersonatedBy) && $impersonatedBy ? 'กลับเป็นผู้ดูแล' : 'ออกจากระบบ'}</button>
@@ -249,7 +248,6 @@
 <script>
     function rvcThemeLabels() {
         var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-        document.getElementById('themeButton').textContent = dark ? 'โหมดสว่าง' : 'โหมดมืด';
         document.getElementById('themeIcon').textContent = dark ? 'light_mode' : 'dark_mode';
     }
     function rvcToggleTheme() {

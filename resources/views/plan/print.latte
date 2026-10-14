@@ -211,11 +211,12 @@
             <tr><th colspan="3">รวม</th><th>{$totalHours}</th></tr>
         </tbody>
     </table>
-    <p class="muted" style="font-size:14pt;margin-top:6pt">หมายเหตุ ชั่วโมงแต่ละหน่วยระบบแบ่งให้เท่า ๆ กันจากเวลาเรียน {$weekly} ชั่วโมง × 18 สัปดาห์ แก้ไขตัวเลขให้ตรงกับการสอนจริงได้</p>
+    <p class="muted" style="font-size:14pt;margin-top:6pt">หมายเหตุ ชั่วโมงแต่ละหน่วยระบบแบ่งให้เท่า ๆ กันจากเวลาเรียน {$weekly} ชั่วโมง × 18 สัปดาห์ (หน่วยสอบใช้ 1 สัปดาห์) แก้ไขตัวเลขให้ตรงกับการสอนจริงได้</p>
 </section>
 
-{* ───────── แผนรายหน่วย ───────── *}
+{* ───────── แผนรายหน่วย (ไม่รวมหน่วยสอบ) ───────── *}
 {foreach $plans as $p}
+{continueIf $p['exam']}
 {var $u = $p['unit']}
 <section class="sheet" contenteditable="true">
     <table class="head-box">

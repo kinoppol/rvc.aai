@@ -114,6 +114,14 @@ return static function (App $app): void {
             $t->post('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments/{id:[0-9]+}', [AssignmentController::class, 'save']);
             $t->post('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments/{id:[0-9]+}/draft', [AssignmentController::class, 'draft']);
             $t->post('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments/{id:[0-9]+}/delete', [AssignmentController::class, 'delete']);
+            // งานที่มอบหมายเพิ่มเติม (นอกเหนือจากใบงานของหน่วย) — ใช้ AssignmentController เดียวกัน
+            $t->get('/{courseId:[0-9]+}/tasks/new', [AssignmentController::class, 'edit']);
+            $t->post('/{courseId:[0-9]+}/tasks', [AssignmentController::class, 'save']);
+            $t->post('/{courseId:[0-9]+}/tasks/draft', [AssignmentController::class, 'draft']);
+            $t->get('/{courseId:[0-9]+}/tasks/{id:[0-9]+}/edit', [AssignmentController::class, 'edit']);
+            $t->post('/{courseId:[0-9]+}/tasks/{id:[0-9]+}', [AssignmentController::class, 'save']);
+            $t->post('/{courseId:[0-9]+}/tasks/{id:[0-9]+}/draft', [AssignmentController::class, 'draft']);
+            $t->post('/{courseId:[0-9]+}/tasks/{id:[0-9]+}/delete', [AssignmentController::class, 'delete']);
 
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft', [UnitController::class, 'draftContent']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft/save', [UnitController::class, 'saveDraftContent']);

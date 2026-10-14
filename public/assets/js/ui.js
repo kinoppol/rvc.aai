@@ -121,3 +121,38 @@
         if (note) { note.hidden = false; }
     });
 })();
+
+/* ---------- ปุ่ม (i) คำอธิบายย่อ ----------
+   <span class="info-tip"><button class="info-btn" aria-expanded="false">…</button><span class="info-pop" hidden>…</span></span>
+   กดเพื่อเปิด/ปิด · กดที่อื่นหรือ Esc เพื่อปิด */
+(function () {
+    'use strict';
+
+    function closeAll(except) {
+        document.querySelectorAll('.info-tip').forEach(function (tip) {
+            if (tip === except) { return; }
+            var pop = tip.querySelector('.info-pop');
+            var btn = tip.querySelector('.info-btn');
+            if (pop) { pop.hidden = true; }
+            if (btn) { btn.setAttribute('aria-expanded', 'false'); }
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('.info-btn') : null;
+        if (!btn) {
+            if (!e.target.closest || !e.target.closest('.info-pop')) { closeAll(null); }
+            return;
+        }
+        var tip = btn.closest('.info-tip');
+        var pop = tip && tip.querySelector('.info-pop');
+        if (!pop) { return; }
+        closeAll(tip);
+        pop.hidden = !pop.hidden;
+        btn.setAttribute('aria-expanded', pop.hidden ? 'false' : 'true');
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { closeAll(null); }
+    });
+})();

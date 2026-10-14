@@ -30,6 +30,20 @@ final class QuizRepository
         );
     }
 
+    /** @return list<array<string,mixed>> แบบทดสอบของหน่วยนี้ ก่อนเรียนขึ้นก่อน */
+    public function forUnit(int $unitId): array
+    {
+        return $this->db->all(
+            'SELECT q.*,
+                    (SELECT COUNT(*) FROM {quiz_questions} qq WHERE qq.quiz_id = q.id) AS question_count,
+                    (SELECT COUNT(DISTINCT a.student_id) FROM {quiz_attempts} a WHERE a.quiz_id = q.id AND a.status <> \'in_progress\') AS submitted_count
+             FROM {quizzes} q
+             WHERE q.unit_id = ?
+             ORDER BY q.kind = \'posttest\', q.created_at',
+            [$unitId]
+        );
+    }
+
     /**
      * แบบทดสอบที่นักเรียนทำได้ — เผยแพร่แล้วและมีข้อสอบอย่างน้อยหนึ่งข้อ พร้อมสถานะการทำของนักเรียนคนนี้
      *

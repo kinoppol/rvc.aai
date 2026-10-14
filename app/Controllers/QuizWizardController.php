@@ -362,6 +362,9 @@ final class QuizWizardController
     {
         $kindLabel = $params['kind'] === 'pretest' ? 'แบบทดสอบก่อนเรียน' : 'แบบทดสอบหลังเรียน';
         $title = sprintf('%s · %s%s', $kindLabel, $course['name'], $this->unitRange($params['unitTitles']));
+        if (!empty($params['exam'])) {
+            $title = sprintf('แบบทดสอบ%s · %s', $params['exam'], $course['name']);
+        }
 
         $quizFields = [
             'course_id' => $course['id'],
@@ -404,10 +407,17 @@ final class QuizWizardController
         $kind = in_array($q['kind'] ?? '', ['pretest', 'posttest'], true) ? $q['kind'] : 'posttest';
 
         $unitTitles = [];
+        $examLabel = null;
         if ($unitId !== null) {
             $unit = $this->units->find($unitId);
             if ($unit !== null && (int) $unit['course_id'] === (int) $course['id']) {
                 $unitTitles = [$unit['title']];
+                if (UnitRepository::isExam($unit)) {
+                    // หน่วยสอบ: ออกข้อสอบครอบคลุมหน่วยการเรียนก่อนหน้า (กลางภาค = หน่วยที่อยู่ก่อนหน้า, ปลายภาค = ทุกหน่วย)
+                    $examLabel = UnitRepository::KINDS[$unit['kind']];
+                    $kind = 'posttest';
+                    $unitTitles = $this->examScope($course, $unit);
+                }
             } else {
                 $unitId = null;
             }
@@ -425,6 +435,7 @@ final class QuizWizardController
         return [
             'unit_id' => $unitId,
             'kind' => $kind,
+            'exam' => $examLabel,
             'unitTitles' => $unitTitles,
             'count' => $count,
             'types' => $types ?: ['ปรนัย'],
@@ -432,6 +443,25 @@ final class QuizWizardController
             // AI ที่ครูเลือกในหน้าสร้างข้อสอบ ('' = ค่าเริ่มต้นของครู)
             'ai' => mb_substr(trim((string) ($q['ai'] ?? '')), 0, 220),
         ];
+    }
+
+    /** @return list<string> ชื่อหน่วยการเรียนที่หน่วยสอบนี้ครอบคลุม */
+    private function examScope(array $course, array $examUnit): array
+    {
+        $titles = [];
+        foreach ($this->units->forCourse((int) $course['id']) as $u) {
+            if ((int) $u['id'] === (int) $examUnit['id']) {
+                if ($examUnit['kind'] === 'midterm') {
+                    break;
+                }
+                continue;
+            }
+            if (!UnitRepository::isExam($u)) {
+                $titles[] = $u['title'];
+            }
+        }
+
+        return $titles ?: [$course['name']];
     }
 
     private function unitRange(array $titles): string

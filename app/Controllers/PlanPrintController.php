@@ -53,11 +53,16 @@ final class PlanPrintController
         $totalHours = $weekly * self::WEEKS;
 
         $units = $this->units->forCourse((int) $course['id']);
-        $hours = $this->spreadHours($totalHours, count($units));
+
+        // หน่วยสอบกลางภาค/ปลายภาคใช้เวลา 1 สัปดาห์ · เวลาที่เหลือแบ่งเท่า ๆ กันให้หน่วยการเรียน
+        $examCount = count(array_filter($units, [UnitRepository::class, 'isExam']));
+        $lessonHours = $this->spreadHours(max(0, $totalHours - $examCount * $weekly), count($units) - $examCount);
 
         $plans = [];
         $sessionNo = 1;
-        foreach ($units as $i => $u) {
+        $lessonNo = 0;
+        foreach ($units as $u) {
+            $exam = UnitRepository::isExam($u);
             $unitId = (int) $u['id'];
             $sections = $this->units->sectionsFor($unitId);
             $quizzes = $this->db->all(
@@ -65,11 +70,13 @@ final class PlanPrintController
                  FROM {quizzes} q WHERE q.unit_id = ? ORDER BY q.kind = \'posttest\', q.id',
                 [$unitId]
             );
-            $h = $hours[$i];
+            $h = $exam ? $weekly : $lessonHours[$lessonNo];
             $sessions = $weekly > 0 ? max(1, (int) ceil($h / $weekly)) : 1;
 
             $plans[] = [
-                'no'           => $i + 1,
+                // หน่วยสอบไม่นับเลขหน่วย และไม่มีแผนรายหน่วย (มีแต่ในตารางเวลา)
+                'no'           => $exam ? UnitRepository::KINDS[$u['kind']] : ++$lessonNo,
+                'exam'         => $exam,
                 'unit'         => $u,
                 'hours'        => $h,
                 'session_from' => $sessionNo,

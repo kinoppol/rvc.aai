@@ -38,6 +38,63 @@ final class CourseRepository
         return Cover::decorateAll($rows);
     }
 
+    /**
+     * รายวิชาของครูในภาคเรียนที่เลือก (หน้า "รายวิชาของฉัน")
+     * - $termId = null → ทุกภาคเรียน · ภาคเรียนปัจจุบันรวมวิชาที่ยังไม่ระบุภาคเรียนด้วย
+     * - ภาคเรียนที่ผ่านมา/ทุกภาค แสดงวิชาที่เก็บเข้าคลังแล้วด้วย (ครูย้อนดูของเก่าได้) ส่วนภาคปัจจุบันแสดงเฉพาะที่เปิดสอน
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function forTeacherInTerm(int $teacherId, ?int $termId, ?int $currentTermId): array
+    {
+        $isCurrent = $termId !== null && $termId === $currentTermId;
+        $where = 'c.teacher_id = ?';
+        $params = [$teacherId];
+
+        if ($termId !== null) {
+            $where .= $isCurrent ? ' AND (c.term_id = ? OR c.term_id IS NULL)' : ' AND c.term_id = ?';
+            $params[] = $termId;
+        }
+        $where .= $isCurrent ? " AND c.status = 'active'" : " AND c.status IN ('active','archived')";
+
+        return Cover::decorateAll($this->db->all(
+            'SELECT c.*, cr.name AS classroom_name, t.name AS term_name,
+                    (SELECT COUNT(*) FROM {enrollments} e WHERE e.course_id = c.id AND e.status = \'active\') AS student_count,
+                    (SELECT COUNT(*) FROM {units} u WHERE u.course_id = c.id) AS unit_count
+             FROM {courses} c
+             LEFT JOIN {classrooms} cr ON cr.id = c.classroom_id
+             LEFT JOIN {academic_terms} t ON t.id = c.term_id
+             WHERE ' . $where . '
+             ORDER BY t.academic_year DESC, t.semester DESC, c.status, c.code',
+            $params
+        ));
+    }
+
+    /**
+     * ภาคเรียนที่ครูคนนี้มีรายวิชา (รวมภาคปัจจุบันเสมอ) พร้อมจำนวนวิชา — ใช้ทำตัวเลือกภาคเรียน
+     *
+     * @return list<array{id:int,name:string,count:int}>
+     */
+    public function teacherTerms(int $teacherId, ?int $currentTermId): array
+    {
+        $rows = $this->db->all(
+            'SELECT t.id, t.name, t.academic_year, t.semester,
+                    (SELECT COUNT(*) FROM {courses} c WHERE c.term_id = t.id AND c.teacher_id = ?
+                        AND c.status IN (\'active\',\'archived\')) AS n
+             FROM {academic_terms} t ORDER BY t.academic_year DESC, t.semester DESC',
+            [$teacherId]
+        );
+
+        $out = [];
+        foreach ($rows as $r) {
+            if ((int) $r['n'] > 0 || (int) $r['id'] === $currentTermId) {
+                $out[] = ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'count' => (int) $r['n']];
+            }
+        }
+
+        return $out;
+    }
+
     /** @return array<string,mixed>|null */
     public function find(int $id): ?array
     {

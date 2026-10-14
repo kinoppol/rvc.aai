@@ -8,6 +8,7 @@ use App\AI\AiUnavailableException;
 use App\AI\Drafter;
 use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
+use App\Domain\QuizRepository;
 use App\Domain\UnitRepository;
 use App\Support\Csrf;
 use App\Support\Flash;
@@ -36,6 +37,7 @@ final class UnitController
         private readonly CourseRepository $courses,
         private readonly UnitRepository $units,
         private readonly AssignmentRepository $assignments,
+        private readonly QuizRepository $quizzes,
         private readonly Drafter $drafter,
         private readonly LoggerInterface $logger,
     ) {
@@ -57,12 +59,24 @@ final class UnitController
 
         $sections = $unit ? $this->units->sectionsFor($unitId) : [];
 
+        // ประเภทหน่วย: ของเดิมตามที่บันทึกไว้ · หน่วยใหม่ตาม ?kind= (ปุ่ม "เพิ่มหน่วยสอบ")
+        $kind = (string) ($unit['kind'] ?? $request->getQueryParams()['kind'] ?? 'lesson');
+        if (!array_key_exists($kind, UnitRepository::KINDS)) {
+            $kind = 'lesson';
+        }
+        $quizzes = $unit ? $this->quizzes->forUnit($unitId) : [];
+
         return $this->view->render($response, 'courses/unit-edit', [
             'page' => 'courses',
             'ai' => $this->drafter->picker((int) $request->getAttribute('user')['id']),
             'course' => $course,
             'unit' => $unit,
+            'kind' => $kind,
+            'isExam' => $kind !== 'lesson',
+            'kinds' => UnitRepository::KINDS,
             'sections' => $sections,
+            'pretests' => array_values(array_filter($quizzes, static fn (array $q): bool => $q['kind'] === 'pretest')),
+            'posttests' => array_values(array_filter($quizzes, static fn (array $q): bool => $q['kind'] !== 'pretest')),
             'assignments' => $unit ? $this->assignments->forUnit($unitId) : [],
             'drafted' => $this->pullDraft($unitId),
         ]);
@@ -89,8 +103,10 @@ final class UnitController
             return $this->redirectToCourse($response, $courseId);
         }
 
+        $kind = (string) ($data['kind'] ?? 'lesson');
         $fields = [
             'title'        => $title,
+            'kind'         => array_key_exists($kind, UnitRepository::KINDS) ? $kind : 'lesson',
             'key_content'  => trim((string) ($data['key_content'] ?? '')) ?: null,
             'objectives'   => trim((string) ($data['objectives'] ?? '')) ?: null,
             'competencies' => trim((string) ($data['competencies'] ?? '')) ?: null,
@@ -107,7 +123,7 @@ final class UnitController
                 $fields['published_at'] = date('Y-m-d H:i:s');
             }
             $this->units->update($unitId, $fields);
-            Flash::success('บันทึกหน่วยการเรียนแล้ว');
+            Flash::success('บันทึก' . UnitRepository::KINDS[$fields['kind']] . 'แล้ว');
         } else {
             $unitId = $this->units->create($fields + [
                 'course_id'  => $courseId,
@@ -116,7 +132,7 @@ final class UnitController
                 'created_by' => (int) $user['id'],
                 'published_at' => $fields['review_status'] === 'published' ? date('Y-m-d H:i:s') : null,
             ]);
-            Flash::success('เพิ่มหน่วยการเรียนแล้ว');
+            Flash::success('เพิ่ม' . UnitRepository::KINDS[$fields['kind']] . 'แล้ว');
         }
 
         return $this->redirectToUnit($response, $courseId, $unitId);

@@ -6,14 +6,15 @@
 <div class="form-page">
     <a class="back-link" href="{$base}/learn/{$course['id']}">← กลับไปที่ {$course['name']}</a>
     <h1>{$unit['title']}</h1>
+    {var $isExam = App\Domain\UnitRepository::isExam($unit)}
 
     {* บทนำ *}
     {if $unit['key_content'] || $unit['objectives'] || $unit['competencies']}
         <div class="card" style="margin-top:18px">
-            <h2 style="font:600 15px/1.4 var(--sans);margin-bottom:12px">บทนำ</h2>
+            <h2 style="font:600 15px/1.4 var(--sans);margin-bottom:12px">{$isExam ? 'คำชี้แจงการสอบ' : 'บทนำ'}</h2>
             {if $unit['key_content']}
                 <div style="margin-bottom:10px">
-                    <div style="font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:4px">สาระสำคัญ</div>
+                    {if !$isExam}<div style="font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:4px">สาระสำคัญ</div>{/if}
                     <div style="white-space:pre-line;line-height:1.7;font-size:15px">{$unit['key_content']}</div>
                 </div>
             {/if}
@@ -66,7 +67,7 @@
     {/if}
 
     {if $posttests}
-        <h2 class="learn-section-title">แบบทดสอบหลังเรียน</h2>
+        <h2 class="learn-section-title">{$isExam ? 'แบบทดสอบ' : 'แบบทดสอบหลังเรียน'}</h2>
         <div class="list">
             {foreach $posttests as $q}{include '../_partials/quiz-row.latte', q: $q}{/foreach}
         </div>

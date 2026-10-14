@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Auth\Auth;
+use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
 use App\Domain\EnrollmentRepository;
 use App\Domain\QuizRepository;
@@ -25,13 +26,14 @@ use Slim\Exception\HttpNotFoundException;
 
 final class CourseController
 {
-    private const TABS = ['units', 'quizzes', 'students', 'scores'];
+    private const TABS = ['units', 'quizzes', 'worksheets', 'tasks', 'students', 'scores'];
 
     public function __construct(
         private readonly View $view,
         private readonly CourseRepository $courses,
         private readonly UnitRepository $units,
         private readonly QuizRepository $quizzes,
+        private readonly AssignmentRepository $assignments,
         private readonly EnrollmentRepository $enrollments,
         private readonly StudentAccountRepository $studentAccounts,
         private readonly Auth $auth,
@@ -42,11 +44,27 @@ final class CourseController
     public function index(Request $request, Response $response): Response
     {
         $user = $request->getAttribute('user');
-        $courses = $this->courses->forTeacher((int) $user['id']);
+        $teacherId = (int) $user['id'];
+        $currentTermId = $this->courses->currentTermId();
+        $terms = $this->courses->teacherTerms($teacherId, $currentTermId);
+
+        // ?term=<id> ภาคเรียนที่เลือก · ?term=all ทุกภาคเรียน · ไม่ระบุ = ภาคเรียนปัจจุบัน
+        $raw = (string) ($request->getQueryParams()['term'] ?? '');
+        $known = array_column($terms, 'id');
+        $selected = match (true) {
+            $raw === 'all' => 'all',
+            ctype_digit($raw) && in_array((int) $raw, $known, true) => (int) $raw,
+            default => $currentTermId ?? 'all',
+        };
+        $termId = $selected === 'all' ? null : $selected;
 
         return $this->view->render($response, 'courses/index', [
             'page' => 'courses',
-            'courses' => $courses,
+            'courses' => $this->courses->forTeacherInTerm($teacherId, $termId, $currentTermId),
+            'terms' => $terms,
+            'selectedTerm' => $selected,
+            'currentTermId' => $currentTermId,
+            'isCurrentTerm' => $termId !== null && $termId === $currentTermId,
         ]);
     }
 
@@ -507,6 +525,14 @@ final class CourseController
         $data += match ($tab) {
             'units'    => ['units' => $this->decorateUnits($this->units->forCourse($course['id']))],
             'quizzes'  => ['quizzes' => $this->quizzes->forCourse((int) $course['id'])],
+            'worksheets' => [
+                'worksheets' => $this->assignments->forCourse((int) $course['id'], 'worksheet'),
+                'lessonUnits' => array_values(array_filter(
+                    $this->units->forCourse((int) $course['id']),
+                    static fn (array $u): bool => !UnitRepository::isExam($u)
+                )),
+            ],
+            'tasks'    => ['tasks' => $this->assignments->forCourse((int) $course['id'], 'task')],
             'students' => $this->classroomRoster($course, (int) ($request->getQueryParams()['group'] ?? 0)) + [
                 'students' => $this->withEmails($this->enrollments->studentsInCourse($course['id'])),
                 'joinCode' => $code = $this->courses->joinCode((int) $course['id']),
@@ -536,15 +562,27 @@ final class CourseController
     /** @param list<array<string,mixed>> $units @return list<array<string,mixed>> */
     private function decorateUnits(array $units): array
     {
+        $no = 0;
         foreach ($units as $i => $u) {
             [$tag, $kind] = match ($u['review_status']) {
                 'published' => ['เผยแพร่แล้ว', 'ok'],
                 'pending'   => ['รอครูตรวจ', 'warn'],
                 default     => ['ฉบับร่าง', 'muted'],
             };
-            $units[$i]['no']       = str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT);
             $units[$i]['tag']      = $tag;
             $units[$i]['tag_kind'] = $kind;
+
+            // หน่วยสอบไม่นับเลขหน่วย และมีแต่แบบทดสอบ
+            if (UnitRepository::isExam($u)) {
+                $units[$i]['is_exam'] = true;
+                $units[$i]['no'] = 'สอบ';
+                $units[$i]['meta'] = UnitRepository::KINDS[$u['kind']] . ' · '
+                    . ((int) $u['has_posttest'] ? 'มีแบบทดสอบแล้ว' : 'ยังไม่มีแบบทดสอบ');
+                continue;
+            }
+
+            $units[$i]['is_exam'] = false;
+            $units[$i]['no'] = str_pad((string) ++$no, 2, '0', STR_PAD_LEFT);
             $parts = [];
             if ((int) $u['has_pretest'])   $parts[] = 'แบบทดสอบก่อนเรียน';
             if ((int) $u['section_count']) $parts[] = sprintf('เนื้อหา %d ส่วน', $u['section_count']);

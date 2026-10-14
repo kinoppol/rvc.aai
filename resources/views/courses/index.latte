@@ -4,25 +4,45 @@
 
 {block content}
 <div class="dash">
+    {var $publishedCount = count(array_filter($courses, fn ($c) => (int) $c['show_on_landing'] === 1))}
     <div class="courses-head">
         <div class="grow">
             <div class="dash-greeting">รายวิชาของฉัน</div>
-            <div class="dash-sub">{$term ?? ''} · {count($courses)} รายวิชา</div>
+            <div class="courses-meta">
+                {* เลือกภาคเรียน — ค่าเริ่มต้นคือภาคเรียนปัจจุบัน ย้อนดูวิชาที่เคยสอนได้ *}
+                <form method="get" action="{$base}/courses" class="term-pick">
+                    <span class="msi" aria-hidden="true">calendar_month</span>
+                    <select name="term" aria-label="เลือกภาคเรียน" onchange="this.form.submit()">
+                        {foreach $terms as $t}
+                            <option value="{$t['id']}" selected="{$selectedTerm === $t['id']}">
+                                {$t['name']}{if $t['id'] === $currentTermId} (ปัจจุบัน){/if} · {$t['count']} วิชา
+                            </option>
+                        {/foreach}
+                        <option value="all" selected="{$selectedTerm === 'all'}">ทุกภาคเรียน</option>
+                    </select>
+                    <noscript><button type="submit" class="btn btn-sm">แสดง</button></noscript>
+                </form>
+                <span class="dash-sub">{count($courses)} รายวิชา</span>
+                {if $courses}
+                    <span class="dash-sub">· เผยแพร่ในหน้าแรก {$publishedCount}</span>
+                    <span class="info-tip">
+                        <button type="button" class="info-btn" aria-expanded="false" aria-label="เกี่ยวกับการเผยแพร่รายวิชาในหน้าแรกสาธารณะ">
+                            <span class="msi" aria-hidden="true">info</span>
+                        </button>
+                        <span class="info-pop" role="note" hidden>
+                            <strong>เผยแพร่รายวิชาในหน้าแรกสาธารณะ</strong><br>
+                            เปิดสวิตช์ที่การ์ดของวิชาที่ต้องการ ผู้มาเยือนจะเห็นรายวิชาและอ่านหน่วยการเรียนที่เผยแพร่แล้วได้โดยไม่ต้องเข้าสู่ระบบ
+                            · เผยแพร่แล้ว {$publishedCount} จาก {count($courses)} รายวิชา
+                            {if $publishedCount > 0} · <a href="{$base}/" target="_blank">ดูหน้าแรก</a>{/if}
+                        </span>
+                    </span>
+                {/if}
+            </div>
         </div>
         <a class="btn btn-primary" href="{$base}/courses/new">+ เพิ่มรายวิชา</a>
     </div>
 
     {if $courses}
-        {var $publishedCount = count(array_filter($courses, fn ($c) => (int) $c['show_on_landing'] === 1))}
-        <div class="landing-toggle">
-            <div class="landing-toggle-text">
-                <div class="landing-toggle-title">เผยแพร่รายวิชาในหน้าแรกสาธารณะ</div>
-                <div class="landing-toggle-sub">
-                    เปิดสวิตช์ที่การ์ดของวิชาที่ต้องการ · เผยแพร่แล้ว {$publishedCount} จาก {count($courses)} รายวิชา
-                    {if $publishedCount > 0} · <a href="{$base}/" target="_blank">ดูหน้าแรก</a>{/if}
-                </div>
-            </div>
-        </div>
 
         <div class="course-grid">
             {foreach $courses as $c}
@@ -36,9 +56,14 @@
                         </div>
                         <div class="course-card-body">
                             <div class="meta">{$c['classroom_name'] ?? 'ยังไม่ระบุกลุ่มเรียน'} · {$c['student_count']} คน</div>
-                            <div class="note">{$c['unit_count']} หน่วยการเรียน</div>
+                            <div class="note">
+                                {$c['unit_count']} หน่วยการเรียน
+                                {if $selectedTerm === 'all' && $c['term_name']} · {$c['term_name']}{/if}
+                            </div>
+                            {if $c['status'] === 'archived'}<span class="chip chip-muted" style="margin-top:8px">เก็บเข้าคลังแล้ว</span>{/if}
                         </div>
                     </a>
+                    {if $c['status'] === 'active'}
                     <form method="post" action="{$base}/courses/{$c['id']}/landing" class="course-card-foot">
                         <input type="hidden" name="_token" value="{$csrf}">
                         <input type="hidden" name="visible" value="{$published ? '0' : '1'}">
@@ -50,13 +75,14 @@
                             <span class="switch-dot"></span>
                         </button>
                     </form>
+                    {/if}
                 </div>
             {/foreach}
         </div>
     {else}
         <div class="empty" style="margin-top:26px">
             <h3>ยังไม่มีรายวิชาที่สอนในภาคเรียนนี้</h3>
-            <p>กดปุ่ม “เพิ่มรายวิชา” ด้านบนเพื่อสร้างรายวิชาแรกของคุณ</p>
+            <p>กดปุ่ม “เพิ่มรายวิชา” ด้านบนเพื่อสร้างรายวิชา หรือเลือกภาคเรียนอื่นเพื่อดูรายวิชาที่เคยสอน</p>
             <a class="btn btn-primary" href="{$base}/courses/new" style="margin-top:14px">+ เพิ่มรายวิชา</a>
         </div>
     {/if}

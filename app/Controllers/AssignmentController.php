@@ -22,9 +22,11 @@ use Slim\Exception\HttpNotFoundException;
 use Throwable;
 
 /**
- * ใบงานของหน่วยการเรียน — ครูเขียนเองหรือให้ผู้ช่วย AI ร่างให้แล้วแก้ต่อ
+ * ใบงานของหน่วยการเรียน และงานที่มอบหมายเพิ่มเติม — ครูเขียนเองหรือให้ผู้ช่วย AI ร่างให้แล้วแก้ต่อ
  *
- * ใบงานผูกกับหน่วยการเรียน (unit_id) และรายวิชา (course_id) เสมอ
+ * สองแบบใช้ตาราง assignments เดียวกัน แยกด้วย kind:
+ *   ใบงาน (worksheet)  /courses/{courseId}/units/{unitId}/assignments/…  ผูกกับหน่วยเสมอ
+ *   งาน (task)         /courses/{courseId}/tasks/…                       เลือกหน่วยหรือไม่ผูกก็ได้
  * ตรวจสิทธิ์ความเป็นเจ้าของรายวิชาทุกครั้ง โดยไม่ผูกกับสวิตช์ AI ของรายวิชา
  * เพราะการเขียนใบงานเองต้องทำได้แม้ผู้ดูแลปิดฟังก์ชัน AI ไว้
  */
@@ -44,17 +46,12 @@ final class AssignmentController
     /** ฟอร์มเพิ่มใบงานใหม่ หรือแก้ใบงานเดิม */
     public function edit(Request $request, Response $response, array $args): Response
     {
-        [$course, $unit] = $this->context($request, $args);
-        $assignment = isset($args['id'])
-            ? $this->assignments->find((int) $args['id'], (int) $course['id'])
-            : null;
-
-        if (isset($args['id']) && $assignment === null) {
-            throw new HttpNotFoundException($request, 'ไม่พบใบงานนี้');
-        }
+        $assignment = $this->current($request, $args);
+        [$course, $unit] = $this->context($request, $args, $assignment);
 
         $draft = $_SESSION['assignment_draft'] ?? null;
         unset($_SESSION['assignment_draft']);
+        $isTask = $this->isTask($args);
 
         return $this->view->render($response, 'courses/assignment-edit', [
             'page' => 'courses',
@@ -62,6 +59,11 @@ final class AssignmentController
             'course' => $course,
             'unit' => $unit,
             'assignment' => $assignment,
+            'isTask' => $isTask,
+            'noun' => $isTask ? 'งานที่มอบหมาย' : 'ใบงาน',
+            'formUrl' => $this->formBase($course, $unit, $isTask),
+            'backUrl' => Url::to($this->backPath($course, $unit, $isTask)),
+            'units' => $isTask ? $this->lessonUnits((int) $course['id']) : [],
             'form' => $this->formValues($assignment, is_array($draft) ? $draft : null),
             'aiEnabled' => (int) ($course['ai_lesson_plan_enabled'] ?? 1) === 1,
         ]);
@@ -70,13 +72,21 @@ final class AssignmentController
     public function save(Request $request, Response $response, array $args): Response
     {
         $user = $request->getAttribute('user');
-        [$course, $unit] = $this->context($request, $args);
+        $assignment = $this->current($request, $args);
+        [$course, $unit] = $this->context($request, $args, $assignment);
         $data = (array) $request->getParsedBody();
+        $isTask = $this->isTask($args);
+        $noun = $isTask ? 'งาน' : 'ใบงาน';
 
         if (!Csrf::check($data['_token'] ?? null)) {
             Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
 
-            return $this->backToUnit($response, $course, $unit);
+            return $this->backToList($response, $course, $unit, $isTask);
+        }
+
+        // งานที่มอบหมาย: ครูเลือกหน่วยที่เกี่ยวข้องได้ (หรือไม่ผูกหน่วย)
+        if ($isTask) {
+            $unit = $this->postedUnit($course, $data['unit_id'] ?? null);
         }
 
         $title = trim((string) ($data['title'] ?? ''));
@@ -84,10 +94,10 @@ final class AssignmentController
         $dueAt = trim((string) ($data['due_at'] ?? ''));
 
         if ($title === '') {
-            Flash::error('กรุณากรอกชื่อใบงาน');
+            Flash::error('กรุณากรอกชื่อ' . $noun);
             $_SESSION['assignment_draft'] = $data;
 
-            return $this->backToForm($response, $course, $unit, $args['id'] ?? null);
+            return $this->backToForm($response, $course, $unit, $args['id'] ?? null, $isTask);
         }
 
         $fields = [
@@ -97,65 +107,67 @@ final class AssignmentController
             'max_score' => max(0, min(999.99, (float) ($data['max_score'] ?? 10))),
             'allow_late' => isset($data['allow_late']) ? 1 : 0,
         ];
+        if ($isTask) {
+            $fields['unit_id'] = $unit === null ? null : (int) $unit['id'];
+        }
 
-        if (isset($args['id'])) {
-            $assignment = $this->assignments->find((int) $args['id'], (int) $course['id']);
-            if ($assignment === null) {
-                throw new HttpNotFoundException($request, 'ไม่พบใบงานนี้');
-            }
-
+        if ($assignment !== null) {
             $this->assignments->update((int) $assignment['id'], $fields);
-            Flash::success('บันทึกใบงาน ' . $title . ' แล้ว');
+            Flash::success('บันทึก' . $noun . ' ' . $title . ' แล้ว');
         } else {
             $this->assignments->create($fields + [
                 'course_id' => (int) $course['id'],
-                'unit_id' => (int) $unit['id'],
+                'unit_id' => $unit === null ? null : (int) $unit['id'],
+                'kind' => $isTask ? 'task' : 'worksheet',
                 'created_by' => (int) $user['id'],
             ]);
-            Flash::success('เพิ่มใบงาน ' . $title . ' แล้ว');
+            Flash::success('เพิ่ม' . $noun . ' ' . $title . ' แล้ว');
         }
 
-        return $this->backToUnit($response, $course, $unit);
+        return $this->backToList($response, $course, $unit, $isTask);
     }
 
     public function delete(Request $request, Response $response, array $args): Response
     {
-        [$course, $unit] = $this->context($request, $args);
+        $assignment = $this->current($request, $args);
+        [$course, $unit] = $this->context($request, $args, $assignment);
         $data = (array) $request->getParsedBody();
+        $isTask = $this->isTask($args);
+        $noun = $isTask ? 'งาน' : 'ใบงาน';
 
         if (!Csrf::check($data['_token'] ?? null)) {
             Flash::error('เซสชันหมดอายุ');
 
-            return $this->backToUnit($response, $course, $unit);
+            return $this->backToList($response, $course, $unit, $isTask);
         }
 
-        $assignment = $this->assignments->find((int) $args['id'], (int) $course['id']);
-        if ($assignment === null) {
-            throw new HttpNotFoundException($request, 'ไม่พบใบงานนี้');
+        if ($assignment === null || !$this->assignments->delete((int) $assignment['id'])) {
+            Flash::error('ลบไม่ได้เพราะมีนักเรียนส่ง' . $noun . 'นี้แล้ว');
+
+            return $this->backToList($response, $course, $unit, $isTask);
         }
 
-        if (!$this->assignments->delete((int) $assignment['id'])) {
-            Flash::error('ลบไม่ได้เพราะมีนักเรียนส่งงานของใบงานนี้แล้ว');
+        Flash::success('ลบ' . $noun . ' ' . $assignment['title'] . ' แล้ว');
 
-            return $this->backToUnit($response, $course, $unit);
-        }
-
-        Flash::success('ลบใบงาน ' . $assignment['title'] . ' แล้ว');
-
-        return $this->backToUnit($response, $course, $unit);
+        return $this->backToList($response, $course, $unit, $isTask);
     }
 
     /** ให้ผู้ช่วยร่างใบงานจากสาระสำคัญของหน่วย แล้วเติมลงฟอร์มให้ครูตรวจแก้ก่อนบันทึก */
     public function draft(Request $request, Response $response, array $args): Response
     {
         $user = $request->getAttribute('user');
-        [$course, $unit] = $this->context($request, $args);
+        $assignment = $this->current($request, $args);
+        [$course, $unit] = $this->context($request, $args, $assignment);
         $data = (array) $request->getParsedBody();
+        $isTask = $this->isTask($args);
 
         if (!Csrf::check($data['_token'] ?? null)) {
             Flash::error('เซสชันหมดอายุ');
 
-            return $this->backToForm($response, $course, $unit, $args['id'] ?? null);
+            return $this->backToForm($response, $course, $unit, $args['id'] ?? null, $isTask);
+        }
+        if ($isTask) {
+            $unit = $this->postedUnit($course, $data['unit_id'] ?? null);
         }
 
         if ((int) ($course['ai_lesson_plan_enabled'] ?? 1) !== 1) {
@@ -163,16 +175,17 @@ final class AssignmentController
         }
 
         $maxScore = max(1, min(999, (float) ($data['max_score'] ?? 10)));
-        $system = 'คุณเป็นผู้ช่วยครูอาชีวศึกษา ออกแบบใบงานภาษาไทยที่สั่งงานเป็นรูปธรรม '
-            . 'ตอบกลับเป็น JSON อ็อบเจกต์เดียว';
+        $system = 'คุณเป็นผู้ช่วยครูอาชีวศึกษา ออกแบบ' . ($isTask ? 'งานมอบหมาย' : 'ใบงาน')
+            . 'ภาษาไทยที่สั่งงานเป็นรูปธรรม ตอบกลับเป็น JSON อ็อบเจกต์เดียว';
 
         try {
             $objects = $this->drafter->objects((int) $user['id'], $system, [
                 'task' => 'assignment',
                 'course_code' => $course['code'],
                 'course_name' => $course['name'],
-                'unit' => $unit['title'],
-                'key_content' => $unit['key_content'],
+                // งานที่ไม่ผูกหน่วย: ใช้คำอธิบายรายวิชาเป็นบริบทแทน
+                'unit' => $unit['title'] ?? 'ทั้งรายวิชา',
+                'key_content' => $unit['key_content'] ?? ($course['description'] ?? ''),
                 'max_score' => $maxScore,
                 'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000),
             ], 3, (string) ($data['ai'] ?? ''));
@@ -180,21 +193,21 @@ final class AssignmentController
         } catch (AiUnavailableException $e) {
             Flash::error($e->getMessage());
 
-            return $this->backToForm($response, $course, $unit, $args['id'] ?? null);
+            return $this->backToForm($response, $course, $unit, $args['id'] ?? null, $isTask);
         } catch (Throwable $e) {
             $this->logger->error('ร่างใบงานไม่สำเร็จ: ' . $e->getMessage(), [
                 'course_id' => (int) $course['id'],
-                'unit_id' => (int) $unit['id'],
+                'unit_id' => $unit === null ? null : (int) $unit['id'],
             ]);
-            Flash::error('ผู้ช่วยร่างใบงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+            Flash::error('ผู้ช่วยร่างงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
 
-            return $this->backToForm($response, $course, $unit, $args['id'] ?? null);
+            return $this->backToForm($response, $course, $unit, $args['id'] ?? null, $isTask);
         }
 
         if ($draft === null) {
-            Flash::error('ผู้ช่วยไม่ได้ร่างใบงานออกมา กรุณาลองใหม่อีกครั้ง');
+            Flash::error('ผู้ช่วยไม่ได้ร่างงานออกมา กรุณาลองใหม่อีกครั้ง');
 
-            return $this->backToForm($response, $course, $unit, $args['id'] ?? null);
+            return $this->backToForm($response, $course, $unit, $args['id'] ?? null, $isTask);
         }
 
         $_SESSION['assignment_draft'] = [
@@ -203,11 +216,12 @@ final class AssignmentController
             'max_score' => $maxScore,
             'due_at' => (string) ($data['due_at'] ?? ''),
             'allow_late' => isset($data['allow_late']) ? '1' : '',
+            'unit_id' => $unit === null ? '' : (string) $unit['id'],
         ];
-        $this->auth->log('ai.assignment.draft', 'unit#' . $unit['id']);
-        Flash::success('ผู้ช่วยร่างใบงานให้แล้ว · ตรวจแก้ได้ตามต้องการ แล้วกดบันทึก');
+        $this->auth->log('ai.assignment.draft', $unit === null ? 'course#' . $course['id'] : 'unit#' . $unit['id']);
+        Flash::success('ผู้ช่วยร่าง' . ($isTask ? 'งาน' : 'ใบงาน') . 'ให้แล้ว · ตรวจแก้ได้ตามต้องการ แล้วกดบันทึก');
 
-        return $this->backToForm($response, $course, $unit, $args['id'] ?? null);
+        return $this->backToForm($response, $course, $unit, $args['id'] ?? null, $isTask);
     }
 
     /** รวมส่วนต่าง ๆ ที่ผู้ช่วยร่างมาให้เป็นข้อความใบงานที่ครูอ่านและแก้ต่อได้ */
@@ -286,6 +300,7 @@ final class AssignmentController
                 ? substr(str_replace(' ', 'T', (string) $assignment['due_at']), 0, 16)
                 : '',
             'allow_late' => $assignment === null ? true : (bool) $assignment['allow_late'],
+            'unit_id' => (string) ($assignment['unit_id'] ?? ''),
         ];
 
         if ($draft === null) {
@@ -298,15 +313,44 @@ final class AssignmentController
             'max_score' => (float) ($draft['max_score'] ?? $base['max_score']),
             'due_at' => (string) ($draft['due_at'] ?? $base['due_at']),
             'allow_late' => (string) ($draft['allow_late'] ?? '') !== '',
+            'unit_id' => (string) ($draft['unit_id'] ?? $base['unit_id']),
         ];
     }
 
+    /** เส้นทาง /tasks = งานที่มอบหมาย · เส้นทางใต้หน่วย = ใบงาน */
+    private function isTask(array $args): bool
+    {
+        return !isset($args['unitId']);
+    }
+
     /**
-     * รายวิชาต้องเป็นของครูคนนี้ และหน่วยการเรียนต้องอยู่ในรายวิชานั้นจริง
+     * งานที่กำลังแก้ (ถ้ามี id) — ต้องอยู่ในรายวิชานี้และเป็นประเภทเดียวกับเส้นทาง
      *
-     * @return array{0:array<string,mixed>,1:array<string,mixed>}
+     * @return array<string,mixed>|null
      */
-    private function context(Request $request, array $args): array
+    private function current(Request $request, array $args): ?array
+    {
+        if (!isset($args['id'])) {
+            return null;
+        }
+
+        $assignment = $this->assignments->find((int) $args['id'], (int) $args['courseId']);
+        $kind = $this->isTask($args) ? 'task' : 'worksheet';
+        if ($assignment === null || ($assignment['kind'] ?? 'worksheet') !== $kind) {
+            throw new HttpNotFoundException($request, $kind === 'task' ? 'ไม่พบงานนี้' : 'ไม่พบใบงานนี้');
+        }
+
+        return $assignment;
+    }
+
+    /**
+     * รายวิชาต้องเป็นของครูคนนี้ · ใบงาน: หน่วยต้องอยู่ในรายวิชานั้นจริง
+     * งานที่มอบหมาย: หน่วยคือหน่วยที่ผูกไว้ (หรือ ?unit_id= ตอนเพิ่มใหม่) ไม่มีก็ได้
+     *
+     * @param array<string,mixed>|null $assignment
+     * @return array{0:array<string,mixed>,1:array<string,mixed>|null}
+     */
+    private function context(Request $request, array $args, ?array $assignment = null): array
     {
         $user = $request->getAttribute('user');
         $course = $this->courses->find((int) $args['courseId']);
@@ -318,6 +362,12 @@ final class AssignmentController
             throw new HttpForbiddenException($request, 'คุณไม่ได้เป็นผู้สอนรายวิชานี้');
         }
 
+        if ($this->isTask($args)) {
+            $unitId = $assignment['unit_id'] ?? ($request->getQueryParams()['unit_id'] ?? null);
+
+            return [$course, $this->postedUnit($course, $unitId)];
+        }
+
         $unit = $this->units->find((int) $args['unitId']);
         if ($unit === null || (int) $unit['course_id'] !== (int) $course['id']) {
             throw new HttpNotFoundException($request, 'ไม่พบหน่วยการเรียนนี้');
@@ -326,18 +376,50 @@ final class AssignmentController
         return [$course, $unit];
     }
 
-    /** @param array<string,mixed> $course */
-    private function backToUnit(Response $response, array $course, array $unit): Response
+    /** @return array<string,mixed>|null หน่วยที่เลือกมา ถ้าอยู่ในรายวิชานี้จริง */
+    private function postedUnit(array $course, mixed $unitId): ?array
     {
-        return $response
-            ->withHeader('Location', Url::to('/courses/' . $course['id'] . '/units/' . $unit['id'] . '/edit'))
-            ->withStatus(302);
+        if ($unitId === null || $unitId === '' || (int) $unitId <= 0) {
+            return null;
+        }
+        $unit = $this->units->find((int) $unitId);
+
+        return $unit !== null && (int) $unit['course_id'] === (int) $course['id'] ? $unit : null;
     }
 
-    /** @param array<string,mixed> $course */
-    private function backToForm(Response $response, array $course, array $unit, mixed $id): Response
+    /** @return list<array<string,mixed>> หน่วยการเรียน (ไม่รวมหน่วยสอบ) ให้เลือกผูกกับงาน */
+    private function lessonUnits(int $courseId): array
     {
-        $path = '/courses/' . $course['id'] . '/units/' . $unit['id'] . '/assignments/'
+        return array_values(array_filter(
+            $this->units->forCourse($courseId),
+            static fn (array $u): bool => !UnitRepository::isExam($u)
+        ));
+    }
+
+    private function formBase(array $course, ?array $unit, bool $isTask): string
+    {
+        return Url::to($isTask
+            ? '/courses/' . $course['id'] . '/tasks'
+            : '/courses/' . $course['id'] . '/units/' . $unit['id'] . '/assignments');
+    }
+
+    private function backPath(array $course, ?array $unit, bool $isTask): string
+    {
+        return $isTask
+            ? '/courses/' . $course['id'] . '?tab=tasks'
+            : '/courses/' . $course['id'] . '/units/' . $unit['id'] . '/edit';
+    }
+
+    private function backToList(Response $response, array $course, ?array $unit, bool $isTask): Response
+    {
+        return $response->withHeader('Location', Url::to($this->backPath($course, $unit, $isTask)))->withStatus(302);
+    }
+
+    private function backToForm(Response $response, array $course, ?array $unit, mixed $id, bool $isTask = false): Response
+    {
+        $path = ($isTask
+                ? '/courses/' . $course['id'] . '/tasks/'
+                : '/courses/' . $course['id'] . '/units/' . $unit['id'] . '/assignments/')
             . ($id === null ? 'new' : $id . '/edit');
 
         return $response->withHeader('Location', Url::to($path))->withStatus(302);

@@ -7,7 +7,10 @@ namespace App\Domain;
 use App\Support\Db;
 
 /**
- * ใบงานที่ครูมอบหมายในแต่ละหน่วยการเรียน และจำนวนงานที่นักเรียนส่งเข้ามาแล้ว
+ * งานที่ครูมอบหมาย และจำนวนงานที่นักเรียนส่งเข้ามาแล้ว
+ *
+ * kind = worksheet → ใบงานของหน่วยการเรียน (unit_id บังคับ)
+ * kind = task      → งานที่มอบหมายเพิ่มเติมนอกเหนือจากใบงาน (ผูกหน่วยหรือไม่ก็ได้)
  */
 final class AssignmentRepository
 {
@@ -15,16 +18,40 @@ final class AssignmentRepository
     {
     }
 
-    /** @return list<array<string,mixed>> */
+    public const KINDS = ['worksheet', 'task'];
+
+    /** @return list<array<string,mixed>> ใบงานของหน่วยนี้ (ไม่รวมงานที่มอบหมายเพิ่มเติม) */
     public function forUnit(int $unitId): array
     {
         return $this->db->all(
             'SELECT a.*,
                     (SELECT COUNT(*) FROM {submissions} s WHERE s.assignment_id = a.id) AS submission_count
              FROM {assignments} a
-             WHERE a.unit_id = ?
+             WHERE a.unit_id = ? AND a.kind = \'worksheet\'
              ORDER BY a.created_at',
             [$unitId]
+        );
+    }
+
+    /**
+     * งานทั้งรายวิชาตามประเภท เรียงตามลำดับหน่วย (ใบงาน) หรือกำหนดส่ง (งานที่มอบหมาย)
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function forCourse(int $courseId, string $kind): array
+    {
+        $order = $kind === 'task'
+            ? 'a.due_at IS NULL, a.due_at, a.created_at'
+            : 'u.sort_order, u.id, a.created_at';
+
+        return $this->db->all(
+            'SELECT a.*, u.title AS unit_title, u.sort_order AS unit_order,
+                    (SELECT COUNT(*) FROM {submissions} s WHERE s.assignment_id = a.id) AS submission_count
+             FROM {assignments} a
+             LEFT JOIN {units} u ON u.id = a.unit_id
+             WHERE a.course_id = ? AND a.kind = ?
+             ORDER BY ' . $order,
+            [$courseId, $kind === 'task' ? 'task' : 'worksheet']
         );
     }
 

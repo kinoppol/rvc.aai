@@ -42,7 +42,7 @@
             </div>
 
             <div class="tabs">
-                {var $tabs = ['units' => 'หน่วยการเรียน', 'quizzes' => 'แบบทดสอบ', 'students' => 'นักเรียน', 'scores' => 'คะแนน']}
+                {var $tabs = ['units' => 'หน่วยการเรียน', 'quizzes' => 'แบบทดสอบ', 'worksheets' => 'ใบงาน', 'tasks' => 'งานที่มอบหมาย', 'students' => 'นักเรียน', 'scores' => 'คะแนน']}
                 {foreach $tabs as $key => $label}
                     <a href="{$base}/courses/{$course['id']}?tab={$key}" n:class="tab, $tab === $key ? is-active">{$label}</a>
                 {/foreach}
@@ -54,7 +54,8 @@
         {if $tab === 'units'}
             <div class="list">
                 {foreach $units as $u}
-                    <div class="list-row">
+                    {* หน่วยที่นักเรียนยังมองไม่เห็น (ร่าง/รอตรวจ) แสดงแบบจาง · หน่วยที่เผยแพร่แล้วเด่นกว่า *}
+                    <div n:class="list-row, $u['review_status'] === 'published' ? is-published : is-draft, $u['is_exam'] ? is-exam">
                         <div class="list-no">{$u['no']}</div>
                         <div class="list-main">
                             <div class="list-title">{$u['title']}</div>
@@ -68,6 +69,8 @@
             </div>
             <div class="list-actions">
                 <a class="btn" href="{$base}/courses/{$course['id']}/units/new">+ เพิ่มหน่วยการเรียน</a>
+                <a class="btn" href="{$base}/courses/{$course['id']}/units/new?kind=midterm">+ หน่วยสอบกลางภาค</a>
+                <a class="btn" href="{$base}/courses/{$course['id']}/units/new?kind=final">+ หน่วยสอบปลายภาค</a>
                 {if $course['ai_lesson_plan_enabled']}
                     <a class="btn" href="{$base}/courses/{$course['id']}/units/design">✦ ให้ AI ออกแบบรายชื่อหน่วย</a>
                 {/if}
@@ -104,6 +107,71 @@
                     <a class="btn" href="{$base}/courses/{$course['id']}/quizzes/create">✦ สร้างแบบทดสอบด้วย AI</a>
                 </div>
             {/if}
+
+        {elseif $tab === 'worksheets'}
+            {* ใบงานของทุกหน่วย เรียงตามหน่วย · เพิ่มใบงานได้จากหน่วยที่ต้องการ *}
+            <div class="list">
+                {foreach $worksheets as $a}
+                    <div class="list-row">
+                        <div class="list-main">
+                            <div class="list-title">{$a['title']}</div>
+                            <div class="list-meta">
+                                {$a['unit_title'] ?? 'ไม่ได้ผูกกับหน่วย'}
+                                · เต็ม {(float) $a['max_score']} คะแนน
+                                {if $a['due_at']} · กำหนดส่ง {App\Support\Thai::dateTime($a['due_at'])}{/if}
+                                {if $a['submission_count'] > 0} · ส่งแล้ว {$a['submission_count']} คน{/if}
+                            </div>
+                        </div>
+                        {if $a['unit_id']}
+                            <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/units/{$a['unit_id']}/assignments/{$a['id']}/edit">แก้ไข</a>
+                        {/if}
+                    </div>
+                {/foreach}
+                {if !$worksheets}
+                    <div class="empty">
+                        <h3>ยังไม่มีใบงานในรายวิชานี้</h3>
+                        <p>ใบงานเป็นส่วนหนึ่งของหน่วยการเรียน · เลือกหน่วยด้านล่างเพื่อเพิ่มใบงาน ให้ AI ช่วยร่างได้</p>
+                    </div>
+                {/if}
+            </div>
+            {if $lessonUnits}
+                <form class="list-actions" method="get" onsubmit="if (this.unit.value) location.href = this.unit.value; return false;">
+                    <select class="input" name="unit" aria-label="เลือกหน่วยการเรียนที่จะเพิ่มใบงาน" style="max-width:420px">
+                        {foreach $lessonUnits as $u}
+                            <option value="{$base}/courses/{$course['id']}/units/{$u['id']}/assignments/new">หน่วยที่ {$iterator->counter} · {$u['title']}</option>
+                        {/foreach}
+                    </select>
+                    <button type="submit" class="btn">+ เพิ่มใบงานในหน่วยนี้</button>
+                </form>
+            {/if}
+
+        {elseif $tab === 'tasks'}
+            {* งานที่ครูมอบหมายเพิ่มเติมนอกเหนือจากใบงานของหน่วย เช่น รายงาน โครงงาน งานค้นคว้า *}
+            <div class="list">
+                {foreach $tasks as $a}
+                    <div class="list-row">
+                        <div class="list-main">
+                            <div class="list-title">{$a['title']}</div>
+                            <div class="list-meta">
+                                {$a['unit_title'] ?? 'ทั้งรายวิชา'}
+                                · เต็ม {(float) $a['max_score']} คะแนน
+                                {if $a['due_at']} · กำหนดส่ง {App\Support\Thai::dateTime($a['due_at'])}{else} · ไม่กำหนดวันส่ง{/if}
+                                {if $a['submission_count'] > 0} · ส่งแล้ว {$a['submission_count']} คน{/if}
+                            </div>
+                        </div>
+                        <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/tasks/{$a['id']}/edit">แก้ไข</a>
+                    </div>
+                {/foreach}
+                {if !$tasks}
+                    <div class="empty">
+                        <h3>ยังไม่มีงานที่มอบหมาย</h3>
+                        <p>มอบหมายงานเพิ่มเติมนอกเหนือจากใบงานของหน่วยได้ที่นี่ เช่น รายงาน โครงงาน หรืองานค้นคว้า</p>
+                    </div>
+                {/if}
+            </div>
+            <div class="list-actions">
+                <a class="btn" href="{$base}/courses/{$course['id']}/tasks/new">+ มอบหมายงาน</a>
+            </div>
 
         {elseif $tab === 'students'}
             <div class="card join-invite">

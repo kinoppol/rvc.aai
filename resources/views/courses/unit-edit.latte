@@ -1,44 +1,58 @@
 {layout '../layout.latte'}
 
-{block title}{if $unit}แก้ไข{else}เพิ่ม{/if}หน่วยการเรียน · {$course['name']}{/block}
+{block title}{if $unit}แก้ไข{else}เพิ่ม{/if}{$isExam ? 'หน่วยสอบ' : 'หน่วยการเรียน'} · {$course['name']}{/block}
 
 {block content}
 <div class="page-head">
     <div>
         <div class="sub"><a href="{$base}/courses/{$course['id']}?tab=units">{$course['name']}</a></div>
-        <h1>{if $unit}{$unit['title']}{else}หน่วยการเรียนใหม่{/if}</h1>
+        <h1>{if $unit}{$unit['title']}{elseif $isExam}{$kinds[$kind]}{else}หน่วยการเรียนใหม่{/if}</h1>
     </div>
 </div>
 
 {* ── ฟอร์มข้อมูลหน่วย ── *}
 <div class="card" style="margin-bottom:16px">
-    <div class="card-head">บทนำหน่วยการเรียน</div>
-    <form method="post" action="{$base}/courses/{$course['id']}/units{if $unit}/{$unit['id']}{/if}">
+    <div class="card-head">{$isExam ? 'ข้อมูลหน่วยสอบ' : 'บทนำหน่วยการเรียน'}</div>
+    <form method="post" action="{$base}/courses/{$course['id']}/units{if $unit}/{$unit['id']}{/if}" id="unitForm">
         <input type="hidden" name="_token" value="{$csrf}">
 
-        <div class="field">
-            <label for="title">ชื่อหน่วยการเรียน <span class="required">*</span></label>
-            <input class="input" type="text" id="title" name="title"
-                   value="{$unit['title'] ?? ''}" required autofocus>
+        <div class="unit-kind-row">
+            <div class="field">
+                <label for="title">ชื่อหน่วย <span class="required">*</span></label>
+                <input class="input" type="text" id="title" name="title"
+                       value="{$unit['title'] ?? ($isExam ? $kinds[$kind] : '')}" required autofocus>
+            </div>
+            <div class="field">
+                <label for="kind">ประเภทหน่วย</label>
+                <select class="input" id="kind" name="kind">
+                    {foreach $kinds as $k => $label}
+                        <option value="{$k}" selected="{$k === $kind}">{$label}</option>
+                    {/foreach}
+                </select>
+            </div>
         </div>
 
         <div class="field">
-            <label for="key_content">สาระสำคัญ</label>
+            <label for="key_content" data-label-lesson="สาระสำคัญ" data-label-exam="คำชี้แจงการสอบ">{$isExam ? 'คำชี้แจงการสอบ' : 'สาระสำคัญ'}</label>
             <textarea class="input" id="key_content" name="key_content" rows="3"
-                      placeholder="ระบุสาระสำคัญของหน่วยการเรียนนี้...">{$unit['key_content'] ?? ''}</textarea>
+                      data-ph-lesson="ระบุสาระสำคัญของหน่วยการเรียนนี้..."
+                      data-ph-exam="เช่น สอบครอบคลุมหน่วยที่ 1–4 · ใช้เวลา 60 นาที · ห้ามเปิดตำรา"
+                      placeholder="{$isExam ? 'เช่น สอบครอบคลุมหน่วยที่ 1–4 · ใช้เวลา 60 นาที · ห้ามเปิดตำรา' : 'ระบุสาระสำคัญของหน่วยการเรียนนี้...'}">{$unit['key_content'] ?? ''}</textarea>
         </div>
 
-        <div class="field">
+        <div class="field" data-lesson-only n:attr="hidden: $isExam">
             <label for="objectives">วัตถุประสงค์การเรียนรู้</label>
             <textarea class="input" id="objectives" name="objectives" rows="4"
                       placeholder="เมื่อเรียนจบหน่วยนี้แล้ว นักเรียนจะสามารถ...&#10;1. ...&#10;2. ...">{$unit['objectives'] ?? ''}</textarea>
         </div>
 
-        <div class="field">
+        <div class="field" data-lesson-only n:attr="hidden: $isExam">
             <label for="competencies">สมรรถนะประจำหน่วย</label>
             <textarea class="input" id="competencies" name="competencies" rows="3"
                       placeholder="ระบุสมรรถนะที่คาดหวังให้ผู้เรียนมีหลังเรียนจบหน่วยนี้...">{$unit['competencies'] ?? ''}</textarea>
         </div>
+
+        <div class="hint" data-exam-only n:attr="hidden: !$isExam">หน่วยสอบไม่มีเนื้อหา · บันทึกแล้วสร้างแบบทดสอบของหน่วยนี้ได้ด้านล่าง</div>
 
         <div style="display:flex;gap:8px;margin-top:8px">
             <button type="submit" name="action" value="save" class="btn btn-primary">บันทึกฉบับร่าง</button>
@@ -49,6 +63,7 @@
 </div>
 
 {if $unit}
+{if !$isExam}
 {* ── ส่วนเนื้อหา ── *}
 <div class="card" style="margin-bottom:16px">
     <div class="card-head">เนื้อหา</div>
@@ -82,6 +97,19 @@
         <p class="sub" style="padding:16px 0 0">ยังไม่มีเนื้อหา เพิ่มส่วนเนื้อหาด้านล่าง</p>
     {/if}
 
+    {* ── แถบปุ่ม: กดแล้วจึงเปิดฟอร์มที่ต้องการ หน้าแก้ไขหน่วยจะได้ไม่ยาวเกินไป ── *}
+    {var $canDraft = $course['ai_lesson_plan_enabled'] && !$drafted}
+    <div class="ai-draft-toggle" id="contentTools">
+        <button type="button" class="btn" data-reveal="addSectionPanel" aria-expanded="false" aria-controls="addSectionPanel">
+            + เพิ่มส่วนเนื้อหา
+        </button>
+        {if $canDraft}
+            <button type="button" class="btn btn-ai" data-reveal="contentDraftForm" aria-expanded="false" aria-controls="contentDraftForm">
+                <span>✦</span> ให้ AI ช่วยร่างเนื้อหาของหน่วยนี้
+            </button>
+        {/if}
+    </div>
+
     {* ── ให้ผู้ช่วย AI ร่างเนื้อหาของหน่วยนี้ ── *}
     {if $course['ai_lesson_plan_enabled']}
         {if $drafted}
@@ -111,10 +139,13 @@
             </form>
         {else}
             <form method="post" action="{$base}/courses/{$course['id']}/units/{$unit['id']}/content-draft"
-                  style="margin-top:16px;border-top:1px solid var(--line);padding-top:16px"
+                  id="contentDraftForm" class="ai-draft-form reveal-panel" hidden
                   data-busy="กำลังร่างเนื้อหา…">
                 <input type="hidden" name="_token" value="{$csrf}">
-                <div class="step-label">ให้ AI ช่วยร่างเนื้อหาของหน่วยนี้</div>
+                <div class="ai-draft-form-head">
+                    <div class="step-label">ให้ AI ช่วยร่างเนื้อหาของหน่วยนี้</div>
+                    <button type="button" class="btn btn-sm btn-ghost" data-reveal="contentDraftForm">ปิด</button>
+                </div>
                 <div class="hint" style="margin-top:6px">
                     ผู้ช่วยจะใช้สาระสำคัญและจุดประสงค์ของหน่วยนี้เขียนเนื้อหาแยกเป็นหัวข้อย่อยมาให้เลือก
                 </div>
@@ -126,7 +157,7 @@
                         จำนวนหัวข้อย่อย
                         <input type="number" name="count" class="input" style="width:90px" min="2" max="10" value="4">
                     </label>
-                    <button type="submit" class="btn">✦ ให้ AI ร่างเนื้อหา</button>
+                    <button type="submit" class="btn btn-primary">✦ ให้ AI ร่างเนื้อหา</button>
                 </div>
                 <div style="margin-top:12px;max-width:520px">
                     {include '../_partials/ai-picker.latte', options: $ai['options'], chosen: $ai['chosen'], id: 'contentAi'}
@@ -139,9 +170,12 @@
         {/if}
     {/if}
 
-    {* ── เพิ่มส่วนเนื้อหา ── *}
-    <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:16px">
-        <div style="font-weight:600;font-size:13px;margin-bottom:12px">เพิ่มส่วนเนื้อหา</div>
+    {* ── เพิ่มส่วนเนื้อหา (เปิดจากปุ่มด้านบน) ── *}
+    <div id="addSectionPanel" class="ai-draft-form add-section-panel reveal-panel" hidden>
+        <div class="ai-draft-form-head" style="margin-bottom:12px">
+            <div class="step-label">เพิ่มส่วนเนื้อหา</div>
+            <button type="button" class="btn btn-sm btn-ghost" data-reveal="addSectionPanel">ปิด</button>
+        </div>
         <div class="tabs" style="margin-bottom:16px" id="sectionTypeTabs">
             <a class="tab is-active" data-section-tab="text" href="#">📝 ข้อความ</a>
             <a class="tab" data-section-tab="video" href="#">📹 วีดิโอ</a>
@@ -201,60 +235,118 @@
     </div>
 </div>
 
-{* ── แบบทดสอบและใบงาน ── *}
-<div class="card">
-    <div class="card-head">แบบทดสอบและใบงาน</div>
-    <div class="list" style="margin-bottom:0">
-        <div class="list-row">
-            <div class="list-main">
-                <div class="list-title">แบบทดสอบก่อนเรียน</div>
-                <div class="list-meta">10 ข้อ · ปรนัย · ไม่คิดคะแนน ใช้วัดความก้าวหน้า</div>
-            </div>
-            <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/quizzes/create?unit_id={$unit['id']}&kind=pretest">
-                สร้างด้วย AI
-            </a>
-        </div>
-        <div class="list-row">
-            <div class="list-main">
-                <div class="list-title">ใบงาน</div>
-                <div class="list-meta">
-                    {if $assignments}
-                        มอบหมายไว้แล้ว {count($assignments)} ใบงาน
-                    {else}
-                        มอบหมายงานให้นักเรียนส่งและครูตรวจให้คะแนน · ให้ AI ช่วยร่างได้
-                    {/if}
-                </div>
-            </div>
-            <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/units/{$unit['id']}/assignments/new">เพิ่มใบงาน</a>
-        </div>
+{/if}
 
-        {foreach $assignments as $a}
-            <div class="list-row" style="padding-left:26px">
-                <div class="list-main">
-                    <div class="list-title">{$a['title']}</div>
-                    <div class="list-meta">
-                        เต็ม {$a['max_score']} คะแนน
-                        {if $a['due_at']} · กำหนดส่ง {App\Support\Thai::dateTime($a['due_at'])}{/if}
-                        {if $a['submission_count'] > 0} · ส่งแล้ว {$a['submission_count']} คน{/if}
+{* ── องค์ประกอบของหน่วย: แบบทดสอบก่อนเรียน · ใบงาน · แบบทดสอบหลังเรียน (หน่วยสอบมีแต่แบบทดสอบ)
+   แสดงของที่สร้างแล้วจริง พร้อมเครื่องหมาย ✓ / ยังไม่มี ให้ครูเห็นทันทีว่าหน่วยนี้ครบหรือยัง *}
+{var $quizBase = $base . '/courses/' . $course['id'] . '/quizzes'}
+<div class="card">
+    <div class="card-head">{$isExam ? 'แบบทดสอบของหน่วยสอบ' : 'แบบทดสอบและใบงาน'}</div>
+    <div class="parts">
+        {if !$isExam}
+            {include partQuizzes, title: 'แบบทดสอบก่อนเรียน', hint: 'ไม่คิดคะแนน ใช้วัดความก้าวหน้า', items: $pretests, kindKey: 'pretest', quizBase: $quizBase}
+
+            <div n:class="part, $assignments ? is-done : is-missing">
+                <div class="part-head">
+                    <span class="part-mark" aria-hidden="true">{$assignments ? '✓' : ''}</span>
+                    <div class="part-main">
+                        <div class="part-title">ใบงาน</div>
+                        <div class="part-meta">
+                            {if $assignments}มอบหมายไว้แล้ว {count($assignments)} ใบงาน{else}ยังไม่มีใบงาน · ให้ AI ช่วยร่างได้{/if}
+                        </div>
                     </div>
+                    <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/units/{$unit['id']}/assignments/new">+ เพิ่มใบงาน</a>
                 </div>
-                <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/units/{$unit['id']}/assignments/{$a['id']}/edit">แก้ไข</a>
+                {foreach $assignments as $a}
+                    <div class="part-item">
+                        <div class="part-main">
+                            <div class="part-item-title">{$a['title']}</div>
+                            <div class="part-meta">
+                                เต็ม {(float) $a['max_score']} คะแนน
+                                {if $a['due_at']} · กำหนดส่ง {App\Support\Thai::dateTime($a['due_at'])}{/if}
+                                {if $a['submission_count'] > 0} · ส่งแล้ว {$a['submission_count']} คน{/if}
+                            </div>
+                        </div>
+                        <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/units/{$unit['id']}/assignments/{$a['id']}/edit">แก้ไข</a>
+                    </div>
+                {/foreach}
             </div>
-        {/foreach}
-        <div class="list-row">
-            <div class="list-main">
-                <div class="list-title">แบบทดสอบหลังเรียน</div>
-                <div class="list-meta">10 ข้อ · ปรนัย · คิดคะแนนเปรียบเทียบกับเกณฑ์รายวิชา</div>
-            </div>
-            <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/quizzes/create?unit_id={$unit['id']}&kind=posttest">
-                สร้างด้วย AI
-            </a>
-        </div>
+
+            {include partQuizzes, title: 'แบบทดสอบหลังเรียน', hint: 'คิดคะแนนเปรียบเทียบกับเกณฑ์รายวิชา', items: $posttests, kindKey: 'posttest', quizBase: $quizBase}
+        {else}
+            {include partQuizzes, title: 'แบบทดสอบ' . $kinds[$kind], hint: 'คิดคะแนน · ออกข้อสอบครอบคลุมหน่วยการเรียนก่อนหน้า', items: $posttests, kindKey: 'posttest', quizBase: $quizBase}
+        {/if}
     </div>
 </div>
 {/if}
 
+{define partQuizzes}
+    <div n:class="part, $items ? is-done : is-missing">
+        <div class="part-head">
+            <span class="part-mark" aria-hidden="true">{$items ? '✓' : ''}</span>
+            <div class="part-main">
+                <div class="part-title">{$title}</div>
+                <div class="part-meta">{if $items}{count($items)} ฉบับ · {$hint}{else}ยังไม่ได้สร้าง · {$hint}{/if}</div>
+            </div>
+            <a class="btn btn-sm" href="{$quizBase}/create?unit_id={$unit['id']}&kind={$kindKey}">✦ สร้างด้วย AI</a>
+        </div>
+        {foreach $items as $q}
+            <div class="part-item">
+                <div class="part-main">
+                    <div class="part-item-title">{$q['title']}</div>
+                    <div class="part-meta">
+                        {$q['question_count']} ข้อ
+                        {if $q['submitted_count'] > 0} · ทำแล้ว {$q['submitted_count']} คน{/if}
+                    </div>
+                </div>
+                {if $q['review_status'] === 'published'}<span class="tag tag-ok">เผยแพร่แล้ว</span>
+                {elseif $q['review_status'] === 'pending'}<span class="tag tag-warn">รอตรวจ</span>
+                {else}<span class="tag">ฉบับร่าง</span>{/if}
+                <a class="btn btn-sm" href="{$quizBase}/{$q['id']}/review">เปิดดู</a>
+            </div>
+        {/foreach}
+    </div>
+{/define}
+
 <script>
+(function () {
+    // ปุ่มเปิด/ปิดฟอร์ม: data-reveal="id ของฟอร์ม"
+    document.querySelectorAll('[data-reveal]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var box = document.getElementById(btn.getAttribute('data-reveal'));
+            if (!box) return;
+            var open = box.hidden;
+            // เปิดได้ทีละแผง · ระหว่างเปิดซ่อนแถบปุ่มไว้ กด "ปิด" แล้วแถบปุ่มกลับมา
+            document.querySelectorAll('.reveal-panel').forEach(function (p) { p.hidden = true; });
+            box.hidden = !open;
+            var tools = document.getElementById('contentTools');
+            if (tools) tools.hidden = open;
+            document.querySelectorAll('[data-reveal]').forEach(function (b) {
+                var target = document.getElementById(b.getAttribute('data-reveal'));
+                b.setAttribute('aria-expanded', target && !target.hidden ? 'true' : 'false');
+            });
+            if (open) {
+                var field = box.querySelector('textarea, input[type=text]');
+                if (field) field.focus();
+            }
+        });
+    });
+
+    // เปลี่ยนประเภทหน่วย: หน่วยสอบซ่อนจุดประสงค์/สมรรถนะ และเปลี่ยนสาระสำคัญเป็นคำชี้แจงการสอบ
+    var kind = document.getElementById('kind');
+    if (kind) {
+        kind.addEventListener('change', function () {
+            var exam = kind.value !== 'lesson';
+            document.querySelectorAll('[data-lesson-only]').forEach(function (el) { el.hidden = exam; });
+            document.querySelectorAll('[data-exam-only]').forEach(function (el) { el.hidden = !exam; });
+            var label = document.querySelector('[data-label-lesson]');
+            var area = document.getElementById('key_content');
+            if (label) label.textContent = label.getAttribute(exam ? 'data-label-exam' : 'data-label-lesson');
+            if (area) area.placeholder = area.getAttribute(exam ? 'data-ph-exam' : 'data-ph-lesson');
+        });
+    }
+})();
+
 (function () {
     var tabs = document.querySelectorAll('[data-section-tab]');
     tabs.forEach(function (tab) {

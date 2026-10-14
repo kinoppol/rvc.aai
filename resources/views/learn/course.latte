@@ -18,9 +18,13 @@
     <div class="course-body">
         {if $units}
             <div class="list">
+                {var $no = 0}
                 {foreach $units as $u}
-                    <a class="list-row" href="{$base}/learn/units/{$u['id']}" style="color:inherit">
-                        <div class="list-no">{sprintf('%02d', $iterator->counter)}</div>
+                    {* หน่วยสอบกลางภาค/ปลายภาคไม่นับเลขหน่วย *}
+                    {var $exam = App\Domain\UnitRepository::isExam($u)}
+                    {if !$exam}{do $no++}{/if}
+                    <a n:class="list-row, $exam ? 'is-exam is-published'" href="{$base}/learn/units/{$u['id']}" style="color:inherit">
+                        <div class="list-no">{$exam ? 'สอบ' : sprintf('%02d', $no)}</div>
                         <div class="list-main">
                             <div class="list-title">{$u['title']}</div>
                             {if $u['key_content']}<div class="list-meta">{$u['key_content']}</div>{/if}
