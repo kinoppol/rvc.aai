@@ -189,6 +189,24 @@ code, .mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums
 /* ระหว่างค้นหาเมนู และตอนย่อเหลือแต่ไอคอน ให้เห็นลิงก์ทุกกลุ่ม */
 .side-nav.is-searching .nav-group.is-collapsed .nav-group-items,
 .nav-mini .nav-group.is-collapsed .nav-group-items { display: flex; }
+/* ผู้ดูแลระบบที่สอนด้วย: เมนูสองชุด แสดงทีละชุดตามปุ่มสลับ (ระหว่างค้นหาเห็นทั้งสองชุด) */
+.nav-set { display: contents; }
+.side-nav[data-mode="teach"] .nav-set[data-set="admin"],
+.side-nav[data-mode="admin"] .nav-set[data-set="teach"] { display: none; }
+.side-nav.is-searching[data-mode] .nav-set { display: contents; }
+.nav-mode-switch {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 0 0 12px;
+    padding: 4px; border-radius: 14px; background: var(--surface2); flex: none;
+}
+.nav-mode-switch button {
+    display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0;
+    padding: 8px 6px; border: 0; border-radius: 10px; background: transparent; cursor: pointer;
+    font: 700 12.5px/1.2 var(--sans); color: var(--ink3); white-space: nowrap; transition: .2s ease;
+}
+.nav-mode-switch button .msi { font-size: 18px; }
+.nav-mode-switch button:hover { color: var(--brand); }
+.nav-mode-switch button.is-on { background: var(--surface); color: var(--brand); box-shadow: 0 2px 8px rgba(15, 23, 42, .08); }
+.nav-mini .nav-mode-switch { grid-template-columns: 1fr; }
 .sidebar .divider { height: 1px; background: var(--line); margin: 4px 8px; flex: none; }
 .sidebar .spacer { flex: 1; min-height: 18px; }
 
