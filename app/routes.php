@@ -278,6 +278,7 @@ return static function (App $app): void {
             $admin->post('/rms/students/count', [RmsController::class, 'studentCount']);
             $admin->post('/rms/students/batch', [RmsController::class, 'studentBatch']);
 
+            $admin->get('/overview', [DashboardController::class, 'overview'])->setName('admin.overview');
             $admin->get('/settings', [GeneralController::class, 'index'])->setName('admin.settings');
             $admin->post('/settings', [GeneralController::class, 'save']);
             $admin->post('/settings/login', [GeneralController::class, 'saveLogin']);

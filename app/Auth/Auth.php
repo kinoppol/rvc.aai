@@ -173,6 +173,7 @@ final class Auth
 
             return null;
         }
+        $user['teaches'] = Roles::teaches($user['role']) || ($user['role'] === Roles::ADMIN && $this->adminTeaches((int) $user['id']));
 
         return $user;
     }
@@ -458,6 +459,15 @@ final class Auth
             : 'UPDATE `%susers` SET rms_pass_md5 = NULL, password_hash = ? WHERE id = ?';
         $stmt = $this->db->prepare(sprintf($sql, $this->prefix));
         $stmt->execute($hash === null ? [$id] : [$hash, $id]);
+    }
+
+    /** ผู้ดูแลระบบที่ได้รับแต่งตั้งให้สอนด้วย — เก็บใน settings จึงไม่ต้องเพิ่มคอลัมน์ */
+    private function adminTeaches(int $id): bool
+    {
+        $stmt = $this->db->prepare(sprintf('SELECT value FROM `%ssettings` WHERE name = ?', $this->prefix));
+        $stmt->execute([Roles::ADMIN_TEACHES . ':' . $id]);
+
+        return (string) $stmt->fetchColumn() === '1';
     }
 
     private function updateHash(int $id, string $hash): void

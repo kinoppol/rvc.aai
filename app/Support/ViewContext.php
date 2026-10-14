@@ -42,7 +42,8 @@ final class ViewContext implements MiddlewareInterface
         if (is_array($user)) {
             $this->view->share('roleLabel', Roles::label((string) ($user['role'] ?? '')));
 
-            if (Roles::teaches($user['role'] ?? null)) {
+            $this->view->share('userTeaches', Roles::canTeach($user));
+            if (Roles::canTeach($user)) {
                 $this->view->share('reviewCount', $this->reviews->pendingCount((int) $user['id']));
             }
         }

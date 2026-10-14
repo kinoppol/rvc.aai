@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Auth\Roles;
 use App\Domain\CourseRepository;
 use App\Domain\EnrollmentRepository;
 use App\Domain\ReviewRepository;
@@ -39,11 +40,18 @@ final class DashboardController
 
         // ผู้ดูแลครูมีรายวิชาของตัวเองเหมือนครูทั่วไป จึงเห็นหน้าแรกแบบเดียวกัน
         // ส่วนงานกำกับดูแลอยู่ในเมนูด้านข้าง ไม่ใช่ภาพรวมเครื่อง AI ของผู้ดูแลระบบ
-        return match ($user['role']) {
-            'teacher', 'supervisor' => $this->teacher($response, $user),
-            'student' => $this->student($response, $user),
-            default => $this->admin($response, $user),
-        };
+        // ผู้ดูแลระบบที่สอนด้วยก็ได้หน้าแรกแบบครู — ภาพรวมระบบย้ายไปอยู่ที่ /admin/overview
+        if (Roles::canTeach($user)) {
+            return $this->teacher($response, $user);
+        }
+
+        return $user['role'] === Roles::STUDENT ? $this->student($response, $user) : $this->admin($response, $user);
+    }
+
+    /** ภาพรวมระบบของผู้ดูแลระบบ (เข้าได้ทุกเมื่อ แม้หน้าแรกจะเป็นแบบครู) */
+    public function overview(Request $request, Response $response): Response
+    {
+        return $this->admin($response, $request->getAttribute('user'), 'admin-overview');
     }
 
     private function teacher(Response $response, array $user): Response
@@ -87,7 +95,7 @@ final class DashboardController
         ]);
     }
 
-    private function admin(Response $response, array $user): Response
+    private function admin(Response $response, array $user, string $page = 'dashboard'): Response
     {
         $status = $this->migrator->status();
         $prefix = $this->db->prefix();
@@ -100,7 +108,7 @@ final class DashboardController
         $lock = Installer::readLock();
 
         return $this->view->render($response, 'dashboard/admin', [
-            'page' => 'dashboard',
+            'page' => $page,
             'server' => Database::inspectServer($this->pdo),
             'phpVersion' => PHP_VERSION,
             'systemVersion' => Installer::VERSION,

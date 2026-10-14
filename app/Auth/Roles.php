@@ -40,6 +40,23 @@ final class Roles
         };
     }
 
+    /** ค่าตั้งรายผู้ใช้ `admin_teaches:{id}` = ผู้ดูแลระบบคนนี้สอนด้วย (ใช้เมนูฝั่งครูได้) */
+    public const ADMIN_TEACHES = 'admin_teaches';
+
+    /** ตัวเลือกบทบาทในหน้าผู้ใช้งาน = ผู้ดูแลระบบ + สอนด้วย (บันทึกเป็น role admin + ค่าตั้งข้างบน) */
+    public const ADMIN_TEACHING = 'admin_teaching';
+
+    /**
+     * ผู้ใช้คนนี้ใช้งานฝั่งครูได้ไหม — ครู ผู้ดูแลครู และผู้ดูแลระบบที่ได้รับแต่งตั้งให้สอนด้วย
+     * $user มาจาก Auth::user() ซึ่งเติมคีย์ `teaches` ไว้แล้ว
+     *
+     * @param array<string,mixed>|null $user
+     */
+    public static function canTeach(?array $user): bool
+    {
+        return $user !== null && (self::teaches($user['role'] ?? null) || !empty($user['teaches']));
+    }
+
     public static function teaches(?string $role): bool
     {
         return in_array((string) $role, self::TEACHING, true);

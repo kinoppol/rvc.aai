@@ -141,7 +141,7 @@ final class AiChatController
             'task' => 'chat',
             'message' => $attached === '' ? $message : $attached . "\n\n---\n\nคำถามหรือคำสั่งของครู:\n" . $message,
         ], JSON_UNESCAPED_UNICODE);
-        $isTeacher = Roles::teaches($user['role'] ?? null);
+        $isTeacher = Roles::canTeach(is_array($user) ? $user : null);
 
         $chars = 0;
         $mode = null;      // null = ยังไม่รู้ว่าเป็นข้อความหรือคำสั่ง, 'text', 'action'

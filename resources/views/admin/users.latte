@@ -114,14 +114,17 @@
                         <td>{$u['full_name']}</td>
                         <td>
                             {$u['role_label']}
-                            {if $isAdmin && $u['role'] !== 'student' && (int) $u['id'] !== (int) ($user['id'] ?? 0)}
+                            {var $self = (int) $u['id'] === (int) ($user['id'] ?? 0)}
+                            {if $isAdmin && $u['role'] !== 'student' && (!$self || $u['role'] === 'admin')}
                                 <form method="post" action="{$base}/admin/users/{$u['id']}/role" class="role-form"
                                       data-confirm-title="แต่งตั้งบทบาท"
                                       data-confirm="เปลี่ยนบทบาทของ {$u['full_name']} ตามที่เลือกใช่หรือไม่ · สิทธิ์การเข้าถึงจะเปลี่ยนทันทีที่บันทึก">
                                     <input type="hidden" name="_token" value="{$csrf}">
                                     <select name="role" class="input input-sm">
                                         {foreach $roleOptions as $value => $label}
-                                            <option value="{$value}" n:attr="selected: $u['role'] === $value">{$label}</option>
+                                            {* บัญชีตัวเองเลือกได้แค่ว่าจะสอนด้วยหรือไม่ *}
+                                            {continueIf $self && !str_starts_with($value, 'admin')}
+                                            <option value="{$value}" n:attr="selected: $u['role_key'] === $value">{$label}</option>
                                         {/foreach}
                                     </select>
                                     <button type="submit" class="btn btn-sm">แต่งตั้ง</button>

@@ -21,7 +21,12 @@ final class RoleMiddleware implements MiddlewareInterface
     {
         $user = $request->getAttribute('user');
 
-        if (!is_array($user) || !in_array($user['role'], $this->roles, true)) {
+        // ผู้ดูแลระบบที่สอนด้วยเข้าหน้าฝั่งครูได้ทุกหน้าที่ครูเข้าได้
+        $allowed = is_array($user) && (
+            in_array($user['role'], $this->roles, true)
+            || (in_array(Roles::TEACHER, $this->roles, true) && Roles::canTeach($user))
+        );
+        if (!$allowed) {
             throw new HttpForbiddenException($request, 'บัญชีของคุณไม่มีสิทธิ์เข้าหน้านี้');
         }
 

@@ -44,7 +44,8 @@
 <body>
 {var $role = $user['role'] ?? 'student'}
 {var $rc = $reviewCount ?? 0}
-{var $teaches = $role === 'teacher' || $role === 'supervisor'}
+{* ViewContext บอกมาว่าใช้งานฝั่งครูได้ไหม (รวมผู้ดูแลระบบที่ได้รับแต่งตั้งให้สอนด้วย) *}
+{var $teaches = $userTeaches ?? ($role === 'teacher' || $role === 'supervisor')}
 {var $oversees = $role === 'admin' || $role === 'supervisor'}
 {var $roleName = $roleLabel ?? ($role === 'admin' ? 'ผู้ดูแลระบบ' : ($role === 'teacher' ? 'ครูผู้สอน' : 'นักเรียน'))}
 <div class="app">
@@ -118,27 +119,29 @@
                         </div>
                     </div>
 
-                    {var $here = in_array($page, ['migrations', 'admin-logs', 'admin-settings', 'appearance'], true)}
+                    {var $here = in_array($page, ['admin-overview', 'migrations', 'admin-logs', 'admin-settings', 'appearance'], true)}
                     <div n:class="nav-group, $here ? is-here" data-group="system">
                         <button type="button" class="group-label" aria-expanded="true">
                             <span class="grow">ดูแลระบบ</span><span class="msi">expand_more</span>
                         </button>
                         <div class="nav-group-items">
+                            {if $teaches}<a href="{$base}/admin/overview" n:class="$page === 'admin-overview' ? is-active" title="ภาพรวมระบบ"><span class="msi">dashboard</span><span class="nav-label">ภาพรวมระบบ</span></a>{/if}
                             <a href="{$base}/admin/settings" n:class="$page === 'admin-settings' ? is-active" title="ตั้งค่าระบบ"><span class="msi">settings</span><span class="nav-label">ตั้งค่าระบบ</span></a>
                             <a href="{$base}/admin/migrations" n:class="$page === 'migrations' ? is-active" title="จัดการฐานข้อมูล"><span class="msi">database</span><span class="nav-label">จัดการฐานข้อมูล</span></a>
                             <a href="{$base}/admin/logs" n:class="$page === 'admin-logs' ? is-active" title="บันทึกข้อขัดข้อง"><span class="msi">report</span><span class="nav-label">บันทึกข้อขัดข้อง</span></a>
                             <a href="{$base}/settings/appearance" n:class="$page === 'appearance' ? is-active" title="สีหลักของหน้าจอ"><span class="msi">palette</span><span class="nav-label">สีหลักของหน้าจอ</span></a>
                         </div>
                     </div>
-                {elseif $teaches}
-                    {var $here = in_array($page, ['settings', 'appearance'], true)}
+                {/if}
+                {if $teaches}
+                    {var $here = in_array($page, $role === 'admin' ? ['settings'] : ['settings', 'appearance'], true)}
                     <div n:class="nav-group, $here ? is-here" data-group="mine">
                         <button type="button" class="group-label" aria-expanded="true">
                             <span class="grow">ตั้งค่าของฉัน</span><span class="msi">expand_more</span>
                         </button>
                         <div class="nav-group-items">
                             <a href="{$base}/settings/ai" n:class="$page === 'settings' ? is-active" title="ผู้ช่วย AI ของฉัน"><span class="msi">auto_awesome</span><span class="nav-label">ผู้ช่วย AI ของฉัน</span></a>
-                            <a href="{$base}/settings/appearance" n:class="$page === 'appearance' ? is-active" title="สีหลักของหน้าจอ"><span class="msi">palette</span><span class="nav-label">สีหลักของหน้าจอ</span></a>
+                            {if $role !== 'admin'}<a href="{$base}/settings/appearance" n:class="$page === 'appearance' ? is-active" title="สีหลักของหน้าจอ"><span class="msi">palette</span><span class="nav-label">สีหลักของหน้าจอ</span></a>{/if}
                         </div>
                     </div>
                 {/if}
