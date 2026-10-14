@@ -17,7 +17,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             set -e
-            cd /var/www/html/web #เปลี่ยน Path ตรงนี้ให้ถูกต้อง
+            cd /var/www/web #เปลี่ยน Path ตรงนี้ให้ถูกต้อง
             git fetch origin
             git reset --hard origin/main
 
