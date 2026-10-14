@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Auth\Auth;
+use App\Auth\LoginMethods;
 use App\Auth\RvcOne;
 use App\Auth\RvcOneException;
-use App\Domain\InstitutionRepository;
 use App\Support\Flash;
 use App\Support\Url;
-use App\Support\View;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Log\LoggerInterface;
@@ -18,7 +17,7 @@ use Psr\Log\LoggerInterface;
 /**
  * เข้าสู่ระบบผ่าน RVC-ONE (SSO ของวิทยาลัย)
  *
- * GET  /auth/rvc-one  สร้าง state เก็บใน session แล้วพาไปหน้าเข้าสู่ระบบของ RVC-ONE
+ * GET  /auth/login   สร้าง state เก็บใน session แล้วพาไปหน้าเข้าสู่ระบบของ RVC-ONE
  *                     (ใช้เป็น "URL เริ่ม SSO ของแอป" ในหน้าแก้ไขแอปของ RVC-ONE ด้วย)
  * POST /auth/callback RVC-ONE ส่ง token_id / token_key / state กลับมา → ตรวจ state → verify ฝั่ง server → เปิด session
  * GET  /auth/callback ?error=access_denied เมื่อผู้ใช้กดไม่อนุญาต
@@ -33,16 +32,16 @@ final class SsoController
     public function __construct(
         private readonly Auth $auth,
         private readonly RvcOne $rvcOne,
-        private readonly View $view,
-        private readonly InstitutionRepository $institutions,
+        private readonly LoginMethods $methods,
+        private readonly AuthController $login,
         private readonly LoggerInterface $logger,
     ) {
     }
 
     public function start(Request $request, Response $response): Response
     {
-        if (!$this->rvcOne->enabled()) {
-            Flash::error('ยังไม่ได้เปิดใช้การเข้าสู่ระบบผ่าน RVC-ONE');
+        if (!$this->methods->rvcOne()) {
+            Flash::error('ผู้ดูแลระบบปิดการเข้าสู่ระบบผ่าน RVC-ONE ไว้');
 
             return $this->redirect($response, '/login');
         }
@@ -59,7 +58,7 @@ final class SsoController
             unset($_SESSION['sso_state']);
             $error = (string) ($request->getQueryParams()['error'] ?? '');
             if ($error === 'access_denied') {
-                Flash::warning('คุณยกเลิกการเข้าสู่ระบบผ่าน RVC-ONE — เข้าสู่ระบบด้วยชื่อผู้ใช้และรหัสผ่านได้ตามปกติ');
+                Flash::warning('คุณยกเลิกการเข้าสู่ระบบผ่าน RVC-ONE');
             } elseif ($error !== '') {
                 Flash::error('เข้าสู่ระบบผ่าน RVC-ONE ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
             }
@@ -75,6 +74,11 @@ final class SsoController
         // POST ข้ามเว็บมาโดยไม่มีคุกกี้ session — ส่งต่อให้เบราว์เซอร์ POST ซ้ำจากเว็บนี้เอง
         if (session_status() !== PHP_SESSION_ACTIVE) {
             return $this->relay($response, $tokenId, $tokenKey, $state);
+        }
+        if (!$this->methods->rvcOne()) {
+            unset($_SESSION['sso_state']);
+
+            return $this->fail($response, 403, 'ผู้ดูแลระบบปิดการเข้าสู่ระบบผ่าน RVC-ONE ไว้');
         }
 
         // ตรวจ state กัน CSRF — ใช้ได้ครั้งเดียว
@@ -164,13 +168,7 @@ final class SsoController
     {
         Flash::error($message);
 
-        return $this->view->render($response, 'auth/login', [
-            'username' => '',
-            'as' => 'staff',
-            'institution_id' => '',
-            'institutions' => $this->institutions->all(),
-            'sso' => $this->rvcOne->enabled(),
-        ])->withStatus($status);
+        return $this->login->loginView($response)->withStatus($status);
     }
 
     private function redirect(Response $response, string $path): Response

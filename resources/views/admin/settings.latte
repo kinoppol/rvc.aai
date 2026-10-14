@@ -24,5 +24,49 @@
             <button type="submit" class="btn btn-primary">บันทึก</button>
         </div>
     </form>
+
+    <form method="post" action="{$base}/admin/settings/login" class="card login-methods" style="margin-top:16px">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <div class="step-label">วิธีเข้าสู่ระบบ</div>
+        <div class="hint" style="margin-top:4px">เลือกได้มากกว่าหนึ่งวิธี แต่ต้องเปิดไว้อย่างน้อยหนึ่งวิธี</div>
+
+        <label class="login-method">
+            <input type="checkbox" name="login_password" value="1" n:attr="checked: $loginPassword">
+            <span>
+                <b>ชื่อผู้ใช้และรหัสผ่าน</b>
+                <span class="hint">ครู ผู้ดูแลระบบ และนักเรียน (รวมการเข้าครั้งแรกด้วยรหัสผ่าน RMS) · เมื่อปิด ผู้ดูแลระบบยังเข้าด้วยรหัสผ่านได้ที่ <code>/login?admin=1</code> เผื่อ RVC-ONE ใช้งานไม่ได้</span>
+            </span>
+        </label>
+        <label n:class="login-method, !$rvcOneAvailable ? is-disabled">
+            <input type="checkbox" name="login_rvc_one" value="1" n:attr="checked: $loginRvcOne, disabled: !$rvcOneAvailable">
+            <span>
+                <b>RVC-ONE (SSO ของวิทยาลัย)</b>
+                <span class="hint">{if $rvcOneAvailable}ปุ่ม "ลงชื่อเข้าใช้ผ่านระบบ RVC-ONE" ในหน้าเข้าสู่ระบบ และไทล์ในหน้า Workspace{else}ปิดไว้ในไฟล์ตั้งค่าระบบ (sso.enabled) — เปิดจากหน้านี้ไม่ได้{/if}</span>
+            </span>
+        </label>
+
+        <div style="margin-top:18px">
+            <button type="submit" class="btn btn-primary">บันทึกวิธีเข้าสู่ระบบ</button>
+        </div>
+    </form>
 </div>
+
+<style>
+    .login-method { display: flex; gap: 12px; align-items: flex-start; margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; }
+    .login-method input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--brand); flex: none; }
+    .login-method b { display: block; }
+    .login-method .hint { display: block; margin-top: 2px; }
+    .login-method:has(input:checked) { border-color: var(--brandLine); background: var(--brandSoft); }
+    .login-method.is-disabled { opacity: .6; cursor: not-allowed; }
+</style>
+<script>
+    // ห้ามเอาเครื่องหมายออกทุกช่อง — ฝั่ง server ตรวจซ้ำอีกชั้น
+    document.querySelector('.login-methods').addEventListener('submit', function (e) {
+        var on = this.querySelectorAll('input[type=checkbox]:checked:not(:disabled)').length;
+        if (on === 0) {
+            e.preventDefault();
+            rvcAlert({ title: 'วิธีเข้าสู่ระบบ', message: 'ต้องเปิดวิธีเข้าสู่ระบบอย่างน้อยหนึ่งวิธี', danger: true });
+        }
+    });
+</script>
 {/block}

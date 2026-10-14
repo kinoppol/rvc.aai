@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Auth\Auth;
-use App\Auth\RvcOne;
+use App\Auth\LoginMethods;
+use App\Auth\Roles;
 use App\Domain\InstitutionRepository;
 use App\Support\Csrf;
 use App\Support\Flash;
@@ -20,7 +21,7 @@ final class AuthController
         private readonly Auth $auth,
         private readonly View $view,
         private readonly InstitutionRepository $institutions,
-        private readonly RvcOne $rvcOne,
+        private readonly LoginMethods $methods,
     ) {
     }
 
@@ -30,14 +31,10 @@ final class AuthController
             return $this->redirect($response, '/dashboard');
         }
 
-        return $this->view->render($response, 'auth/login', [
-            'username' => '',
+        return $this->loginView($response, [
             // มาจากลิงก์เข้าร่วมรายวิชา — เปิดแท็บนักเรียนไว้ให้เลย
             'as' => str_contains((string) ($_SESSION['intended'] ?? ''), '/join/') ? 'student' : 'staff',
-            'institution_id' => '',
-            'institutions' => $this->institutions->all(),
-            'sso' => $this->rvcOne->enabled(),
-        ]);
+        ], (string) ($request->getQueryParams()['admin'] ?? '') === '1');
     }
 
     public function login(Request $request, Response $response): Response
@@ -45,21 +42,21 @@ final class AuthController
         $data = (array) $request->getParsedBody();
         $username = trim((string) ($data['username'] ?? ''));
         $password = (string) ($data['password'] ?? '');
-        $as = (string) ($data['as'] ?? 'staff') === 'student' ? 'student' : 'staff';
+        // ผู้ดูแลปิดการเข้าด้วยรหัสผ่านไว้ = เหลือเฉพาะทางเข้าของผู้ดูแลระบบ
+        $adminOnly = !$this->methods->password();
+        $as = !$adminOnly && (string) ($data['as'] ?? 'staff') === 'student' ? 'student' : 'staff';
         $institutionId = ((int) ($data['institution_id'] ?? 0)) ?: null;
 
         $formState = [
             'username' => $username,
             'as' => $as,
             'institution_id' => (string) ($data['institution_id'] ?? ''),
-            'institutions' => $this->institutions->all(),
-            'sso' => $this->rvcOne->enabled(),
         ];
 
         if (!Csrf::check($data['_token'] ?? null)) {
             Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
 
-            return $this->redirect($response, '/login');
+            return $this->redirect($response, $adminOnly ? '/login?admin=1' : '/login');
         }
 
         if ($username === '' || $password === '' || ($as === 'student' && $institutionId === null)) {
@@ -67,16 +64,22 @@ final class AuthController
                 ? 'กรุณาเลือกสถานศึกษา และกรอกรหัสนักศึกษา/รหัสผ่านให้ครบ'
                 : 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
 
-            return $this->view->render($response, 'auth/login', $formState);
+            return $this->loginView($response, $formState, $adminOnly);
         }
 
         $ip = (string) ($request->getServerParams()['REMOTE_ADDR'] ?? '0.0.0.0');
-        $result = $this->auth->attempt($username, $password, $ip, $as === 'student' ? $institutionId : null);
+        $result = $this->auth->attempt(
+            $username,
+            $password,
+            $ip,
+            $as === 'student' ? $institutionId : null,
+            $adminOnly ? [Roles::ADMIN] : []
+        );
 
         if (!$result['ok']) {
             Flash::error($result['message']);
 
-            return $this->view->render($response, 'auth/login', $formState);
+            return $this->loginView($response, $formState, $adminOnly);
         }
 
         $this->auth->log('login');
@@ -119,6 +122,27 @@ final class AuthController
         $this->auth->logout();
 
         return $this->redirect($response, '/login');
+    }
+
+    /**
+     * หน้าเข้าสู่ระบบตามวิธีที่ผู้ดูแลระบบเปิดไว้ — SsoController ใช้แสดงข้อผิดพลาดด้วย
+     * $adminForm = แสดงฟอร์มรหัสผ่านของผู้ดูแลระบบ แม้ปิดการเข้าด้วยรหัสผ่านไว้ (/login?admin=1)
+     *
+     * @param array<string,mixed> $state
+     */
+    public function loginView(Response $response, array $state = [], bool $adminForm = false): Response
+    {
+        $password = $this->methods->password();
+
+        return $this->view->render($response, 'auth/login', $state + [
+            'username' => '',
+            'as' => 'staff',
+            'institution_id' => '',
+            'institutions' => $this->institutions->all(),
+            'sso' => $this->methods->rvcOne(),
+            'passwordForm' => $password || $adminForm,
+            'adminOnly' => !$password,
+        ]);
     }
 
     private function redirect(Response $response, string $path): Response

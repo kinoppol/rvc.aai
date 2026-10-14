@@ -21,7 +21,7 @@ final class RvcOne
         'verify_url'    => 'http://workspace.rvc.ac.th/oa/api/verify_token.php',
         'client_id'     => 'cl_65d249d300',
         // ต้องตรงกับที่ลงทะเบียนไว้ใน RVC-ONE ทุกตัวอักษร
-        'redirect_uri'  => 'https://aai.rvc.ac.th/auth/callback',
+        'redirect_uri'  => 'https://aai.rvc.ac.th/web/auth/callback',
     ];
     private const TIMEOUT = 10;
 
@@ -73,8 +73,8 @@ final class RvcOne
 
         if ($raw === false || $errno !== 0) {
             throw new RvcOneException('unavailable', $errno === CURLE_OPERATION_TIMEDOUT
-                ? 'ระบบ RVC-ONE ตอบสนองช้าเกินไป กรุณาลองใหม่อีกครั้ง หรือเข้าสู่ระบบด้วยชื่อผู้ใช้และรหัสผ่าน'
-                : 'เชื่อมต่อระบบ RVC-ONE ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง หรือเข้าสู่ระบบด้วยชื่อผู้ใช้และรหัสผ่าน');
+                ? 'ระบบ RVC-ONE ตอบสนองช้าเกินไป กรุณาลองใหม่อีกครั้ง'
+                : 'เชื่อมต่อระบบ RVC-ONE ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
         }
 
         $data = json_decode(ltrim((string) $raw, "\xEF\xBB\xBF \r\n\t"), true);

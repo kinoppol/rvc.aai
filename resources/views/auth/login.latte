@@ -27,50 +27,69 @@
 
             <input type="hidden" name="_token" value="{$csrf}">
 
-            <div class="lp-auth-tabs" role="tablist">
-                <label class="lp-auth-tab">
-                    <input type="radio" name="as" value="staff" n:attr="checked: $as !== 'student'"
-                           onchange="document.getElementById('loginInstitutionField').hidden = true; document.getElementById('username').placeholder = '';">
-                    <span>🧑‍🏫</span>ครู / ผู้ดูแลระบบ
-                </label>
-                <label class="lp-auth-tab">
-                    <input type="radio" name="as" value="student" n:attr="checked: $as === 'student'"
-                           onchange="document.getElementById('loginInstitutionField').hidden = false; document.getElementById('username').placeholder = 'รหัสนักศึกษา';">
-                    <span>🎓</span>นักเรียน
-                </label>
-            </div>
+            {if $passwordForm}
+                {if $adminOnly}
+                    <div class="lp-alert lp-alert-info">ทางเข้าสำหรับผู้ดูแลระบบ — ผู้ใช้ทั่วไปเข้าสู่ระบบผ่าน RVC-ONE</div>
+                {else}
+                    <div class="lp-auth-tabs" role="tablist">
+                        <label class="lp-auth-tab">
+                            <input type="radio" name="as" value="staff" n:attr="checked: $as !== 'student'"
+                                   onchange="document.getElementById('loginInstitutionField').hidden = true; document.getElementById('username').placeholder = '';">
+                            <span>🧑‍🏫</span>ครู / ผู้ดูแลระบบ
+                        </label>
+                        <label class="lp-auth-tab">
+                            <input type="radio" name="as" value="student" n:attr="checked: $as === 'student'"
+                                   onchange="document.getElementById('loginInstitutionField').hidden = false; document.getElementById('username').placeholder = 'รหัสนักศึกษา';">
+                            <span>🎓</span>นักเรียน
+                        </label>
+                    </div>
 
-            <div class="lp-field" id="loginInstitutionField" n:attr="hidden: $as !== 'student'">
-                <label for="institution_id">สถานศึกษา</label>
-                <select class="lp-input" id="institution_id" name="institution_id">
-                    <option value="">— เลือกสถานศึกษา —</option>
-                    {foreach $institutions as $inst}
-                        <option value="{$inst['id']}" n:attr="selected: (string) $inst['id'] === $institution_id">{$inst['name']}</option>
-                    {/foreach}
-                </select>
-            </div>
+                    <div class="lp-field" id="loginInstitutionField" n:attr="hidden: $as !== 'student'">
+                        <label for="institution_id">สถานศึกษา</label>
+                        <select class="lp-input" id="institution_id" name="institution_id">
+                            <option value="">— เลือกสถานศึกษา —</option>
+                            {foreach $institutions as $inst}
+                                <option value="{$inst['id']}" n:attr="selected: (string) $inst['id'] === $institution_id">{$inst['name']}</option>
+                            {/foreach}
+                        </select>
+                    </div>
+                {/if}
 
-            <div class="lp-field">
-                <label for="username">ชื่อผู้ใช้</label>
-                <input class="lp-input" type="text" id="username" name="username" value="{$username}"
-                       placeholder="{$as === 'student' ? 'รหัสนักศึกษา' : ''}" autocomplete="username" autofocus required>
-            </div>
+                <div class="lp-field">
+                    <label for="username">ชื่อผู้ใช้</label>
+                    <input class="lp-input" type="text" id="username" name="username" value="{$username}"
+                           placeholder="{$as === 'student' ? 'รหัสนักศึกษา' : ''}" autocomplete="username" autofocus required>
+                </div>
 
-            <div class="lp-field">
-                <label for="password">รหัสผ่าน</label>
-                <input class="lp-input" type="password" id="password" name="password" autocomplete="current-password" required>
-                {if $as === 'student'}<div class="lp-hint">สำหรับนักเรียน รหัสผ่านคือเลขประจำตัวประชาชน 13 หลัก</div>{/if}
-            </div>
+                <div class="lp-field">
+                    <label for="password">รหัสผ่าน</label>
+                    <input class="lp-input" type="password" id="password" name="password" autocomplete="current-password" required>
+                    {if $as === 'student'}<div class="lp-hint">สำหรับนักเรียน รหัสผ่านคือเลขประจำตัวประชาชน 13 หลัก</div>{/if}
+                </div>
 
-            <button type="submit" class="lp-btn lp-btn-solid lp-btn-block">เข้าสู่ระบบ</button>
-
-            {if $sso ?? false}
-                <div class="lp-auth-or"><span>หรือ</span></div>
-                <a class="lp-btn lp-btn-block lp-btn-sso" href="{$base}/auth/rvc-one">ลงชื่อเข้าใช้ผ่านระบบ RVC-ONE</a>
+                <button type="submit" class="lp-btn lp-btn-solid lp-btn-block">เข้าสู่ระบบ</button>
             {/if}
 
-            <p class="lp-auth-note">ลืมรหัสผ่าน กรุณาติดต่อครูผู้สอนหรือผู้ดูแลระบบของวิทยาลัย</p>
-            <p class="lp-auth-note">เป็นครูและยังไม่มีบัญชี? <a href="{$base}/register">สมัครเข้าใช้ระบบ</a></p>
+            {if $sso}
+                {if $passwordForm}
+                    <div class="lp-auth-or"><span>หรือ</span></div>
+                    <a class="lp-btn lp-btn-block lp-btn-sso" href="{$base}/auth/login">ลงชื่อเข้าใช้ผ่านระบบ RVC-ONE</a>
+                {else}
+                    <p class="lp-auth-lead">ใช้บัญชี RVC-ONE ของวิทยาลัยเพื่อเข้าสู่ระบบ</p>
+                    <a class="lp-btn lp-btn-solid lp-btn-block" href="{$base}/auth/login">ลงชื่อเข้าใช้ผ่านระบบ RVC-ONE</a>
+                {/if}
+            {/if}
+
+            {if $adminOnly}
+                {if $passwordForm}
+                    <p class="lp-auth-note"><a href="{$base}/login">← กลับไปเข้าสู่ระบบผ่าน RVC-ONE</a></p>
+                {else}
+                    <p class="lp-auth-note"><a href="{$base}/login?admin=1">ผู้ดูแลระบบเข้าสู่ระบบด้วยรหัสผ่าน</a></p>
+                {/if}
+            {else}
+                <p class="lp-auth-note">ลืมรหัสผ่าน กรุณาติดต่อครูผู้สอนหรือผู้ดูแลระบบของวิทยาลัย</p>
+                <p class="lp-auth-note">เป็นครูและยังไม่มีบัญชี? <a href="{$base}/register">สมัครเข้าใช้ระบบ</a></p>
+            {/if}
         </form>
     </div>
 </section>

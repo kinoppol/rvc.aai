@@ -20,9 +20,10 @@ final class Auth
     /**
      * @param int|null $institutionId ระบุเมื่อเป็นการล็อกอินของนักเรียน (เลือกสถานศึกษามาด้วย)
      *                                 ไม่ระบุ = ล็อกอินของครู/ผู้ดูแลระบบ (ค้นหาจากชื่อผู้ใช้ทั้งระบบ)
+     * @param list<string> $roles รับเฉพาะบทบาทเหล่านี้ (ว่าง = ทุกบทบาท) — บทบาทอื่นได้ข้อความเดียวกับรหัสผิด
      * @return array{ok:bool,message:string}
      */
-    public function attempt(string $username, string $password, string $ip, ?int $institutionId = null): array
+    public function attempt(string $username, string $password, string $ip, ?int $institutionId = null, array $roles = []): array
     {
         if ($this->isThrottled($username, $ip)) {
             return ['ok' => false, 'message' => sprintf(
@@ -33,6 +34,9 @@ final class Auth
         }
 
         $user = $this->findByUsername($username, $institutionId);
+        if ($user !== null && $roles !== [] && !in_array($user['role'], $roles, true)) {
+            $user = null;
+        }
         $valid = $user !== null && password_verify($password, $user['password_hash']);
         // บุคลากรที่โอนจาก RMS ล็อกอินครั้งแรกด้วยรหัสผ่านของ RMS ได้ (people_pass = md5 ของรหัสผ่าน)
         $rmsPass = $user !== null ? $this->rmsPass((int) $user['id']) : null;

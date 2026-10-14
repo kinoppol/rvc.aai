@@ -51,7 +51,8 @@ return static function (App $app): void {
     $app->post('/logout', [AuthController::class, 'logout'])->setName('logout');
 
     // เข้าสู่ระบบผ่าน RVC-ONE (SSO) — /auth/callback ต้องตรงกับ redirect_uri ที่ลงทะเบียนไว้
-    $app->get('/auth/rvc-one', [SsoController::class, 'start'])->setName('sso.start');
+    $app->get('/auth/login', [SsoController::class, 'start'])->setName('sso.start');
+    $app->get('/auth/rvc-one', [SsoController::class, 'start']); // ลิงก์เดิม
     $app->map(['GET', 'POST'], '/auth/callback', [SsoController::class, 'callback'])->setName('sso.callback');
 
     // ครูทั่วไปสมัครเข้าใช้ระบบเอง — บัญชีเริ่มที่สถานะ "รออนุมัติ" เสมอ
@@ -279,6 +280,7 @@ return static function (App $app): void {
 
             $admin->get('/settings', [GeneralController::class, 'index'])->setName('admin.settings');
             $admin->post('/settings', [GeneralController::class, 'save']);
+            $admin->post('/settings/login', [GeneralController::class, 'saveLogin']);
         })->add(new RoleMiddleware(['admin']));
     })->add(ViewContext::class)->add(AuthMiddleware::class);
 };

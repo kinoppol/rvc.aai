@@ -5,16 +5,18 @@ declare(strict_types=1);
 namespace App\Controllers\Admin;
 
 use App\Auth\Auth;
+use App\Auth\LoginMethods;
 use App\Domain\SettingsRepository;
 use App\Support\Csrf;
 use App\Support\Flash;
 use App\Support\Url;
 use App\Support\View;
+use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
 /**
- * ตั้งค่าทั่วไปของระบบ — ชื่อระบบและชื่อวิทยาลัยที่แสดงทั่วทั้งเว็บ
+ * ตั้งค่าทั่วไปของระบบ — ชื่อระบบและชื่อวิทยาลัยที่แสดงทั่วทั้งเว็บ และวิธีเข้าสู่ระบบที่เปิดให้ใช้
  */
 final class GeneralController
 {
@@ -22,6 +24,7 @@ final class GeneralController
         private readonly View $view,
         private readonly SettingsRepository $settings,
         private readonly Auth $auth,
+        private readonly LoginMethods $methods,
     ) {
     }
 
@@ -31,6 +34,9 @@ final class GeneralController
             'page' => 'admin-settings',
             'siteName' => (string) $this->settings->get('site_name', ''),
             'collegeName' => (string) $this->settings->get('college_name', ''),
+            'loginPassword' => $this->methods->password(),
+            'loginRvcOne' => $this->methods->rvcOne(),
+            'rvcOneAvailable' => $this->methods->rvcOneAvailable(),
         ]);
     }
 
@@ -57,6 +63,32 @@ final class GeneralController
         $this->auth->log('settings.general.save', null, ['site_name' => $siteName, 'college_name' => $collegeName]);
 
         Flash::success('บันทึกชื่อระบบแล้ว');
+
+        return $this->redirect($response);
+    }
+
+    public function saveLogin(Request $request, Response $response): Response
+    {
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ');
+
+            return $this->redirect($response);
+        }
+
+        $password = ($data['login_password'] ?? '') === '1';
+        $rvcOne = ($data['login_rvc_one'] ?? '') === '1';
+
+        try {
+            $this->methods->save($password, $rvcOne);
+        } catch (InvalidArgumentException $e) {
+            Flash::error($e->getMessage());
+
+            return $this->redirect($response);
+        }
+
+        $this->auth->log('settings.login_methods.save', null, ['password' => $password, 'rvc_one' => $rvcOne]);
+        Flash::success('บันทึกวิธีเข้าสู่ระบบแล้ว');
 
         return $this->redirect($response);
     }
