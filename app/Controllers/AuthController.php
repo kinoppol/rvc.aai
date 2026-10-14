@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Auth\Auth;
+use App\Auth\RvcOne;
 use App\Domain\InstitutionRepository;
 use App\Support\Csrf;
 use App\Support\Flash;
@@ -19,6 +20,7 @@ final class AuthController
         private readonly Auth $auth,
         private readonly View $view,
         private readonly InstitutionRepository $institutions,
+        private readonly RvcOne $rvcOne,
     ) {
     }
 
@@ -34,6 +36,7 @@ final class AuthController
             'as' => str_contains((string) ($_SESSION['intended'] ?? ''), '/join/') ? 'student' : 'staff',
             'institution_id' => '',
             'institutions' => $this->institutions->all(),
+            'sso' => $this->rvcOne->enabled(),
         ]);
     }
 
@@ -50,6 +53,7 @@ final class AuthController
             'as' => $as,
             'institution_id' => (string) ($data['institution_id'] ?? ''),
             'institutions' => $this->institutions->all(),
+            'sso' => $this->rvcOne->enabled(),
         ];
 
         if (!Csrf::check($data['_token'] ?? null)) {
@@ -77,10 +81,9 @@ final class AuthController
 
         $this->auth->log('login');
 
-        // กลับไปหน้าที่ตั้งใจเปิดก่อนถูกพามาเข้าสู่ระบบ · รับเฉพาะ path ภายในระบบ กันการพาออกไปเว็บอื่น
-        $intended = (string) ($_SESSION['intended'] ?? '');
-        unset($_SESSION['intended']);
-        if ($intended !== '' && str_starts_with($intended, '/') && !str_starts_with($intended, '//') && !str_contains($intended, '\\')) {
+        // กลับไปหน้าที่ตั้งใจเปิดก่อนถูกพามาเข้าสู่ระบบ
+        $intended = $this->auth->pullIntended();
+        if ($intended !== null) {
             return $response->withHeader('Location', $intended)->withStatus(302);
         }
 

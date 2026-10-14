@@ -36,6 +36,7 @@ use App\Controllers\RegisterController;
 use App\Controllers\ResetPasswordController;
 use App\Controllers\ReviewController;
 use App\Controllers\SettingsController;
+use App\Controllers\SsoController;
 use App\Controllers\StudentController;
 use App\Controllers\Teacher\StudentsController as TeacherStudentsController;
 use App\Support\ViewContext;
@@ -48,6 +49,10 @@ return static function (App $app): void {
     $app->get('/login', [AuthController::class, 'show'])->setName('login');
     $app->post('/login', [AuthController::class, 'login']);
     $app->post('/logout', [AuthController::class, 'logout'])->setName('logout');
+
+    // เข้าสู่ระบบผ่าน RVC-ONE (SSO) — /auth/callback ต้องตรงกับ redirect_uri ที่ลงทะเบียนไว้
+    $app->get('/auth/rvc-one', [SsoController::class, 'start'])->setName('sso.start');
+    $app->map(['GET', 'POST'], '/auth/callback', [SsoController::class, 'callback'])->setName('sso.callback');
 
     // ครูทั่วไปสมัครเข้าใช้ระบบเอง — บัญชีเริ่มที่สถานะ "รออนุมัติ" เสมอ
     $app->get('/register', [RegisterController::class, 'show'])->setName('register');

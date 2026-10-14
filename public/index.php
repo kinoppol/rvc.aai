@@ -164,7 +164,15 @@ session_set_cookie_params([
     'secure' => ($_SERVER['HTTPS'] ?? '') === 'on',
 ]);
 ini_set('session.use_strict_mode', '1');
-session_start();
+// RVC-ONE POST กลับมาข้ามเว็บ คุกกี้ Lax จึงไม่ติดมา — ถ้าเปิด session ตรงนี้จะได้ session ใหม่ที่ทับคุกกี้เดิม (state หาย)
+// จึงข้ามไปก่อน แล้วให้ SsoController ส่งฟอร์มซ้ำจากเว็บนี้เอง (relayed=1) ซึ่งคุกกี้จะติดมา
+$ssoRelay = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
+    && !isset($_COOKIE['RVCSESSID'])
+    && !isset($_POST['relayed'])
+    && str_ends_with((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH), '/auth/callback');
+if (!$ssoRelay) {
+    session_start();
+}
 
 /** @var Slim\App $app */
 $app = require $root . '/app/bootstrap.php';

@@ -204,6 +204,56 @@ final class Auth
         return $user === false ? null : $user;
     }
 
+    /**
+     * จับคู่ผู้ใช้จาก RVC-ONE กับบัญชีในระบบ — ไม่สร้างบัญชีใหม่ให้เอง
+     * ลำดับ: เลขประจำตัวประชาชน (= people_id ของบุคลากรที่โอนจาก RMS) → ชื่อผู้ใช้ → อีเมล
+     * ทุกขั้นต้องเจอบัญชีเดียวเท่านั้น ถ้าเจอหลายบัญชีถือว่าไม่แน่ชัดและไม่เดา
+     *
+     * @param array<string,mixed> $ssoUser object user จาก verify_token (ทุกช่องเป็น optional ยกเว้น id/ชื่อ)
+     * @return array<string,mixed>|null
+     */
+    public function findBySso(array $ssoUser): ?array
+    {
+        $columns = 'id, username, email, full_name, password_hash, role, status';
+        $nationalId = preg_replace('/\D/', '', (string) ($ssoUser['national_id'] ?? '')) ?? '';
+        $username = trim((string) ($ssoUser['username'] ?? ''));
+        $email = trim((string) ($ssoUser['email'] ?? ''));
+
+        $lookups = [];
+        if (strlen($nationalId) === 13) {
+            $lookups[] = ["(people_id = ? OR (username = ? AND role <> 'student'))", [$nationalId, $nationalId]];
+        }
+        if ($username !== '') {
+            $lookups[] = ["username = ? AND role <> 'student'", [$username]];
+            $lookups[] = ["username = ? AND role = 'student'", [$username]];
+        }
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) !== false) {
+            $lookups[] = ['LOWER(email) = LOWER(?)', [$email]];
+        }
+
+        foreach ($lookups as [$where, $params]) {
+            $stmt = $this->db->prepare(sprintf('SELECT %s FROM `%susers` WHERE %s LIMIT 2', $columns, $this->prefix, $where));
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll();
+            if (count($rows) === 1) {
+                return $rows[0];
+            }
+        }
+
+        return null;
+    }
+
+    /** หน้าที่ผู้ใช้ตั้งใจเปิดก่อนถูกพามาเข้าสู่ระบบ — รับเฉพาะ path ภายในระบบ กันการพาออกไปเว็บอื่น */
+    public function pullIntended(): ?string
+    {
+        $intended = (string) ($_SESSION['intended'] ?? '');
+        unset($_SESSION['intended']);
+
+        return $intended !== '' && str_starts_with($intended, '/') && !str_starts_with($intended, '//') && !str_contains($intended, '\\')
+            ? $intended
+            : null;
+    }
+
     public function usernameTaken(string $username): bool
     {
         $stmt = $this->db->prepare(sprintf('SELECT COUNT(*) FROM `%susers` WHERE username = ?', $this->prefix));

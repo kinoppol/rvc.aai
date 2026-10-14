@@ -64,6 +64,11 @@
 
             <button type="submit" class="lp-btn lp-btn-solid lp-btn-block">เข้าสู่ระบบ</button>
 
+            {if $sso ?? false}
+                <div class="lp-auth-or"><span>หรือ</span></div>
+                <a class="lp-btn lp-btn-block lp-btn-sso" href="{$base}/auth/rvc-one">ลงชื่อเข้าใช้ผ่านระบบ RVC-ONE</a>
+            {/if}
+
             <p class="lp-auth-note">ลืมรหัสผ่าน กรุณาติดต่อครูผู้สอนหรือผู้ดูแลระบบของวิทยาลัย</p>
             <p class="lp-auth-note">เป็นครูและยังไม่มีบัญชี? <a href="{$base}/register">สมัครเข้าใช้ระบบ</a></p>
         </form>
