@@ -39,6 +39,13 @@ final class RmsSync
      */
     public function people(): array
     {
+        // ตรวจก่อนดึงจาก RMS — ไมเกรชันไม่รันเองตอน deploy ถ้าขาดคอลัมน์จะได้ข้อความที่บอกวิธีแก้แทน SQL error
+        if ($this->db->int(
+            'SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+            [$this->config->get('db.prefix', '') . 'users', 'rms_pass_seen']
+        ) === 0) {
+            throw new RmsException('ฐานข้อมูลยังไม่รองรับรหัสผ่าน RMS — กรุณารันไมเกรชันที่หน้า "ไมเกรชัน" (/admin/migrations) ก่อน แล้วค่อยโอนบุคลากรอีกครั้ง');
+        }
         $rows = $this->rms->fetch(self::PEOPLE);
         $institutionId = $this->institutionId();
         $stats = ['created' => 0, 'updated' => 0, 'deactivated' => 0, 'reactivated' => 0, 'password' => 0, 'skipped' => 0, 'active_source' => 0, 'fetched' => count($rows)];
