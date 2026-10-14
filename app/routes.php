@@ -48,6 +48,8 @@ return static function (App $app): void {
 
     $app->get('/login', [AuthController::class, 'show'])->setName('login');
     $app->post('/login', [AuthController::class, 'login']);
+    // ทางเข้าฉุกเฉินของผู้ดูแลระบบเมื่อเปิดเฉพาะ RVC-ONE — ไม่พึ่ง RVC-ONE
+    $app->get('/login/admin', [AuthController::class, 'adminLogin'])->setName('login.admin');
     $app->post('/logout', [AuthController::class, 'logout'])->setName('logout');
 
     // เข้าสู่ระบบผ่าน RVC-ONE (SSO) — /auth/callback ต้องตรงกับ redirect_uri ที่ลงทะเบียนไว้

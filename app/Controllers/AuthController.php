@@ -37,6 +37,22 @@ final class AuthController
         ], (string) ($request->getQueryParams()['admin'] ?? '') === '1');
     }
 
+    /**
+     * หน้าเข้าสู่ระบบเฉพาะผู้ดูแลระบบ (/login/admin) — ทางเข้าฉุกเฉินเมื่อเปิดเฉพาะ RVC-ONE แล้ว RVC-ONE ใช้งานไม่ได้
+     * ไม่พึ่ง RVC-ONE เลย รับเฉพาะบัญชีบทบาทผู้ดูแลระบบ · ถ้ายังเปิดการเข้าด้วยรหัสผ่านอยู่ก็ส่งไปหน้าปกติ
+     */
+    public function adminLogin(Request $request, Response $response): Response
+    {
+        if ($this->auth->check()) {
+            return $this->redirect($response, '/dashboard');
+        }
+        if ($this->methods->password()) {
+            return $this->redirect($response, '/login');
+        }
+
+        return $this->loginView($response, [], true);
+    }
+
     public function login(Request $request, Response $response): Response
     {
         $data = (array) $request->getParsedBody();
@@ -56,7 +72,7 @@ final class AuthController
         if (!Csrf::check($data['_token'] ?? null)) {
             Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
 
-            return $this->redirect($response, $adminOnly ? '/login?admin=1' : '/login');
+            return $this->redirect($response, $adminOnly ? '/login/admin' : '/login');
         }
 
         if ($username === '' || $password === '' || ($as === 'student' && $institutionId === null)) {

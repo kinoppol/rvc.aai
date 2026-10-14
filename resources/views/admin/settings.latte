@@ -34,9 +34,20 @@
             <input type="checkbox" name="login_password" value="1" n:attr="checked: $loginPassword">
             <span>
                 <b>ชื่อผู้ใช้และรหัสผ่าน</b>
-                <span class="hint">ครู ผู้ดูแลระบบ และนักเรียน (รวมการเข้าครั้งแรกด้วยรหัสผ่าน RMS) · เมื่อปิด ผู้ดูแลระบบยังเข้าด้วยรหัสผ่านได้ที่ <code>/login?admin=1</code> เผื่อ RVC-ONE ใช้งานไม่ได้</span>
+                <span class="hint">ครู ผู้ดูแลระบบ และนักเรียน (รวมการเข้าครั้งแรกด้วยรหัสผ่าน RMS)</span>
             </span>
         </label>
+        <div class="admin-door">
+            <span class="msi">info</span>
+            <div class="grow">
+                <b>ทางเข้าฉุกเฉินของผู้ดูแลระบบ</b>
+                <div class="hint">เมื่อปิดการเข้าด้วยรหัสผ่าน ผู้ดูแลระบบยังเข้าด้วยชื่อผู้ใช้และรหัสผ่านได้ที่ลิงก์นี้ เผื่อ RVC-ONE ใช้งานไม่ได้ — คัดลอกเก็บไว้ก่อนปิด</div>
+                <div class="admin-door-url">
+                    <code id="adminLoginUrl">{$adminLoginUrl}</code>
+                    <button type="button" class="btn btn-sm" id="copyAdminLogin">คัดลอก</button>
+                </div>
+            </div>
+        </div>
         <label n:class="login-method, !$rvcOneAvailable ? is-disabled">
             <input type="checkbox" name="login_rvc_one" value="1" n:attr="checked: $loginRvcOne, disabled: !$rvcOneAvailable">
             <span>
@@ -58,15 +69,45 @@
     .login-method .hint { display: block; margin-top: 2px; }
     .login-method:has(input:checked) { border-color: var(--brandLine); background: var(--brandSoft); }
     .login-method.is-disabled { opacity: .6; cursor: not-allowed; }
+    .admin-door { display: flex; gap: 10px; margin: 10px 0 0 30px; padding: 12px 14px; border-radius: 12px; background: var(--surface2); font-size: 13.5px; }
+    .admin-door > .msi { color: var(--brand); font-size: 20px; }
+    .admin-door-url { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+    .admin-door-url code { padding: 6px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); word-break: break-all; }
+    @media (max-width: 640px) { .admin-door { margin-left: 0; } }
 </style>
 <script>
-    // ห้ามเอาเครื่องหมายออกทุกช่อง — ฝั่ง server ตรวจซ้ำอีกชั้น
-    document.querySelector('.login-methods').addEventListener('submit', function (e) {
-        var on = this.querySelectorAll('input[type=checkbox]:checked:not(:disabled)').length;
-        if (on === 0) {
-            e.preventDefault();
-            rvcAlert({ title: 'วิธีเข้าสู่ระบบ', message: 'ต้องเปิดวิธีเข้าสู่ระบบอย่างน้อยหนึ่งวิธี', danger: true });
-        }
-    });
+    (function () {
+        var form = document.querySelector('.login-methods');
+        var password = form.querySelector('input[name="login_password"]');
+        var wasOn = password.checked;
+        var url = document.getElementById('adminLoginUrl').textContent;
+
+        document.getElementById('copyAdminLogin').addEventListener('click', function () {
+            var btn = this;
+            navigator.clipboard && navigator.clipboard.writeText(url).then(function () {
+                btn.textContent = 'คัดลอกแล้ว';
+                setTimeout(function () { btn.textContent = 'คัดลอก'; }, 1500);
+            });
+        });
+
+        form.addEventListener('submit', async function (e) {
+            // ห้ามเอาเครื่องหมายออกทุกช่อง — ฝั่ง server ตรวจซ้ำอีกชั้น
+            if (form.querySelectorAll('input[type=checkbox]:checked:not(:disabled)').length === 0) {
+                e.preventDefault();
+                rvcAlert({ title: 'วิธีเข้าสู่ระบบ', message: 'ต้องเปิดวิธีเข้าสู่ระบบอย่างน้อยหนึ่งวิธี', danger: true });
+                return;
+            }
+            // กำลังจะปิดการเข้าด้วยรหัสผ่าน — ย้ำให้เก็บลิงก์ทางเข้าฉุกเฉินไว้ก่อน
+            if (wasOn && !password.checked && !form.dataset.ok) {
+                e.preventDefault();
+                var ok = await rvcConfirm({
+                    title: 'ปิดการเข้าด้วยรหัสผ่าน',
+                    message: 'ผู้ใช้ทุกคนจะต้องเข้าผ่าน RVC-ONE · ถ้า RVC-ONE ใช้งานไม่ได้ ผู้ดูแลระบบเข้าได้ที่ ' + url + ' — คัดลอกเก็บไว้แล้วหรือยัง',
+                    confirmText: 'เก็บแล้ว ปิดเลย'
+                });
+                if (ok) { form.dataset.ok = '1'; form.requestSubmit(); }
+            }
+        });
+    })();
 </script>
 {/block}

@@ -7,6 +7,7 @@ namespace App\Controllers\Admin;
 use App\Auth\Auth;
 use App\Auth\LoginMethods;
 use App\Domain\SettingsRepository;
+use App\Support\Config;
 use App\Support\Csrf;
 use App\Support\Flash;
 use App\Support\Url;
@@ -25,6 +26,7 @@ final class GeneralController
         private readonly SettingsRepository $settings,
         private readonly Auth $auth,
         private readonly LoginMethods $methods,
+        private readonly Config $config,
     ) {
     }
 
@@ -37,6 +39,8 @@ final class GeneralController
             'loginPassword' => $this->methods->password(),
             'loginRvcOne' => $this->methods->rvcOne(),
             'rvcOneAvailable' => $this->methods->rvcOneAvailable(),
+            // URL เต็มของทางเข้าฉุกเฉิน ให้ผู้ดูแลคัดลอกไปเก็บไว้ก่อนปิดการเข้าด้วยรหัสผ่าน
+            'adminLoginUrl' => rtrim((string) $this->config->get('app.url'), '/') . '/login/admin',
         ]);
     }
 
