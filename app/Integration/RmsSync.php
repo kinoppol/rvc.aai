@@ -41,7 +41,7 @@ final class RmsSync
     {
         $rows = $this->rms->fetch(self::PEOPLE);
         $institutionId = $this->institutionId();
-        $stats = ['created' => 0, 'updated' => 0, 'deactivated' => 0, 'reactivated' => 0, 'skipped' => 0, 'active_source' => 0, 'fetched' => count($rows)];
+        $stats = ['created' => 0, 'updated' => 0, 'deactivated' => 0, 'reactivated' => 0, 'password' => 0, 'skipped' => 0, 'active_source' => 0, 'fetched' => count($rows)];
 
         $this->db->transaction(function () use ($rows, $institutionId, &$stats): void {
             $seen = [];
@@ -56,10 +56,11 @@ final class RmsSync
                     continue;
                 }
                 $stats['active_source']++;
+                $rmsPass = self::md5($p['people_pass'] ?? null);
                 $seen[$peopleId] = true;
 
                 $user = $this->db->first(
-                    "SELECT id, status, institution_id, rms_deactivated_at FROM {users}
+                    "SELECT id, status, institution_id, rms_deactivated_at, rms_pass_seen FROM {users}
                      WHERE people_id = ? OR (username = ? AND role <> 'student')
                      ORDER BY people_id = ? DESC LIMIT 1",
                     [$peopleId, $peopleId, $peopleId]
@@ -73,12 +74,15 @@ final class RmsSync
                     continue;
                 }
                 if ($user === null) {
-                    $password = self::str($p['ath_pass'] ?? '');
                     $this->db->insert('users', [
                         'username'       => $peopleId,
                         'people_id'      => $peopleId,
                         'email'          => $this->freeEmail(self::nullable($p['people_email'] ?? null), null),
-                        'password_hash'  => password_hash($password !== '' ? $password : $peopleId, PASSWORD_DEFAULT),
+                        // มี people_pass = ล็อกอินครั้งแรกด้วยรหัสผ่าน RMS เท่านั้น จึงตั้ง hash สุ่มที่ไม่มีใครรู้ไว้แทน
+                        // ไม่มี = ใช้รหัสบุคลากรเป็นรหัสผ่านเริ่มต้นเหมือนเดิม
+                        'password_hash'  => password_hash($rmsPass !== null ? bin2hex(random_bytes(24)) : $peopleId, PASSWORD_DEFAULT),
+                        'rms_pass_md5'   => $rmsPass,
+                        'rms_pass_seen'  => $rmsPass,
                         'full_name'      => $fullName,
                         'role'           => Roles::TEACHER,
                         'status'         => 'active',
@@ -88,7 +92,7 @@ final class RmsSync
                     continue;
                 }
 
-                // ไม่แตะ role / password / created_at ที่แอดมินหรือผู้ใช้ตั้งเองแล้ว
+                // ไม่แตะ role / password_hash / created_at ที่แอดมินหรือผู้ใช้ตั้งเองแล้ว
                 $fields = [
                     'people_id' => $peopleId,
                     'full_name' => $fullName,
@@ -99,6 +103,12 @@ final class RmsSync
                 }
                 if ($user['institution_id'] === null) {
                     $fields['institution_id'] = $institutionId;
+                }
+                // รับรหัสผ่าน RMS ใหม่เฉพาะเมื่อ people_pass เปลี่ยนจากที่โอนครั้งก่อน — โอนซ้ำค่าเดิมจะไม่เปิดรหัสที่ใช้ไปแล้วกลับมา
+                if ($rmsPass !== null && $rmsPass !== $user['rms_pass_seen']) {
+                    $fields['rms_pass_md5'] = $rmsPass;
+                    $fields['rms_pass_seen'] = $rmsPass;
+                    $stats['password']++;
                 }
                 // เปิดคืนเฉพาะคนที่การ sync เป็นผู้ระงับ — คนที่แอดมินระงับเองยังคงถูกระงับ
                 if ($user['status'] === 'suspended' && $user['rms_deactivated_at'] !== null) {
@@ -335,6 +345,14 @@ final class RmsSync
         );
 
         return $taken > 0 ? null : $email;
+    }
+
+    /** people_pass ของ RMS คือ md5 ของรหัสผ่าน — รับเฉพาะ hex 32 ตัว คืนเป็นตัวพิมพ์เล็ก */
+    private static function md5(mixed $v): ?string
+    {
+        $v = strtolower(self::str($v));
+
+        return preg_match('/^[0-9a-f]+$/', $v) === 1 && strlen($v) === 32 ? $v : null;
     }
 
     private static function str(mixed $v): string

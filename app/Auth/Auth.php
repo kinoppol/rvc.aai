@@ -34,6 +34,10 @@ final class Auth
 
         $user = $this->findByUsername($username, $institutionId);
         $valid = $user !== null && password_verify($password, $user['password_hash']);
+        // บุคลากรที่โอนจาก RMS ล็อกอินครั้งแรกด้วยรหัสผ่านของ RMS ได้ (people_pass = md5 ของรหัสผ่าน)
+        $rmsPass = $user !== null ? $this->rmsPass((int) $user['id']) : null;
+        $viaRms = !$valid && $rmsPass !== null && hash_equals($rmsPass, md5($password));
+        $valid = $valid || $viaRms;
 
         $this->record($username, $ip, 'login', $valid);
 
@@ -49,7 +53,10 @@ final class Auth
             return ['ok' => false, 'message' => $message];
         }
 
-        if (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
+        if ($rmsPass !== null) {
+            // ล็อกอินผ่านแล้ว เลิกใช้ md5 จาก RMS — ถ้าเข้าด้วยรหัส RMS ก็เก็บรหัสนั้นแบบปลอดภัยแทน
+            $this->retireRmsPass((int) $user['id'], $viaRms ? password_hash($password, PASSWORD_DEFAULT) : null);
+        } elseif (password_needs_rehash($user['password_hash'], PASSWORD_DEFAULT)) {
             $this->updateHash((int) $user['id'], password_hash($password, PASSWORD_DEFAULT));
         }
 
@@ -374,6 +381,29 @@ final class Auth
     {
         $stmt = $this->db->prepare(sprintf('DELETE FROM `%spassword_resets` WHERE user_id = ?', $this->prefix));
         $stmt->execute([$userId]);
+    }
+
+    /** md5 ของรหัสผ่าน RMS ที่ยังใช้ได้ — คืน null ถ้าไม่มี หรือยังไม่ได้รันไมเกรชัน 000126 (ห้ามทำให้ล็อกอินพัง) */
+    private function rmsPass(int $id): ?string
+    {
+        try {
+            $stmt = $this->db->prepare(sprintf('SELECT rms_pass_md5 FROM `%susers` WHERE id = ?', $this->prefix));
+            $stmt->execute([$id]);
+            $hash = $stmt->fetchColumn();
+        } catch (\PDOException) {
+            return null;
+        }
+
+        return is_string($hash) && strlen($hash) === 32 ? strtolower($hash) : null;
+    }
+
+    private function retireRmsPass(int $id, ?string $hash): void
+    {
+        $sql = $hash === null
+            ? 'UPDATE `%susers` SET rms_pass_md5 = NULL WHERE id = ?'
+            : 'UPDATE `%susers` SET rms_pass_md5 = NULL, password_hash = ? WHERE id = ?';
+        $stmt = $this->db->prepare(sprintf($sql, $this->prefix));
+        $stmt->execute($hash === null ? [$id] : [$hash, $id]);
     }
 
     private function updateHash(int $id, string $hash): void

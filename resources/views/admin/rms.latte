@@ -16,6 +16,20 @@
     .rms-bar.scan > i { width: 30%; animation: rmsScan 1.1s linear infinite; }
     @keyframes rmsScan { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
     .rms-progress-text { font-size: 12.5px; color: var(--ink3); margin-top: 4px; }
+    .rms-icon { position: relative; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; }
+    .rms-item.is-running .rms-icon { background: var(--brandSoft); animation: rmsBob 1.4s ease-in-out infinite; }
+    .rms-item.is-running .rms-icon::after {
+        content: ''; position: absolute; inset: -4px; border-radius: 50%;
+        border: 3px solid var(--brandLine); border-top-color: var(--brand); animation: rvcSpin .9s linear infinite;
+    }
+    @keyframes rmsBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+    .rms-item.is-running .rms-body h3::after { content: ' · กำลังโอน'; color: var(--brand); font-weight: 600; font-size: 13px; }
+    .rms-item [data-run] { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+    .rms-clock { font-variant-numeric: tabular-nums; opacity: .8; }
+    @media (prefers-reduced-motion: reduce) {
+        .rms-item.is-running .rms-icon, .rms-bar.scan > i { animation: none; }
+        .rms-bar.scan > i { width: 100%; opacity: .5; }
+    }
     @media (max-width: 640px) { .rms-item { flex-wrap: wrap; } }
 </style>
 
@@ -47,9 +61,12 @@
                 <div class="hint">ในระบบตอนนี้ {$totals['people']} คน</div>
                 <ul>
                     <li>เฉพาะผู้ที่ยังปฏิบัติงานอยู่ ชื่อผู้ใช้ = รหัสบุคลากรใน RMS บัญชีใหม่เป็นบทบาท "ครู"</li>
-                    <li>รหัสผ่านตั้งจาก RMS เฉพาะตอนสร้างบัญชีครั้งแรก ไม่ทับบทบาทหรือรหัสผ่านที่เปลี่ยนแล้ว</li>
+                    <li>ล็อกอินครั้งแรกด้วยรหัสผ่านเดียวกับ RMS ได้ (people_pass) เมื่อล็อกอินสำเร็จ ระบบจะเก็บรหัสผ่านแบบปลอดภัยแล้วเลิกใช้รหัสจาก RMS · ถ้ารหัสใน RMS เปลี่ยน การโอนครั้งถัดไปจะเปิดให้ใช้รหัสใหม่ได้อีกหนึ่งครั้ง</li>
+                    <li>ไม่ทับบทบาท และไม่ทับรหัสผ่านที่ผู้ใช้ตั้งเองแล้ว</li>
                     <li>ผู้ที่หายจาก RMS จะถูก <b>ระงับบัญชี</b> (ไม่ลบ) และเปิดคืนเองเมื่อกลับมาใน RMS</li>
                 </ul>
+                <div class="rms-bar" hidden><i></i></div>
+                <div class="rms-progress-text"></div>
                 <div class="rms-result"></div>
             </div>
             <button type="button" class="btn" data-run>เริ่มโอน</button>
@@ -64,6 +81,8 @@
                     <li>จับคู่ด้วยรหัสกลุ่ม เก็บข้อมูลจากภาคเรียนล่าสุดที่พบ ใช้เป็นตัวเลือก "กลุ่มเรียน" ของรายวิชา</li>
                     <li>ครูที่ปรึกษาจะผูกกับบัญชีครูเมื่อชื่อ-นามสกุลตรงกัน (ควรโอนบุคลากรก่อน)</li>
                 </ul>
+                <div class="rms-bar" hidden><i></i></div>
+                <div class="rms-progress-text"></div>
                 <div class="rms-result"></div>
             </div>
             <button type="button" class="btn" data-run>เริ่มโอน</button>
@@ -118,7 +137,7 @@
                     if (!r.success) { el.result.innerHTML = fail(r.message); return false; }
                     var d = r.data;
                     el.result.innerHTML = chip('เพิ่ม', d.created, 'ok') + chip('อัปเดต', d.updated) +
-                        chip('ระงับ', d.deactivated, d.deactivated ? 'warn' : 'muted') + chip('เปิดคืน', d.reactivated) +
+                        chip('ระงับ', d.deactivated, d.deactivated ? 'warn' : 'muted') + chip('เปิดคืน', d.reactivated) + chip('รหัสผ่าน RMS ใหม่', d.password) +
                         chip('ข้าม', d.skipped, d.skipped ? 'warn' : 'muted') + chip('ปฏิบัติงานใน RMS', d.active_source);
                     return true;
                 });
@@ -194,13 +213,43 @@
         document.querySelectorAll('[data-run], #rmsAll').forEach(function (b) { b.disabled = on; });
     }
 
+    function clock(sec) {
+        return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+    }
+
+    // ทุกชุดข้อมูลได้ภาพเคลื่อนไหว + นาฬิกาจับเวลา — ชุดที่ไม่มีความคืบหน้าจริง (บุคลากร/กลุ่มเรียน) ใช้แถบวิ่งไม่รู้จบ
     async function runOne(key) {
         var el = parts(key);
+        var t = transfers[key];
         var label = el.button.textContent;
-        el.button.textContent = 'กำลังโอน…';
+        var started = Date.now();
+        el.item.classList.add('is-running');
+        el.button.innerHTML = '<span class="spinner"></span>กำลังโอน… <span class="rms-clock">0:00</span>';
+        var clockEl = el.button.querySelector('.rms-clock');
         el.result.innerHTML = '';
-        var ok = await transfers[key].run(el);
+        if (!t.row) {
+            el.bar.hidden = false;
+            el.bar.classList.add('scan');
+            el.bar.firstElementChild.style.width = '';
+            el.text.textContent = 'กำลังดึงข้อมูลจาก RMS และบันทึกเข้าระบบ อาจใช้เวลาสักครู่…';
+        }
+        var timer = setInterval(function () {
+            clockEl.textContent = clock(Math.round((Date.now() - started) / 1000));
+        }, 1000);
+
+        var ok = await t.run(el);
+
+        clearInterval(timer);
+        var took = clock(Math.round((Date.now() - started) / 1000));
+        el.item.classList.remove('is-running');
         el.button.textContent = label;
+        if (!t.row) {
+            el.bar.classList.remove('scan');
+            el.bar.firstElementChild.style.width = ok ? '100%' : '0';
+            el.text.textContent = ok ? 'เสร็จแล้ว ใช้เวลา ' + took + ' นาที' : 'ไม่สำเร็จ (ใช้เวลา ' + took + ' นาที)';
+        } else if (ok) {
+            el.text.textContent += ' · ใช้เวลา ' + took + ' นาที';
+        }
         return ok;
     }
 
