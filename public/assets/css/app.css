@@ -1668,12 +1668,84 @@ textarea.input {
 }
 @keyframes rvcSpin { to { transform: rotate(360deg); } }
 
+/* กล่อง "ผู้ช่วยกำลังเขียน…" ของฟอร์มร่างด้วย AI — ui.js เติมลูกแก้ว ✦ (.busy-orb) ตัวนับเวลา (.busy-time)
+   และเส้นข้อความจำลอง (.busy-lines) ให้ตอนกดส่ง · ขอบไล่สีวิ่งรอบกล่องด้วยพื้นหลังสองชั้น (padding-box / border-box) */
 .busy-note {
-    display: flex; align-items: center; gap: 10px; margin-top: 14px;
-    padding: 12px 14px; border-radius: 10px;
-    background: var(--brandSoft); color: var(--brand); font-size: 13.5px;
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px 14px; margin-top: 14px;
+    padding: 16px 18px; border-radius: 18px; border: 1.5px solid transparent;
+    color: var(--brand); font-size: 14px; font-weight: 600;
+    background:
+        linear-gradient(color-mix(in srgb, var(--brand) 6%, var(--surface, #fff)), color-mix(in srgb, var(--brand) 6%, var(--surface, #fff))) padding-box,
+        linear-gradient(100deg, var(--brandLine), var(--brand), var(--violet), var(--brandLine), var(--brandLine)) border-box;
+    background-size: 100% 100%, 300% 100%;
+    box-shadow: 0 10px 30px -18px var(--brand);
+    animation: busyBorder 3s linear infinite, busyIn .3s ease;
 }
+.busy-note .hint { font-weight: 400; }
 .busy-note .spinner { width: 16px; height: 16px; }
+.busy-orb {
+    position: relative; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center;
+    color: #fff; font-size: 22px; line-height: 1;
+    background: radial-gradient(circle at 30% 28%, color-mix(in srgb, var(--violet) 55%, #fff), var(--brand) 72%);
+    box-shadow: 0 6px 18px -6px var(--brand);
+    animation: busyBreath 2.4s ease-in-out infinite;
+}
+/* วงแหวนหางยาวหมุนรอบลูกแก้ว */
+.busy-orb::before {
+    content: ''; position: absolute; inset: -6px; border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0 50%, color-mix(in srgb, var(--brand) 40%, transparent) 70%, var(--violet) 100%);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+    animation: rvcSpin 1.2s linear infinite;
+}
+/* คลื่นกระเพื่อมออกจากลูกแก้ว */
+.busy-orb::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    animation: busyRipple 2.4s ease-out infinite;
+}
+.busy-orb > span { animation: busyTwinkle 2.4s ease-in-out infinite; }
+.busy-time {
+    padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+    font: 700 12px/1.4 var(--accent); font-variant-numeric: tabular-nums;
+    color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+/* เส้นข้อความจำลอง: ยืดออกทีละบรรทัดเหมือนกำลังพิมพ์ แล้วจางหายเริ่มใหม่ */
+.busy-lines { grid-column: 1 / -1; display: grid; gap: 8px; padding-left: 56px; }
+.busy-lines i {
+    display: block; height: 8px; width: 0; border-radius: 999px;
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--brand) 16%, transparent), color-mix(in srgb, var(--brand) 42%, transparent),
+        color-mix(in srgb, var(--violet) 30%, transparent), color-mix(in srgb, var(--brand) 16%, transparent));
+    background-size: 200% 100%;
+    animation: busyWrite 4.2s ease-in-out infinite, busyShine 1.6s linear infinite;
+}
+.busy-lines i:nth-child(1) { --w: 94%; }
+.busy-lines i:nth-child(2) { --w: 80%; animation-delay: .7s, 0s; }
+.busy-lines i:nth-child(3) { --w: 56%; animation-delay: 1.4s, 0s; }
+@keyframes busyBorder { to { background-position: 0 0, 300% 0; } }
+@keyframes busyIn { from { opacity: 0; transform: translateY(6px); } }
+@keyframes busyBreath { 50% { transform: scale(1.06); } }
+@keyframes busyTwinkle { 0%, 100% { transform: rotate(0) scale(1); opacity: 1; } 50% { transform: rotate(90deg) scale(.82); opacity: .8; } }
+@keyframes busyRipple {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 45%, transparent); }
+    100% { box-shadow: 0 0 0 16px transparent; }
+}
+@keyframes busyWrite {
+    0% { width: 0; opacity: 0; }
+    8% { opacity: 1; }
+    50%, 82% { width: var(--w); opacity: 1; }
+    100% { width: var(--w); opacity: 0; }
+}
+@keyframes busyShine { from { background-position: 200% 0; } to { background-position: 0 0; } }
+@media (max-width: 560px) {
+    .busy-note { grid-template-columns: auto 1fr; }
+    .busy-time { grid-column: 2; justify-self: start; }
+    .busy-lines { padding-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .busy-note, .busy-orb, .busy-orb::before, .busy-orb::after, .busy-orb > span, .busy-lines i { animation: none; }
+    .busy-lines i { width: var(--w); }
+}
 .busy-dots::after {
     content: ''; animation: rvcDots 1.2s steps(4, end) infinite;
 }

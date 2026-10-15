@@ -118,8 +118,45 @@
         button.innerHTML = '<span class="spinner"></span>' + (form.getAttribute('data-busy') || 'กำลังดำเนินการ…');
 
         var note = form.querySelector('[data-busy-note]');
-        if (note) { note.hidden = false; }
+        if (note) {
+            dressBusyNote(note);
+            note.hidden = false;
+        }
     });
+
+    /* กล่อง "ผู้ช่วยกำลังเขียน…" — แทนวงกลมหมุนด้วยลูกแก้ว ✦ เติมเส้นข้อความจำลองที่ค่อย ๆ ถูกเขียน
+       และนับเวลาที่ผ่านไป (งานร่างของ AI ใช้ 15–60 วินาที ผู้ใช้จะได้เห็นว่ายังทำงานอยู่) */
+    function dressBusyNote(note) {
+        if (note.dataset.dressed === '1') { return; }
+        note.dataset.dressed = '1';
+
+        var orb = document.createElement('span');
+        orb.className = 'busy-orb';
+        orb.setAttribute('aria-hidden', 'true');
+        orb.innerHTML = '<span>✦</span>';
+        var spinner = note.querySelector('.spinner');
+        if (spinner) { note.replaceChild(orb, spinner); } else { note.insertBefore(orb, note.firstChild); }
+
+        var time = document.createElement('span');
+        time.className = 'busy-time';
+        note.appendChild(time);
+
+        var lines = document.createElement('span');
+        lines.className = 'busy-lines';
+        lines.setAttribute('aria-hidden', 'true');
+        lines.innerHTML = '<i></i><i></i><i></i>';
+        note.appendChild(lines);
+
+        note.setAttribute('role', 'status');
+
+        var start = Date.now();
+        function tick() {
+            var s = Math.floor((Date.now() - start) / 1000);
+            time.textContent = s < 60 ? s + ' วินาที' : Math.floor(s / 60) + ' นาที ' + (s % 60) + ' วินาที';
+        }
+        tick();
+        setInterval(tick, 1000);
+    }
 })();
 
 /* ---------- ปุ่ม (i) คำอธิบายย่อ ----------
