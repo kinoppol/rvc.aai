@@ -31,8 +31,11 @@
         </div>
     {/if}
 
-    {* ส่วนหัวรายวิชา: สีเข้มตามสีปกของรายวิชา · ความคืบหน้ารวมทุกหน่วย *}
+    {* ส่วนหัวรายวิชา: สีปก/รูปปกเดียวกับแบนเนอร์ของครู · ความคืบหน้ารวมทุกหน่วย *}
     <section class="learn-hero" style="--cc:#{$course['color']};--ca:#{$course['accent']}">
+        <div class="banner-bg" aria-hidden="true">
+            {if !empty($course['cover_url'])}<img class="cover-img" src="{$course['cover_url']}" alt="">{/if}
+        </div>
         <div class="learn-chips">
             <span>{$course['code']}</span>
             {if (int) $course['credits'] > 0}<span>{(int) $course['theory_hours']}-{(int) $course['practice_hours']}-{(int) $course['credits']}</span>{/if}

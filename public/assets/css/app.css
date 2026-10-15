@@ -1741,7 +1741,8 @@ a.brand-mark { text-decoration: none; }
 
 /* โหมดมืด: แบนเนอร์และ Hero ใช้เฉดเข้มของสีหลัก ตัวอักษรขาวจึงยังอ่านชัด */
 :root[data-theme="dark"] .hero,
-:root[data-theme="dark"] .course-banner {
+:root[data-theme="dark"] .course-banner,
+:root[data-theme="dark"] .learn-hero {
     background: radial-gradient(circle at top left,
         color-mix(in srgb, var(--cc, var(--brand)) 45%, #000) 0%,
         color-mix(in srgb, var(--cc, var(--brand)) 70%, #000) 40%,
@@ -2003,16 +2004,15 @@ textarea.note-input { height: auto; min-height: 84px; padding: 10px 14px; line-h
 .learn-congrats-title { font: 800 19px/1.4 var(--sans); }
 .learn-congrats-sub { color: var(--ink2); font-size: 14px; margin-top: 2px; }
 
+/* ปกหน้าเรียนของนักเรียน — พื้นไล่สี วงแสง และรูปปก (.banner-bg) ชุดเดียวกับ .course-banner ของครู
+   นักเรียนจึงเห็นปกรายวิชาสีเดียวกับที่ครูเห็น */
 .learn-hero {
-    position: relative; overflow: hidden; color: #fff; padding: 34px 40px 30px; border-radius: var(--radius);
-    background: linear-gradient(135deg, color-mix(in srgb, var(--cc, var(--brand)) 55%, #0A1838), #0A1838 78%);
+    position: relative; isolation: isolate; overflow: hidden; color: #fff; padding: 34px 40px 30px; border-radius: 32px;
+    background: radial-gradient(circle at top left,
+        color-mix(in srgb, var(--cc, var(--brand)) 80%, #000) 0%, var(--cc, var(--brand)) 40%, var(--ca, var(--violet)) 100%);
     box-shadow: var(--shadow);
 }
-.learn-hero::after {
-    content: ""; position: absolute; width: 320px; height: 320px; right: -80px; top: -140px; border-radius: 50%;
-    background: color-mix(in srgb, var(--ca, var(--violet)) 55%, transparent); filter: blur(60px); opacity: .55; pointer-events: none;
-}
-.learn-hero > * { position: relative; z-index: 1; }
+.learn-hero > :not(.banner-bg) { position: relative; z-index: 1; }
 .learn-chips { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 12px; }
 .learn-chips span {
     padding: 3px 10px; font: 700 12px/1.5 var(--sans); border: 1px solid rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .06);
@@ -2029,12 +2029,13 @@ textarea.note-input { height: auto; min-height: 84px; padding: 10px 14px; line-h
 .learn-progress { display: flex; align-items: center; gap: 16px; margin-top: 26px; }
 .learn-progress > b { flex: none; min-width: 44px; text-align: right; font: 800 15px/1 var(--accent); }
 .learn-progress form { margin: 0; }
+/* ปุ่มขาวทึบตัวอักษรสีปก แบบปุ่ม AI บนแบนเนอร์ครู — ปุ่มสีธีมจะกลืน/ขัดกับสีปก */
 .learn-cta {
     flex: none; display: inline-flex; align-items: center; padding: 11px 22px; border-radius: 999px; border: 0; cursor: pointer;
-    font: 800 15px/1.2 var(--sans); color: #fff; text-decoration: none;
-    background: linear-gradient(135deg, var(--brand), var(--brandDark, var(--brand))); box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--brand) 70%, transparent);
+    font: 800 15px/1.2 var(--sans); text-decoration: none;
+    background: #fff; color: color-mix(in srgb, var(--cc, var(--brand)) 85%, #000); box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .35);
 }
-.learn-cta:hover { filter: brightness(1.08); color: #fff; }
+.learn-cta:hover { background: #fff; color: var(--cc, var(--brand)); }
 .learn-cta:disabled { opacity: .55; cursor: not-allowed; filter: none; }
 .learn-bar { flex: 1; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .18); overflow: hidden; }
 .learn-bar > span { display: block; height: 100%; width: calc(var(--p, 0) * 1%); border-radius: inherit; background: #fff; transition: width .4s ease; }

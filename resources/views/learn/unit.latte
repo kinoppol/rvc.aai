@@ -33,6 +33,9 @@
     {/if}
 
     <section class="learn-hero" style="--cc:#{$course['color']};--ca:#{$course['accent']}">
+        <div class="banner-bg" aria-hidden="true">
+            {if !empty($course['cover_url'])}<img class="cover-img" src="{$course['cover_url']}" alt="">{/if}
+        </div>
         <div class="learn-chips">
             <span>{$unit['kind_label'] ?? 'หน่วยการเรียน'}</span>
             <span>{$course['code']} {$course['name']}</span>
