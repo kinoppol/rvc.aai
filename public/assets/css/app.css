@@ -899,6 +899,16 @@ dialog.modal .modal-foot {
 .tab.is-active .msi { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
 .tab:hover { color: var(--brand); background: var(--brandSoft); }
 .tab.is-active { color: var(--brandInk); background: var(--brand); box-shadow: var(--shadowBrand); }
+/* แท็บที่เป็นปุ่ม (สลับในหน้า form-tabs.js) — ล้างหน้าตาปุ่มของเบราว์เซอร์ แต่ให้ .tab.is-active / :hover ชนะ */
+button.tab { border: 0; background: none; cursor: pointer; }
+.form-tabs-card { margin-top: 14px; }
+.form-tabs-card > .tab-panel { animation: busyIn .2s ease; }
+.cover-editor.tab-panel { margin: 0 0 18px; padding-top: 0; border-top: 0; }
+.cover-editor.tab-panel > .hint:first-child { margin-bottom: 4px; }
+.form-tabs-actions {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-top: 6px; padding-top: 18px; border-top: 1px solid var(--line);
+}
 
 /* แท็บของเมนู "ตั้งค่าระบบ" (_partials/system-tabs.latte) อยู่บนสุดของทุกหน้าในเมนูนี้ */
 .sys-nav { display: flex; justify-content: center; margin: 0 0 22px; }

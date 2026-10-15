@@ -15,11 +15,26 @@
         {/if}
     </div>
 
-    <form method="post" action="{$base}/courses{if !$isNew}/{$course['id']}{/if}" class="card" style="margin-top:22px"
-          enctype="multipart/form-data">
+    {* แท็บสลับฝั่งเบราว์เซอร์ (form-tabs.js) — ทุกช่องยังอยู่ในฟอร์มเดียว กดบันทึกครั้งเดียวได้ครบทุกแท็บ *}
+    {var $formTabs = [
+        'general' => ['ข้อมูลรายวิชา', 'info'],
+        'about' => ['คำอธิบายและจุดประสงค์', 'description'],
+        'plan' => ['แผนการสอน', 'print'],
+        'cover' => ['หน้าปก', 'palette'],
+    ]}
+    {if !$isNew}{do $formTabs['archive'] = ['เก็บเข้าคลัง', 'folder_open']}{/if}
+    <div class="tabs form-tabs" role="tablist" data-form-tabs>
+        {foreach $formTabs as $key => [$label, $icon]}
+            <button type="button" role="tab" n:class="tab, $iterator->first ? is-active" data-tab="{$key}"
+                    aria-selected="{$iterator->first ? 'true' : 'false'}"><span class="msi" aria-hidden="true">{$icon}</span>{$label}</button>
+        {/foreach}
+    </div>
+
+    <form method="post" action="{$base}/courses{if !$isNew}/{$course['id']}{/if}" class="card form-tabs-card"
+          enctype="multipart/form-data" data-tabs-hide="archive">
         <input type="hidden" name="_token" value="{$csrf}">
 
-        <div class="course-form-grid">
+        <div class="course-form-grid tab-panel" data-panel="general" role="tabpanel">
             <div class="field">
                 <label for="cCode">รหัสวิชา</label>
                 <input class="input mono" id="cCode" name="code" required maxlength="32"
@@ -81,7 +96,9 @@
                     ปวส. (รหัส 3) เรียน 15 สัปดาห์ บวกสัปดาห์สอบต่อท้าย · ทล.บ. (รหัส 26-4) 18 สัปดาห์รวมวัดผล
                 </div>
             </div>
+        </div>
 
+        <div class="course-form-grid tab-panel" data-panel="about" role="tabpanel" hidden>
             <div class="field" style="grid-column:1 / -1">
                 <label for="cDesc">คำอธิบายรายวิชา</label>
                 <textarea class="input" id="cDesc" name="description" rows="4"
@@ -99,10 +116,12 @@
                           placeholder="ข้อละบรรทัด เช่น&#10;ประมวลความรู้เกี่ยวกับ…&#10;ปฏิบัติงาน…ตามหลักการ">{$course['competencies'] ?? ''}</textarea>
                 <div class="hint">จุดประสงค์และสมรรถนะรายวิชาใช้ในหน้า “ลักษณะรายวิชา” ของแผนการสอนที่สั่งพิมพ์</div>
             </div>
+        </div>
 
-            {* ข้อมูลสำหรับแผนการจัดการเรียนรู้ (สอศ. 2567) ที่สั่งพิมพ์ *}
+        {* ข้อมูลสำหรับแผนการจัดการเรียนรู้ (สอศ. 2567) ที่สั่งพิมพ์ *}
+        <div class="course-form-grid tab-panel" data-panel="plan" role="tabpanel" hidden>
             <div class="field" style="grid-column:1 / -1;margin-bottom:0">
-                <div class="step-label">ข้อมูลแผนการจัดการเรียนรู้</div>
+                <div class="hint">ใช้ในแผนการจัดการเรียนรู้ (สอศ. 2567) ที่สั่งพิมพ์จากปุ่ม “พิมพ์แผนการสอน” ในหน้ารายวิชา</div>
             </div>
             <div class="field">
                 <label for="cProgram">ประเภทวิชา</label>
@@ -138,8 +157,9 @@
         {* หน้าปกรายวิชา: สีจากชุดสี / สีเอง / สุ่ม หรืออัปโหลดรูปแล้วให้ระบบเลือกสีที่เข้ากับรูป *}
         {var $coverColor = $course['cover_color'] ?? ''}
         {var $shown = $coverColor ?: $coverAuto}
-        <div class="cover-editor" id="coverEditor" data-palette="{json_encode(array_column($coverPalette, 0))}" data-auto="{$coverAuto}">
-            <div class="step-label">หน้าปกรายวิชา</div>
+        <div class="cover-editor tab-panel" id="coverEditor" data-panel="cover" role="tabpanel" hidden
+             data-palette="{json_encode(array_column($coverPalette, 0))}" data-auto="{$coverAuto}">
+            <div class="hint">สีและรูปนี้ใช้กับการ์ดรายวิชา แบนเนอร์หน้ารายวิชา และหน้าเรียนของนักเรียน</div>
             <div class="cover-layout">
                 <div class="course-card-head cover-preview" id="coverPreview" style="--cc:#{$shown}">
                     <img class="cover-img" id="coverPreviewImg" alt="" src="{$course['cover_url'] ?? ''}" n:attr="hidden: empty($course['cover_url'])">
@@ -178,14 +198,15 @@
             </div>
         </div>
 
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px">
+        <div class="form-tabs-actions">
             <button type="submit" class="btn btn-primary">{$isNew ? 'เพิ่มรายวิชา' : 'บันทึกการแก้ไข'}</button>
             <a class="btn" href="{$base}/courses{if !$isNew}/{$course['id']}{/if}">ยกเลิก</a>
+            <span class="hint">บันทึกข้อมูลของทุกแท็บพร้อมกัน</span>
         </div>
     </form>
 
     {if !$isNew}
-        <div class="card" style="margin-top:18px">
+        <div class="card form-tabs-card tab-panel" data-panel="archive" role="tabpanel" hidden>
             <strong>เก็บรายวิชาเข้าคลัง</strong>
             <div class="hint" style="margin-top:6px">
                 รายวิชาจะหายจากหน้ารายวิชาของฉันและหน้าแรกสาธารณะ แต่บทเรียน แบบทดสอบ และคะแนนของนักเรียนยังอยู่ครบ
@@ -199,6 +220,7 @@
         </div>
     {/if}
 </div>
+<script src="{$base}/assets/js/form-tabs.js"></script>
 <script src="{$base}/assets/js/cover-picker.js"></script>
 <script src="{$base}/assets/js/outcomes-draft.js"></script>
 {/block}
