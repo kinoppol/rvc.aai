@@ -56,7 +56,7 @@
         <div class="aichat-files" id="aichatFiles" hidden></div>
         <div class="aichat-form-row">
             <button type="button" class="aichat-attach" id="aichatAttachBtn"
-                    title="แนบไฟล์ให้ผู้ช่วยอ่าน (txt, csv, docx, pdf · ไม่เกิน 2 MB)">📎</button>
+                    title="แนบไฟล์ให้ผู้ช่วยอ่าน (pdf ไม่เกิน 10 MB · txt, csv, docx ไม่เกิน 2 MB)">📎</button>
             <input type="file" id="aichatFile" hidden
                    accept=".txt,.md,.csv,.json,.xml,.html,.htm,.docx,.pdf">
             {* พูดแทนพิมพ์ — ใช้ Web Speech API ของเบราว์เซอร์ ซ่อนไว้ก่อน แสดงเมื่อเบราว์เซอร์รองรับ *}
@@ -488,6 +488,14 @@
 
     function upload(file) {
         if (attached.length >= 3) { note('แนบได้สูงสุด 3 ไฟล์ต่อหนึ่งคำถาม', 'err'); return; }
+
+        // ตรวจขนาดก่อนส่ง — ไฟล์ที่ใหญ่เกินค่าของเซิร์ฟเวอร์จะถูกตัดทิ้งทั้งคำขอ และฟ้องว่าเซสชันหมดอายุแทน
+        var isPdf = /\.pdf$/i.test(file.name);
+        var maxMb = isPdf ? 10 : 2;
+        if (file.size > maxMb * 1024 * 1024) {
+            note('ไฟล์ ' + file.name + ' ใหญ่เกิน ' + maxMb + ' MB กรุณาย่อไฟล์หรือแยกเฉพาะหน้าที่ต้องการ', 'err');
+            return;
+        }
 
         attachBtn.disabled = true;
         var pending = note('กำลังอ่านไฟล์ ' + file.name + '…', 'ok');

@@ -275,6 +275,10 @@ final class AiChatController
     public function attach(Request $request, Response $response): Response
     {
         $data = (array) $request->getParsedBody();
+        if ($data === [] && (int) $request->getHeaderLine('Content-Length') > 0) {
+            // คำขอใหญ่เกิน post_max_size — PHP ทิ้งทั้งฟอร์มรวมถึง _token จึงไม่ใช่เรื่องเซสชันหมดอายุ
+            return $this->json($response, ['ok' => false, 'message' => 'ไฟล์ใหญ่เกินที่เซิร์ฟเวอร์รับได้ กรุณาย่อไฟล์หรือแยกเฉพาะหน้าที่ต้องการ'], 413);
+        }
         if (!Csrf::check($data['_token'] ?? null)) {
             return $this->json($response, ['ok' => false, 'message' => 'เซสชันหมดอายุ'], 419);
         }
