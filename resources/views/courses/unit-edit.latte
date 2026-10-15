@@ -197,7 +197,10 @@
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
                     <label class="hint" style="display:flex;gap:8px;align-items:center">
                         จำนวนหัวข้อย่อย
-                        <input type="number" name="count" class="input" style="width:90px" min="2" max="10" value="4">
+                        <select name="count" class="input" style="width:auto">
+                            <option value="auto" selected>ให้ AI กำหนดตามความเหมาะสม</option>
+                            {for $n = 2; $n <= 10; $n++}<option value="{$n}">{$n} หัวข้อ</option>{/for}
+                        </select>
                     </label>
                     <button type="submit" class="btn btn-primary">✦ ให้ AI ร่างเนื้อหา</button>
                 </div>

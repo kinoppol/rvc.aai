@@ -314,7 +314,8 @@ final class UnitController
             throw new HttpForbiddenException($request, 'ผู้ดูแลระบบปิดฟังก์ชัน AI ของรายวิชานี้ไว้');
         }
 
-        $count = max(2, min(10, (int) ($data['count'] ?? 4)));
+        // ค่าเริ่มต้น "auto" = ให้ผู้ช่วยแบ่งหัวข้อเองตามเนื้อหา (0 ในสเปก) · ตัวเลขคือครูกำหนดเอง
+        $count = ($data['count'] ?? 'auto') === 'auto' ? 0 : max(2, min(10, (int) $data['count']));
         $existing = array_map(
             static fn (array $s): string => (string) $s['title'],
             $this->units->sectionsFor((int) $unit['id'])
@@ -336,7 +337,7 @@ final class UnitController
                     'count' => $count,
                     'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000),
                 ],
-                $count,
+                $count ?: 10,
                 (string) ($data['ai'] ?? '')
             );
         } catch (AiUnavailableException $e) {
