@@ -61,6 +61,45 @@
             <button type="submit" class="btn btn-primary">บันทึกวิธีเข้าสู่ระบบ</button>
         </div>
     </form>
+
+    <form method="post" action="{$base}/admin/settings/rvc-one" class="card" style="margin-top:16px" autocomplete="off">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <div class="step-label">การเชื่อมต่อ RVC-ONE</div>
+        <div class="hint" style="margin-top:4px">ค่าจากหน้าแก้ไขแอปในระบบ RVC-ONE — ใช้ยืนยันตัวแอปตอนตรวจโทเคนของผู้ใช้ ถ้าไม่ได้ตั้งไว้ จะเข้าสู่ระบบผ่าน RVC-ONE ไม่ได้</div>
+
+        <div class="sso-field">
+            <span class="sso-label">Client ID</span>
+            <code>{$rvcOneClientId}</code>
+        </div>
+
+        <div class="sso-field">
+            <span class="sso-label">Client Secret</span>
+            {if $rvcOneSecret['source'] === 'settings'}
+                <span class="chip chip-ok"><span class="msi">task_alt</span> ตั้งไว้แล้ว ••••{$rvcOneSecret['last4']}</span>
+            {elseif $rvcOneSecret['source'] === 'config'}
+                <span class="chip"><span class="msi">description</span> ใช้ค่าจากไฟล์ config ••••{$rvcOneSecret['last4']}</span>
+            {else}
+                <span class="chip chip-warn"><span class="msi">report</span> ยังไม่ได้ตั้ง</span>
+            {/if}
+        </div>
+        {if $rvcOneSecret['broken']}
+            <div class="hint" style="margin-top:6px;color:var(--err)">ค่าที่เก็บไว้ถอดรหัสไม่ได้ (กุญแจของระบบเปลี่ยน) กรุณากรอกใหม่</div>
+        {/if}
+
+        <input type="password" name="client_secret" class="input" style="margin-top:12px" maxlength="255" autocomplete="new-password"
+               placeholder="{$rvcOneSecret['source'] === '' ? 'วาง client_secret ที่นี่' : 'กรอกเพื่อเปลี่ยน — เว้นว่างไว้ = ใช้ค่าเดิม'}">
+        <div class="hint" style="margin-top:6px">เก็บแบบเข้ารหัส และจะไม่แสดงค่าเต็มอีก · ค่าในหน้านี้ใช้ก่อนค่าในไฟล์ config · บันทึกแล้วระบบจะถาม RVC-ONE ทันทีว่ารับค่านี้หรือไม่</div>
+
+        <div style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap">
+            <button type="submit" class="btn btn-primary">บันทึกและตรวจ</button>
+            {if $rvcOneSecret['source'] !== ''}
+                <button type="submit" class="btn" formnovalidate>ตรวจการเชื่อมต่อ</button>
+            {/if}
+            {if $rvcOneSecret['source'] === 'settings' || $rvcOneSecret['broken']}
+                <button type="submit" class="btn btn-ghost-danger" name="clear_secret" value="1" id="clearSecret">ลบค่าที่ตั้งไว้</button>
+            {/if}
+        </div>
+    </form>
 </div>
 
 <style>
@@ -75,6 +114,10 @@
     .admin-door-url { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
     .admin-door-url code { padding: 6px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); word-break: break-all; }
     @media (max-width: 640px) { .admin-door { margin-left: 0; } }
+    .sso-field { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+    .sso-label { min-width: 110px; font-weight: 600; }
+    .sso-field code { padding: 6px 10px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--line); }
+    .sso-field .chip .msi { font-size: 16px; vertical-align: -3px; }
 </style>
 <script>
     (function () {
@@ -89,6 +132,14 @@
                 btn.textContent = 'คัดลอกแล้ว';
                 setTimeout(function () { btn.textContent = 'คัดลอก'; }, 1500);
             });
+        });
+
+        var clearSecret = document.getElementById('clearSecret');
+        clearSecret && clearSecret.addEventListener('click', async function (e) {
+            if (clearSecret.dataset.ok) return;
+            e.preventDefault();
+            var ok = await rvcConfirm({ title: 'ลบ client_secret', message: 'เมื่อลบแล้ว การเข้าสู่ระบบผ่าน RVC-ONE จะใช้ไม่ได้จนกว่าจะกรอกใหม่ (ยกเว้นมีค่าในไฟล์ config)', confirmText: 'ลบ', danger: true });
+            if (ok) { clearSecret.dataset.ok = '1'; clearSecret.click(); }
         });
 
         form.addEventListener('submit', async function (e) {

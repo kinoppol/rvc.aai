@@ -284,6 +284,7 @@ return static function (App $app): void {
             $admin->get('/settings', [GeneralController::class, 'index'])->setName('admin.settings');
             $admin->post('/settings', [GeneralController::class, 'save']);
             $admin->post('/settings/login', [GeneralController::class, 'saveLogin']);
+            $admin->post('/settings/rvc-one', [GeneralController::class, 'saveRvcOne']);
         })->add(new RoleMiddleware(['admin']));
     })->add(ViewContext::class)->add(AuthMiddleware::class);
 };
