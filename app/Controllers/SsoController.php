@@ -103,7 +103,7 @@ final class SsoController
             $ssoUser = $this->rvcOne->verify($tokenId, $tokenKey);
         } catch (RvcOneException $e) {
             // ห้ามใส่ token_id / token_key ลง log
-            $this->logger->warning('RVC-ONE verify failed: ' . $e->reason, ['message' => $e->getMessage()]);
+            $this->logger->warning('RVC-ONE verify failed: ' . $e->reason, ['message' => $e->getMessage(), 'error' => $e->error]);
 
             return $this->fail($response, 401, $e->getMessage());
         }

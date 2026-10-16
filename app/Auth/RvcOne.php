@@ -20,6 +20,9 @@ final class RvcOne
         'authorize_url' => 'http://workspace.rvc.ac.th/oa/index.php',
         'verify_url'    => 'http://workspace.rvc.ac.th/oa/api/verify_token.php',
         'client_id'     => 'cl_65d249d300',
+        // ความลับของแอปที่ RVC-ONE ออกให้ — verify_token.php ต้องการ HTTP Basic (client_id:client_secret)
+        // ใส่ใน config/config.php เท่านั้น (`'sso' => ['client_secret' => '...']`) ห้าม commit ลง git
+        'client_secret' => '',
         // ต้องตรงกับที่ลงทะเบียนไว้ใน RVC-ONE ทุกตัวอักษร
         'redirect_uri'  => 'https://aai.rvc.ac.th/web/auth/callback',
     ];
@@ -47,7 +50,8 @@ final class RvcOne
      * ตรวจโทเคนกับ RVC-ONE แล้วคืน object user (+ org ถ้ามี ใต้คีย์ `_org`)
      *
      * @return array<string,mixed>
-     * @throws RvcOneException reason `invalid` = โทเคนผิด/หมดอายุ, `unavailable` = เรียก API ไม่สำเร็จ
+     * @throws RvcOneException reason `invalid` = โทเคนผิด/หมดอายุ, `unavailable` = เรียก API ไม่สำเร็จ,
+     *                         `config` = client_id / client_secret ของแอปไม่ถูกต้องหรือยังไม่ได้ตั้ง
      */
     public function verify(string $tokenId, string $tokenKey): array
     {
@@ -56,11 +60,18 @@ final class RvcOne
             throw new RvcOneException('invalid', 'ข้อมูลยืนยันตัวตนจาก RVC-ONE ไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
         }
 
+        $secret = (string) $this->setting('client_secret');
+        if ($secret === '') {
+            throw new RvcOneException('config', 'ยังไม่ได้ตั้งค่า client_secret ของ RVC-ONE ในระบบนี้ กรุณาแจ้งผู้ดูแลระบบ');
+        }
+
         $ch = curl_init((string) $this->setting('verify_url'));
         curl_setopt_array($ch, [
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => http_build_query(['token_id' => $tokenId, 'token_key' => $tokenKey]),
             CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded', 'Accept: application/json'],
+            CURLOPT_HTTPAUTH       => CURLAUTH_BASIC,
+            CURLOPT_USERPWD        => $this->setting('client_id') . ':' . $secret,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => self::TIMEOUT,
             CURLOPT_CONNECTTIMEOUT => 5,
@@ -78,8 +89,13 @@ final class RvcOne
         }
 
         $data = json_decode(ltrim((string) $raw, "\xEF\xBB\xBF \r\n\t"), true);
+        $error = is_array($data) && is_string($data['error'] ?? null) ? $data['error'] : '';
+        if ($error === 'invalid_client') {
+            // แอปเราเอง (client_id / client_secret) ไม่ผ่าน ไม่ใช่โทเคนของผู้ใช้
+            throw new RvcOneException('config', 'RVC-ONE ไม่ยอมรับรหัสแอปของระบบนี้ (client_id / client_secret ไม่ถูกต้อง) กรุณาแจ้งผู้ดูแลระบบ', $error);
+        }
         if (in_array($status, [400, 401], true) || (is_array($data) && ($data['valid'] ?? null) === false)) {
-            throw new RvcOneException('invalid', 'การยืนยันตัวตนจาก RVC-ONE หมดอายุหรือไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+            throw new RvcOneException('invalid', 'การยืนยันตัวตนจาก RVC-ONE หมดอายุหรือไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่อีกครั้ง', $error);
         }
         if ($status !== 200 || !is_array($data) || ($data['valid'] ?? null) !== true || !is_array($data['user'] ?? null)) {
             throw new RvcOneException('unavailable', sprintf('ระบบ RVC-ONE ตอบกลับไม่ถูกต้อง (HTTP %d) กรุณาลองใหม่อีกครั้ง', $status));
