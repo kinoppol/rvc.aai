@@ -116,7 +116,7 @@ final class UnitController
         if ($report['plan_result'] === null && $report['learner_result'] === null && $report['problems'] === null) {
             Flash::error('กรุณากรอกบันทึกหลังสอนอย่างน้อยหนึ่งข้อ');
 
-            return $this->redirectToUnit($response, $courseId, $unitId, '#report');
+            return $this->redirectToUnit($response, $courseId, $unitId, '#report-form');
         }
 
         try {
