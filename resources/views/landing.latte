@@ -92,12 +92,15 @@
                             {foreach $g['courses'] as $c}
                                 <article class="lp-card">
                                     <div class="lp-card-img" style="background:#{$c['color']}">{if $c['cover_url']}<img class="cover-img" src="{$c['cover_url']}" alt="" loading="lazy">{/if}
-                                        <span class="lp-code">{$c['code']}</span>
-                                        <span class="lp-credit">{(float) $c['credits']} นก.</span>
+                                        <div class="lp-card-top">
+                                            <span class="lp-code">{$c['code']}</span>
+                                            <span class="lp-credit">{(float) $c['credits']} นก.</span>
+                                        </div>
+                                        <h4 class="lp-card-title">{$c['name']}</h4>
                                     </div>
+                                    <span class="lp-avatar" style="background:#{$c['color']}" title="{$c['teacher_name'] ?? ''}">{\App\Support\Thai::initials((string) ($c['teacher_name'] ?? '?'))}</span>
                                     <div class="lp-card-body">
                                         <div class="lp-card-cat">{$c['classroom_name'] ?? 'ไม่ระบุกลุ่มเรียน'}</div>
-                                        <h4>{$c['name']}</h4>
                                         {if $c['description']}
                                             <p class="lp-card-desc">{$c['description']}</p>
                                         {/if}
