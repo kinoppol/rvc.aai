@@ -100,7 +100,8 @@ final class UsersController
              LIMIT " . self::PER_PAGE . " OFFSET $offset",
             $params
         );
-        $teachingAdmins = $this->teachingAdmins();
+        $teachingAdmins = $this->flagged(Roles::ADMIN_TEACHES);
+        $curriculumHeads = $this->flagged(Roles::CURRICULUM_HEAD);
         foreach ($users as $i => $u) {
             $users[$i]['last_login_text'] = $u['last_login_at'] ? Thai::ago($u['last_login_at']) : 'ยังไม่เคยเข้าใช้';
             $users[$i]['role_label'] = Roles::label((string) $u['role']);
@@ -109,6 +110,10 @@ final class UsersController
             if ($u['role'] === Roles::ADMIN && isset($teachingAdmins[(int) $u['id']])) {
                 $users[$i]['role_key'] = Roles::ADMIN_TEACHING;
                 $users[$i]['role_label'] .= ' · สอนด้วย';
+            }
+            if ($u['role'] === Roles::TEACHER && isset($curriculumHeads[(int) $u['id']])) {
+                $users[$i]['role_key'] = Roles::TEACHER_CURRICULUM;
+                $users[$i]['role_label'] .= ' · หัวหน้างานพัฒนาหลักสูตร';
             }
         }
 
@@ -146,6 +151,7 @@ final class UsersController
             'isAdmin' => (($request->getAttribute('user')['role'] ?? '')) === Roles::ADMIN,
             'roleOptions' => [
                 Roles::TEACHER => Roles::label(Roles::TEACHER),
+                Roles::TEACHER_CURRICULUM => Roles::label(Roles::TEACHER) . ' (หัวหน้างานพัฒนาหลักสูตร)',
                 Roles::SUPERVISOR => Roles::label(Roles::SUPERVISOR),
                 Roles::ADMIN => Roles::label(Roles::ADMIN),
                 Roles::ADMIN_TEACHING => Roles::label(Roles::ADMIN) . ' (สอนด้วย)',
@@ -153,12 +159,12 @@ final class UsersController
         ];
     }
 
-    /** @return array<int,true> id ของผู้ดูแลระบบที่ได้รับแต่งตั้งให้สอนด้วย */
-    private function teachingAdmins(): array
+    /** @return array<int,true> id ของผู้ใช้ที่เปิดค่าตั้งรายผู้ใช้ `{flag}:{id}` ไว้ เช่น ผู้ดูแลระบบที่สอนด้วย */
+    private function flagged(string $flag): array
     {
         $ids = [];
-        foreach ($this->db->all("SELECT name FROM {settings} WHERE name LIKE ? AND value = '1'", [Roles::ADMIN_TEACHES . ':%']) as $row) {
-            $ids[(int) substr((string) $row['name'], strlen(Roles::ADMIN_TEACHES) + 1)] = true;
+        foreach ($this->db->all("SELECT name FROM {settings} WHERE name LIKE ? AND value = '1'", [$flag . ':%']) as $row) {
+            $ids[(int) substr((string) $row['name'], strlen($flag) + 1)] = true;
         }
 
         return $ids;
@@ -302,6 +308,11 @@ final class UsersController
         if ($teaches) {
             $role = Roles::ADMIN;
         }
+        // "ครูผู้สอน (หัวหน้างานพัฒนาหลักสูตร)" = role teacher + ค่าตั้งรายผู้ใช้ curriculum_head:{id}
+        $curriculum = $role === Roles::TEACHER_CURRICULUM;
+        if ($curriculum) {
+            $role = Roles::TEACHER;
+        }
 
         if (!in_array($role, Roles::ASSIGNABLE, true)) {
             Flash::error('บทบาทที่เลือกไม่ถูกต้อง');
@@ -333,9 +344,21 @@ final class UsersController
 
         $this->db->update('users', ['role' => $role], ['id' => $id]);
         $this->settings->set(Roles::ADMIN_TEACHES . ':' . $id, $role === Roles::ADMIN && $teaches ? '1' : '0', 'boolean', 'user');
-        $this->auth->log('user.role.change', 'user#' . $id, ['from' => $target['role'], 'to' => $role, 'teaches' => $role === Roles::ADMIN && $teaches]);
+        $this->settings->set(Roles::CURRICULUM_HEAD . ':' . $id, $curriculum ? '1' : '0', 'boolean', 'user');
+        // ยังไม่ได้ตั้งผู้ลงนามตำแหน่งนี้ในแผนการสอน → ใช้คนที่เพิ่งแต่งตั้ง (เปลี่ยนได้ที่ตั้งค่าระบบ)
+        if ($curriculum && $this->settings->int('plan_sign_curriculum', 0) === 0) {
+            $this->settings->set('plan_sign_curriculum', $id, 'integer', 'plan');
+        }
+        $this->auth->log('user.role.change', 'user#' . $id, [
+            'from' => $target['role'], 'to' => $role, 'teaches' => $role === Roles::ADMIN && $teaches, 'curriculum_head' => $curriculum,
+        ]);
 
-        Flash::success('ตั้ง ' . $target['full_name'] . ' เป็น' . Roles::label($role) . ($role === Roles::ADMIN && $teaches ? ' (สอนด้วย)' : '') . 'แล้ว');
+        $suffix = match (true) {
+            $role === Roles::ADMIN && $teaches => ' (สอนด้วย)',
+            $curriculum => ' (หัวหน้างานพัฒนาหลักสูตร)',
+            default => '',
+        };
+        Flash::success('ตั้ง ' . $target['full_name'] . ' เป็น' . Roles::label($role) . $suffix . 'แล้ว');
 
         return $this->redirect($response);
     }

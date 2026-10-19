@@ -2013,6 +2013,11 @@ textarea.note-input { height: auto; min-height: 84px; padding: 10px 14px; line-h
 .report-body dt { margin-top: 10px; font-weight: 700; font-size: 13px; color: var(--ink3); }
 .report-body dd { margin: 4px 0 0; white-space: pre-line; line-height: 1.7; }
 .report-body dd.muted { color: var(--ink3); font-style: italic; }
+/* หน้าตรวจแผนการสอน: แถบความคืบหน้าบันทึกหลังสอนของแต่ละรายวิชา */
+.plan-review .btn .msi { font-size: 18px; vertical-align: -4px; }
+.plan-progress { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.plan-progress-bar { flex: none; width: 72px; height: 6px; border-radius: 99px; background: var(--surface2); overflow: hidden; }
+.plan-progress-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--ok); }
 .report-card-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .report-card-head .btn .msi { font-size: 18px; vertical-align: -4px; }
 /* modal บันทึกหลังสอน: กว้างกว่า modal ปกติ และเลื่อนเฉพาะเนื้อฟอร์มเมื่อจอเตี้ย */

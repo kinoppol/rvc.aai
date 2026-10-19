@@ -108,6 +108,7 @@
 <div class="toolbar">
     <button type="button" class="primary" onclick="window.print()">🖨 พิมพ์ / บันทึกเป็น PDF</button>
     <label><input type="checkbox" id="frontToggle" checked> พิมพ์ส่วนหน้า (ปก ลักษณะรายวิชา ตารางหน่วย)</label>
+    {if $reviewing}<span class="warn">ดูในฐานะผู้ตรวจแผน · แผนของ {$teacherName}</span>{/if}
     <span class="note">คลิกที่ข้อความเพื่อแก้ไข/เติมข้อมูลก่อนพิมพ์ได้ — ข้อความที่แก้บนหน้านี้จะไม่ถูกบันทึกลงระบบ · ตั้งค่ากระดาษ A4 และปิด "ส่วนหัวและท้ายกระดาษ" ในหน้าต่างพิมพ์</span>
     <span class="warn" id="fontWarn" hidden>เครื่องนี้ไม่มีฟอนต์ TH Sarabun New จึงใช้ Sarabun แทน — ติดตั้งฟอนต์ หรือวางไฟล์ THSarabunNew.ttf ไว้ที่ assets/fonts/</span>
 </div>

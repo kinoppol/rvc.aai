@@ -173,7 +173,8 @@ final class Auth
 
             return null;
         }
-        $user['teaches'] = Roles::teaches($user['role']) || ($user['role'] === Roles::ADMIN && $this->adminTeaches((int) $user['id']));
+        $user['teaches'] = Roles::teaches($user['role']) || ($user['role'] === Roles::ADMIN && $this->userFlag(Roles::ADMIN_TEACHES, (int) $user['id']));
+        $user['curriculum_head'] = $user['role'] === Roles::TEACHER && $this->userFlag(Roles::CURRICULUM_HEAD, (int) $user['id']);
 
         return $user;
     }
@@ -461,11 +462,14 @@ final class Auth
         $stmt->execute($hash === null ? [$id] : [$hash, $id]);
     }
 
-    /** ผู้ดูแลระบบที่ได้รับแต่งตั้งให้สอนด้วย — เก็บใน settings จึงไม่ต้องเพิ่มคอลัมน์ */
-    private function adminTeaches(int $id): bool
+    /**
+     * ค่าตั้งรายผู้ใช้แบบเปิด/ปิด เช่น ผู้ดูแลระบบที่สอนด้วย (admin_teaches) หรือหัวหน้างานพัฒนาหลักสูตร (curriculum_head)
+     * เก็บใน settings ชื่อ `{flag}:{id}` จึงไม่ต้องเพิ่มคอลัมน์
+     */
+    private function userFlag(string $flag, int $id): bool
     {
         $stmt = $this->db->prepare(sprintf('SELECT value FROM `%ssettings` WHERE name = ?', $this->prefix));
-        $stmt->execute([Roles::ADMIN_TEACHES . ':' . $id]);
+        $stmt->execute([$flag . ':' . $id]);
 
         return (string) $stmt->fetchColumn() === '1';
     }

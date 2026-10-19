@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Auth\Roles;
 use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
 use App\Domain\PlanSignerRepository;
@@ -41,7 +42,9 @@ final class PlanPrintController
         if ($course === null) {
             throw new HttpNotFoundException($request, 'ไม่พบรายวิชานี้');
         }
-        if ((int) $course['teacher_id'] !== (int) $user['id']) {
+        // เจ้าของรายวิชา หรือผู้ตรวจแผน (หัวหน้างานพัฒนาหลักสูตร ผู้ดูแลครู ผู้ดูแลระบบ) ซึ่งเปิดดูจาก /plans/{id}
+        $owner = (int) $course['teacher_id'] === (int) $user['id'];
+        if (!$owner && !Roles::canReviewPlans($user)) {
             throw new HttpForbiddenException($request, 'คุณไม่ได้เป็นผู้สอนรายวิชานี้');
         }
 
@@ -122,6 +125,7 @@ final class PlanPrintController
             'signers'            => ['dept_head' => $this->signers->name((int) ($course['dept_head_id'] ?? 0))]
                 + $this->signers->names(),
             'level'              => Semester::level((string) $course['code'])['label'],
+            'reviewing'          => !$owner,
         ]);
     }
 
