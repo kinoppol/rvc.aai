@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain;
 
 use App\Support\Db;
+use PDOException;
 
 /**
  * หน่วยการเรียนในรายวิชา และส่วนเนื้อหา (text / video / pdf) ภายในแต่ละหน่วย
@@ -128,5 +129,77 @@ final class UnitRepository
     public function nextSectionSortOrder(int $unitId): int
     {
         return $this->db->int('SELECT COALESCE(MAX(sort_order), 0) + 1 FROM {unit_sections} WHERE unit_id = ?', [$unitId]);
+    }
+
+    /**
+     * บันทึกหลังการจัดการเรียนรู้ของหน่วย (ข้อ 9 ในแผนการสอน) · ยังไม่ได้บันทึก = null
+     * ถ้ายังไม่ได้รันไมเกรชัน 000127 ก็คืน null ให้หน้าแก้ไขหน่วยและหน้าพิมพ์ยังเปิดได้
+     *
+     * @return array<string,mixed>|null
+     */
+    public function report(int $unitId): ?array
+    {
+        try {
+            return $this->db->first('SELECT * FROM {unit_reports} WHERE unit_id = ?', [$unitId]);
+        } catch (PDOException) {
+            return null;
+        }
+    }
+
+    /** @return array<int,array<string,mixed>> บันทึกหลังสอนของทุกหน่วยในรายวิชา คีย์ด้วย unit_id */
+    public function reportsForCourse(int $courseId): array
+    {
+        try {
+            $rows = $this->db->all(
+                'SELECT r.* FROM {unit_reports} r JOIN {units} u ON u.id = r.unit_id WHERE u.course_id = ?',
+                [$courseId]
+            );
+        } catch (PDOException) {
+            return [];
+        }
+
+        return array_column($rows, null, 'unit_id');
+    }
+
+    /** @param array{plan_result:?string, learner_result:?string, problems:?string, recorded_on:?string} $data */
+    public function saveReport(int $unitId, int $userId, array $data): void
+    {
+        $this->db->run(
+            'INSERT INTO {unit_reports} (unit_id, plan_result, learner_result, problems, recorded_on, recorded_by)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE plan_result = VALUES(plan_result), learner_result = VALUES(learner_result),
+                 problems = VALUES(problems), recorded_on = VALUES(recorded_on), recorded_by = VALUES(recorded_by)',
+            [$unitId, $data['plan_result'], $data['learner_result'], $data['problems'], $data['recorded_on'], $userId]
+        );
+    }
+
+    /**
+     * สรุปผลแบบทดสอบของหน่วยไว้ช่วยครูเขียนข้อ 9.2 — ใช้คะแนนดีที่สุดของนักเรียนแต่ละคนเป็นร้อยละ
+     *
+     * @return array{enrolled:int, pre:?array{count:int, avg:float}, post:?array{count:int, avg:float, passed:int}}
+     */
+    public function quizSummary(int $unitId, int $courseId, float $passPercent): array
+    {
+        $best = fn (string $kind): array => array_map('floatval', array_column($this->db->all(
+            'SELECT MAX(a.score / a.max_score * 100) AS pct
+             FROM {quiz_attempts} a JOIN {quizzes} q ON q.id = a.quiz_id
+             WHERE q.unit_id = ? AND q.kind = ? AND q.deleted_at IS NULL
+               AND a.status <> \'in_progress\' AND a.score IS NOT NULL AND a.max_score > 0
+             GROUP BY a.student_id',
+            [$unitId, $kind]
+        ), 'pct'));
+
+        $pre = $best('pretest');
+        $post = $best('posttest');
+
+        return [
+            'enrolled' => $this->db->int('SELECT COUNT(*) FROM {enrollments} WHERE course_id = ? AND status <> \'dropped\'', [$courseId]),
+            'pre' => $pre === [] ? null : ['count' => count($pre), 'avg' => array_sum($pre) / count($pre)],
+            'post' => $post === [] ? null : [
+                'count' => count($post),
+                'avg' => array_sum($post) / count($post),
+                'passed' => count(array_filter($post, static fn (float $p): bool => $p >= $passPercent)),
+            ],
+        ];
     }
 }

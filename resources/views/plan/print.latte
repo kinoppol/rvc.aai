@@ -7,7 +7,9 @@
 {var $dots = '........................'}
 {var $programType = $course['program_type'] ?: $dots}
 {var $major = $course['major'] ?: ($teacher['subject_area'] ?? '') ?: $dots}
-{var $dateText = $planDate ? 'วันที่ ' . $planDate['day'] . ' เดือน ' . $planDate['month'] . ' พ.ศ. ' . $planDate['year'] : 'วันที่ ...... เดือน .................... พ.ศ. ..........'}
+{var $blankDate = 'วันที่ ...... เดือน .................... พ.ศ. ..........'}
+{* วันที่จัดทำแผน (จากฟอร์มรายวิชา) ใช้เฉพาะหน้าลักษณะรายวิชา · ท้ายแผนรายหน่วยใช้วันที่บันทึกหลังสอน *}
+{var $dateText = $planDate ? 'วันที่ ' . $planDate['day'] . ' เดือน ' . $planDate['month'] . ' พ.ศ. ' . $planDate['year'] : $blankDate}
 {var $credits = rtrim(rtrim(number_format((float) $course['credits'], 1, '.', ''), '0'), '.')}
 {var $tpn = $course['theory_hours'] . '-' . $course['practice_hours'] . '-' . $credits}
 {var $termText = $term ? 'ภาคเรียนที่ ' . $term['semester'] . ' ปีการศึกษา ' . $term['academic_year'] : 'ภาคเรียนที่ ...... ปีการศึกษา ..........'}
@@ -335,20 +337,31 @@
         </tbody>
     </table>
 
+    {* ข้อ 9 มาจากบันทึกหลังสอนในหน้าแก้ไขหน่วย · ลงวันที่ตามวันที่บันทึก ยังไม่บันทึก = เว้นจุดไว้ให้เขียนมือ *}
+    {var $r = $p['report']}
     <h3>9. บันทึกหลังการจัดการเรียนรู้</h3>
-    <p class="sub"><b>9.1 ผลการใช้แผนการจัดการเรียนรู้</b></p><p class="dots"></p><p class="dots"></p>
-    <p class="sub"><b>9.2 ผลการเรียนรู้ของผู้เรียน</b></p><p class="dots"></p><p class="dots"></p>
-    <p class="sub"><b>9.3 ปัญหาที่พบและแนวทางแก้ไข</b></p><p class="dots"></p><p class="dots"></p>
+    <p class="sub"><b>9.1 ผลการใช้แผนการจัดการเรียนรู้</b></p>
+    {include reportLines, lines: $r['plan']}
+    <p class="sub"><b>9.2 ผลการเรียนรู้ของผู้เรียน</b></p>
+    {include reportLines, lines: $r['learner']}
+    <p class="sub"><b>9.3 ปัญหาที่พบและแนวทางแก้ไข</b></p>
+    {include reportLines, lines: $r['problems']}
 
     <div class="sign no-break">
         <div class="one">
             <p>ลงชื่อ ........................................ ครูผู้สอน</p>
             <p>({$teacherName})</p>
-            <p>{$dateText}</p>
+            <p>{$r['date'] ? 'วันที่ ' . $r['date']['day'] . ' เดือน ' . $r['date']['month'] . ' พ.ศ. ' . $r['date']['year'] : $blankDate}</p>
         </div>
     </div>
 </section>
 {/foreach}
+
+{define reportLines}
+    {if $lines}
+        {foreach $lines as $line}<p class="indent">{$line}</p>{/foreach}
+    {else}<p class="dots"></p><p class="dots"></p>{/if}
+{/define}
 
 <script>
 (function () {

@@ -60,6 +60,7 @@ final class PlanPrintController
         $schedule = $this->schedule($units, $weeks, $weekly);
         $totalHours = array_sum(array_column($schedule, 'hours'));
 
+        $reports = $this->units->reportsForCourse((int) $course['id']);
         $plans = [];
         $lessonNo = 0;
         foreach ($units as $i => $u) {
@@ -91,6 +92,13 @@ final class PlanPrintController
                 'assignments'  => $this->assignments->forUnit($unitId),
                 'pretests'     => array_values(array_filter($quizzes, fn ($q) => $q['kind'] === 'pretest')),
                 'posttests'    => array_values(array_filter($quizzes, fn ($q) => $q['kind'] === 'posttest')),
+                // ข้อ 9 บันทึกหลังสอน: ข้อความที่ครูบันทึกไว้ และวันที่บันทึก (ไม่ใช่วันที่จัดทำแผน)
+                'report'       => [
+                    'plan'     => $this->lines($reports[$unitId]['plan_result'] ?? null),
+                    'learner'  => $this->lines($reports[$unitId]['learner_result'] ?? null),
+                    'problems' => $this->lines($reports[$unitId]['problems'] ?? null),
+                    'date'     => Thai::formalDate($reports[$unitId]['recorded_on'] ?? null),
+                ],
             ];
         }
 

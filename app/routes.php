@@ -145,6 +145,7 @@ return static function (App $app): void {
             $t->post('/{courseId:[0-9]+}/tasks/{id:[0-9]+}/draft', [AssignmentController::class, 'draft']);
             $t->post('/{courseId:[0-9]+}/tasks/{id:[0-9]+}/delete', [AssignmentController::class, 'delete']);
 
+            $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/report', [UnitController::class, 'saveReport']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft', [UnitController::class, 'draftContent']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft/save', [UnitController::class, 'saveDraftContent']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections', [UnitController::class, 'addSection']);
