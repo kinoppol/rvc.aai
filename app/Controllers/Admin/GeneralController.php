@@ -7,6 +7,7 @@ namespace App\Controllers\Admin;
 use App\Auth\Auth;
 use App\Auth\LoginMethods;
 use App\Auth\RvcOne;
+use App\Domain\PlanSignerRepository;
 use App\Domain\SettingsRepository;
 use App\Support\Config;
 use App\Support\Csrf;
@@ -29,6 +30,7 @@ final class GeneralController
         private readonly LoginMethods $methods,
         private readonly Config $config,
         private readonly RvcOne $rvcOne,
+        private readonly PlanSignerRepository $signers,
     ) {
     }
 
@@ -45,7 +47,31 @@ final class GeneralController
             'rvcOneSecret' => $this->rvcOne->secretStatus(),
             // URL เต็มของทางเข้าฉุกเฉิน ให้ผู้ดูแลคัดลอกไปเก็บไว้ก่อนปิดการเข้าด้วยรหัสผ่าน
             'adminLoginUrl' => rtrim((string) $this->config->get('app.url'), '/') . '/login/admin',
+            'signerPositions' => PlanSignerRepository::POSITIONS,
+            'signers' => $this->signers->chosen(),
+            'staff' => $this->signers->staff(),
         ]);
+    }
+
+    /** ผู้ลงนามในแผนการสอนที่ใช้ทั้งวิทยาลัย: หัวหน้างานพัฒนาหลักสูตร รองฯ วิชาการ ผู้อำนวยการ */
+    public function saveSigners(Request $request, Response $response): Response
+    {
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ');
+
+            return $this->redirect($response);
+        }
+
+        $ids = [];
+        foreach (array_keys(PlanSignerRepository::POSITIONS) as $key) {
+            $ids[$key] = (int) ($data[$key] ?? 0);
+        }
+        $this->signers->save($ids);
+        $this->auth->log('settings.plan_signers.save', null, $this->signers->chosen());
+        Flash::success('บันทึกผู้ลงนามในแผนการสอนแล้ว');
+
+        return $this->redirect($response, '#signers');
     }
 
     public function save(Request $request, Response $response): Response
@@ -143,8 +169,8 @@ final class GeneralController
         return $this->redirect($response);
     }
 
-    private function redirect(Response $response): Response
+    private function redirect(Response $response, string $anchor = ''): Response
     {
-        return $response->withHeader('Location', Url::to('/admin/settings'))->withStatus(302);
+        return $response->withHeader('Location', Url::to('/admin/settings') . $anchor)->withStatus(302);
     }
 }

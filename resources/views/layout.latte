@@ -106,6 +106,10 @@
                     </a>
                     <a href="{$base}/board" n:class="$page === 'board' ? is-active" title="กระดานสนทนา"><span class="msi">forum</span><span class="nav-label">กระดานสนทนา</span></a>
                     <a href="{$base}/trash" n:class="$page === 'trash' ? is-active" title="ถังขยะ"><span class="msi">delete</span><span class="nav-label">ถังขยะ</span></a>
+                    {* หัวหน้างานพัฒนาหลักสูตร (ครูที่ผู้ดูแลระบบแต่งตั้ง) · ผู้ดูแลครู/ผู้ดูแลระบบเห็นลิงก์นี้ในกลุ่มงานกำกับดูแลแทน *}
+                    {if ($reviewsPlans ?? false) && !$oversees}
+                        <a href="{$base}/plans" n:class="$page === 'plan-review' ? is-active" title="ตรวจแผนการสอน"><span class="msi">assignment</span><span class="nav-label">ตรวจแผนการสอน</span></a>
+                    {/if}
                 {/if}
 
                 {if $role === 'student'}
@@ -127,7 +131,7 @@
 
                 <div class="nav-set" data-set="admin">
                 {if $oversees}
-                    {var $here = in_array($page, ['admin-users', 'admin-courses'], true)}
+                    {var $here = in_array($page, ['admin-users', 'admin-courses', 'plan-review'], true)}
                     <div n:class="nav-group, $here ? is-here" data-group="oversee">
                         <button type="button" class="group-label" aria-expanded="true">
                             <span class="grow">งานกำกับดูแล</span><span class="msi">expand_more</span>
@@ -135,6 +139,7 @@
                         <div class="nav-group-items">
                             <a href="{$base}/admin/users" n:class="$page === 'admin-users' ? is-active" title="ผู้ใช้งาน"><span class="msi">manage_accounts</span><span class="nav-label">ผู้ใช้งาน</span></a>
                             <a href="{$base}/admin/courses" n:class="$page === 'admin-courses' ? is-active" title="รายวิชาทั้งระบบ"><span class="msi">library_books</span><span class="nav-label">รายวิชาทั้งระบบ</span></a>
+                            <a href="{$base}/plans" n:class="$page === 'plan-review' ? is-active" title="ตรวจแผนการสอน"><span class="msi">assignment</span><span class="nav-label">ตรวจแผนการสอน</span></a>
                         </div>
                     </div>
                 {/if}

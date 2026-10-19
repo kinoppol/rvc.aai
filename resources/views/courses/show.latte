@@ -48,7 +48,7 @@
             </div>
 
             <div class="tabs">
-                {var $tabs = ['units' => ['หน่วยการเรียน', 'library_books'], 'quizzes' => ['แบบทดสอบ', 'quiz'], 'worksheets' => ['ใบงาน', 'description'], 'tasks' => ['งานที่มอบหมาย', 'assignment'], 'students' => ['นักเรียน', 'group'], 'scores' => ['คะแนน', 'leaderboard']]}
+                {var $tabs = ['units' => ['หน่วยการเรียน', 'library_books'], 'quizzes' => ['แบบทดสอบ', 'quiz'], 'worksheets' => ['ใบงาน', 'description'], 'tasks' => ['งานที่มอบหมาย', 'assignment'], 'students' => ['นักเรียน', 'group'], 'scores' => ['คะแนน', 'leaderboard'], 'reports' => ['บันทึกหลังสอน', 'edit_note']]}
                 {foreach $tabs as $key => [$label, $icon]}
                     <a href="{$base}/courses/{$course['id']}?tab={$key}" n:class="tab, $tab === $key ? is-active"><span class="msi">{$icon}</span>{$label}</a>
                 {/foreach}
@@ -364,6 +364,40 @@
                 {/foreach}
                 {if !$students}<div class="empty"><h3>ยังไม่มีนักเรียนในรายวิชานี้</h3><p>แจกรหัสหรือลิงก์เข้าร่วมด้านบนให้นักเรียน รายชื่อจะขึ้นที่นี่เมื่อนักเรียนเข้าร่วมแล้ว</p></div>{/if}
             </div>
+
+        {elseif $tab === 'reports'}
+            {* บันทึกหลังการจัดการเรียนรู้ของทุกหน่วยรวมไว้ที่เดียว · กรอก/แก้ในหน้าแก้ไขหน่วย (#report) · พิมพ์ลงข้อ 9 ของแผนการสอน *}
+            {var $done = count(array_filter($reports, fn ($r) => $r['report'] !== null))}
+            <div class="report-summary">
+                <span>บันทึกแล้ว <b>{$done}</b> จาก {count($reports)} หน่วย</span>
+                <span class="grow"></span>
+                <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/plan-print" target="_blank" rel="noopener"><span class="msi">print</span> พิมพ์แผนการสอน</a>
+            </div>
+            {foreach $reports as $r}
+                {var $u = $r['unit']}
+                {var $rep = $r['report']}
+                <div class="list quiz-group report-group">
+                    <div class="quiz-group-head">
+                        <span class="quiz-group-no">{sprintf('%02d', $r['no'])}</span>
+                        <span class="quiz-group-title">หน่วยที่ {$r['no']} · {$u['title']}</span>
+                        {if $rep}
+                            <span class="tag tag-ok">บันทึกแล้ว {App\Support\Thai::date($rep['recorded_on'] ?? $rep['updated_at'])}</span>
+                        {else}
+                            <span class="tag">ยังไม่บันทึก</span>
+                        {/if}
+                        <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/units/{$u['id']}/edit#report-form">{$rep ? 'แก้ไข' : 'บันทึก'}</a>
+                    </div>
+                    {if $rep}
+                        <dl class="report-body">
+                            {foreach ['plan_result' => '9.1 ผลการใช้แผนการจัดการเรียนรู้', 'learner_result' => '9.2 ผลการเรียนรู้ของผู้เรียน', 'problems' => '9.3 ปัญหาที่พบและแนวทางแก้ไข'] as $field => $label}
+                                <dt>{$label}</dt>
+                                <dd n:class="!$rep[$field] ? muted">{$rep[$field] ?: 'ยังไม่ได้กรอก'}</dd>
+                            {/foreach}
+                        </dl>
+                    {/if}
+                </div>
+            {/foreach}
+            {if !$reports}<div class="empty"><h3>ยังไม่มีหน่วยการเรียน</h3><p>เพิ่มหน่วยการเรียนในแท็บหน่วยการเรียนก่อน แล้วบันทึกหลังสอนเมื่อสอนแต่ละหน่วยจบ</p></div>{/if}
 
         {else}
             {if $scoreRows}

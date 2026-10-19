@@ -47,6 +47,26 @@ final class Roles
     public const ADMIN_TEACHING = 'admin_teaching';
 
     /**
+     * ค่าตั้งรายผู้ใช้ `curriculum_head:{id}` = ครูคนนี้เป็นหัวหน้างานพัฒนาหลักสูตร
+     * ยังเป็นครูผู้สอนตามปกติ และดูการจัดทำแผนการสอนของทุกรายวิชาได้ (อ่านอย่างเดียว)
+     */
+    public const CURRICULUM_HEAD = 'curriculum_head';
+
+    /** ตัวเลือกบทบาทในหน้าผู้ใช้งาน = ครูผู้สอน + หัวหน้างานพัฒนาหลักสูตร (บันทึกเป็น role teacher + ค่าตั้งข้างบน) */
+    public const TEACHER_CURRICULUM = 'teacher_curriculum';
+
+    /**
+     * ดูหน้าตรวจแผนการสอนของทุกรายวิชาได้ไหม — ผู้ดูแลระบบ ผู้ดูแลครู และหัวหน้างานพัฒนาหลักสูตร
+     * $user มาจาก Auth::user() ซึ่งเติมคีย์ `curriculum_head` ไว้แล้ว
+     *
+     * @param array<string,mixed>|null $user
+     */
+    public static function canReviewPlans(?array $user): bool
+    {
+        return $user !== null && (self::oversees($user['role'] ?? null) || !empty($user['curriculum_head']));
+    }
+
+    /**
      * ผู้ใช้คนนี้ใช้งานฝั่งครูได้ไหม — ครู ผู้ดูแลครู และผู้ดูแลระบบที่ได้รับแต่งตั้งให้สอนด้วย
      * $user มาจาก Auth::user() ซึ่งเติมคีย์ `teaches` ไว้แล้ว
      *

@@ -40,7 +40,9 @@ final class ViewContext implements MiddlewareInterface
         $this->view->share('impersonatedBy', $this->auth->isImpersonating() ? $this->auth->impersonatorName() : null);
 
         if (is_array($user)) {
-            $this->view->share('roleLabel', Roles::label((string) ($user['role'] ?? '')));
+            $this->view->share('roleLabel', Roles::label((string) ($user['role'] ?? ''))
+                . (!empty($user['curriculum_head']) ? ' · หัวหน้างานพัฒนาหลักสูตร' : ''));
+            $this->view->share('reviewsPlans', Roles::canReviewPlans($user));
 
             $this->view->share('userTeaches', Roles::canTeach($user));
             if (Roles::canTeach($user)) {

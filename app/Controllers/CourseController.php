@@ -8,6 +8,7 @@ use App\Auth\Auth;
 use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
 use App\Domain\EnrollmentRepository;
+use App\Domain\PlanSignerRepository;
 use App\Domain\QuizRepository;
 use App\Domain\StudentAccountRepository;
 use App\Domain\UnitRepository;
@@ -27,7 +28,7 @@ use Slim\Exception\HttpNotFoundException;
 
 final class CourseController
 {
-    private const TABS = ['units', 'quizzes', 'worksheets', 'tasks', 'students', 'scores'];
+    private const TABS = ['units', 'quizzes', 'worksheets', 'tasks', 'students', 'scores', 'reports'];
 
     public function __construct(
         private readonly View $view,
@@ -39,6 +40,7 @@ final class CourseController
         private readonly StudentAccountRepository $studentAccounts,
         private readonly Auth $auth,
         private readonly Db $db,
+        private readonly PlanSignerRepository $signers,
     ) {
     }
 
@@ -342,6 +344,11 @@ final class CourseController
             'terms' => $this->courses->terms(),
             'classrooms' => $this->courses->classrooms(),
             'currentTermId' => $this->courses->currentTermId(),
+            // หัวหน้าแผนกผู้ลงนามในแผนการสอน · รายวิชาใหม่ใช้คนที่ครูเลือกไว้ในรายวิชาล่าสุด
+            'staff' => $this->signers->ready() ? $this->signers->staff() : null,
+            'deptHeadId' => $course !== null
+                ? (int) ($course['dept_head_id'] ?? 0)
+                : $this->signers->lastDeptHead((int) $user['id']),
         ]);
     }
 
@@ -401,6 +408,11 @@ final class CourseController
             // สีหน้าปก — ว่าง = ให้ระบบสุ่มจาก id วิชา (สีเดิมเสมอ)
             'cover_color' => Cover::normalise((string) ($data['cover_color'] ?? '')),
         ];
+
+        // ก่อนรันไมเกรชัน 000128 ยังไม่มีคอลัมน์นี้ — ข้ามไปให้บันทึกรายวิชาได้ตามปกติ
+        if ($this->signers->ready()) {
+            $fields['dept_head_id'] = $this->signers->validStaff((int) ($data['dept_head_id'] ?? 0));
+        }
 
         if ($course === null) {
             $id = $this->courses->create((int) $user['id'], $fields);
@@ -640,6 +652,7 @@ final class CourseController
                 'joinUrl' => (string) $request->getUri()->withPath(Url::to('/join/' . $code))->withQuery('')->withFragment(''),
             ],
             'scores'   => $this->scoreBoard($course['id']),
+            'reports'  => ['reports' => $this->unitReports((int) $course['id'])],
             default    => [],
         };
 
@@ -658,6 +671,24 @@ final class CourseController
         }
 
         return $course;
+    }
+
+    /**
+     * แท็บบันทึกหลังสอน: ทุกหน่วยการเรียน (ไม่รวมหน่วยสอบ) ตามลำดับ พร้อมบันทึกหลังสอนของหน่วยนั้น (ยังไม่บันทึก = null)
+     *
+     * @return list<array{no:int, unit:array<string,mixed>, report:?array<string,mixed>}>
+     */
+    private function unitReports(int $courseId): array
+    {
+        $reports = $this->units->reportsForCourse($courseId);
+        $out = [];
+        foreach ($this->units->forCourse($courseId) as $u) {
+            if (!UnitRepository::isExam($u)) {
+                $out[] = ['no' => count($out) + 1, 'unit' => $u, 'report' => $reports[(int) $u['id']] ?? null];
+            }
+        }
+
+        return $out;
     }
 
     /** @param list<array<string,mixed>> $units @return list<array<string,mixed>> */

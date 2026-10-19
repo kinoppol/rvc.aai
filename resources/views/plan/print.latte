@@ -7,7 +7,9 @@
 {var $dots = '........................'}
 {var $programType = $course['program_type'] ?: $dots}
 {var $major = $course['major'] ?: ($teacher['subject_area'] ?? '') ?: $dots}
-{var $dateText = $planDate ? 'วันที่ ' . $planDate['day'] . ' เดือน ' . $planDate['month'] . ' พ.ศ. ' . $planDate['year'] : 'วันที่ ...... เดือน .................... พ.ศ. ..........'}
+{var $blankDate = 'วันที่ ...... เดือน .................... พ.ศ. ..........'}
+{* วันที่จัดทำแผน (จากฟอร์มรายวิชา) ใช้เฉพาะหน้าลักษณะรายวิชา · ท้ายแผนรายหน่วยใช้วันที่บันทึกหลังสอน *}
+{var $dateText = $planDate ? 'วันที่ ' . $planDate['day'] . ' เดือน ' . $planDate['month'] . ' พ.ศ. ' . $planDate['year'] : $blankDate}
 {var $credits = rtrim(rtrim(number_format((float) $course['credits'], 1, '.', ''), '0'), '.')}
 {var $tpn = $course['theory_hours'] . '-' . $course['practice_hours'] . '-' . $credits}
 {var $termText = $term ? 'ภาคเรียนที่ ' . $term['semester'] . ' ปีการศึกษา ' . $term['academic_year'] : 'ภาคเรียนที่ ...... ปีการศึกษา ..........'}
@@ -106,6 +108,7 @@
 <div class="toolbar">
     <button type="button" class="primary" onclick="window.print()">🖨 พิมพ์ / บันทึกเป็น PDF</button>
     <label><input type="checkbox" id="frontToggle" checked> พิมพ์ส่วนหน้า (ปก ลักษณะรายวิชา ตารางหน่วย)</label>
+    {if $reviewing}<span class="warn">ดูในฐานะผู้ตรวจแผน · แผนของ {$teacherName}</span>{/if}
     <span class="note">คลิกที่ข้อความเพื่อแก้ไข/เติมข้อมูลก่อนพิมพ์ได้ — ข้อความที่แก้บนหน้านี้จะไม่ถูกบันทึกลงระบบ · ตั้งค่ากระดาษ A4 และปิด "ส่วนหัวและท้ายกระดาษ" ในหน้าต่างพิมพ์</span>
     <span class="warn" id="fontWarn" hidden>เครื่องนี้ไม่มีฟอนต์ TH Sarabun New จึงใช้ Sarabun แทน — ติดตั้งฟอนต์ หรือวางไฟล์ THSarabunNew.ttf ไว้ที่ assets/fonts/</span>
 </div>
@@ -182,22 +185,27 @@
             <p>({$teacherName})</p>
             <p>{$dateText}</p>
         </div>
+        {* ผู้ลงนามอื่นนอกจากครู: ลงชื่อ → (ชื่อ) → ตำแหน่ง แยกบรรทัด *}
         <div>
-            <p>ลงชื่อ ........................................ หัวหน้าแผนกวิชา</p>
-            <p>(........................................)</p>
+            <p>ลงชื่อ ........................................</p>
+            <p>({$signers['dept_head'] ?? '........................................'})</p>
+            <p>หัวหน้าแผนกวิชา</p>
         </div>
         <div>
-            <p>ลงชื่อ ........................................ หัวหน้างานพัฒนาหลักสูตรการเรียนการสอน</p>
-            <p>(........................................)</p>
+            <p>ลงชื่อ ........................................</p>
+            <p>({$signers['plan_sign_curriculum'] ?? '........................................'})</p>
+            <p>หัวหน้างานพัฒนาหลักสูตรการเรียนการสอน</p>
         </div>
         <div>
-            <p>ลงชื่อ ........................................ รองผู้อำนวยการฝ่ายวิชาการ</p>
-            <p>(........................................)</p>
+            <p>ลงชื่อ ........................................</p>
+            <p>({$signers['plan_sign_deputy'] ?? '........................................'})</p>
+            <p>รองผู้อำนวยการฝ่ายวิชาการ</p>
         </div>
         <div class="one">
             <p>☐ อนุมัติ &nbsp; ☐ ไม่อนุมัติ</p>
-            <p>ลงชื่อ ........................................ ผู้อำนวยการ{$college}</p>
-            <p>(........................................)</p>
+            <p>ลงชื่อ ........................................</p>
+            <p>({$signers['plan_sign_director'] ?? '........................................'})</p>
+            <p>ผู้อำนวยการ{$college}</p>
         </div>
     </div>
 </section>
@@ -335,20 +343,31 @@
         </tbody>
     </table>
 
+    {* ข้อ 9 มาจากบันทึกหลังสอนในหน้าแก้ไขหน่วย · ลงวันที่ตามวันที่บันทึก ยังไม่บันทึก = เว้นจุดไว้ให้เขียนมือ *}
+    {var $r = $p['report']}
     <h3>9. บันทึกหลังการจัดการเรียนรู้</h3>
-    <p class="sub"><b>9.1 ผลการใช้แผนการจัดการเรียนรู้</b></p><p class="dots"></p><p class="dots"></p>
-    <p class="sub"><b>9.2 ผลการเรียนรู้ของผู้เรียน</b></p><p class="dots"></p><p class="dots"></p>
-    <p class="sub"><b>9.3 ปัญหาที่พบและแนวทางแก้ไข</b></p><p class="dots"></p><p class="dots"></p>
+    <p class="sub"><b>9.1 ผลการใช้แผนการจัดการเรียนรู้</b></p>
+    {include reportLines, lines: $r['plan']}
+    <p class="sub"><b>9.2 ผลการเรียนรู้ของผู้เรียน</b></p>
+    {include reportLines, lines: $r['learner']}
+    <p class="sub"><b>9.3 ปัญหาที่พบและแนวทางแก้ไข</b></p>
+    {include reportLines, lines: $r['problems']}
 
     <div class="sign no-break">
         <div class="one">
             <p>ลงชื่อ ........................................ ครูผู้สอน</p>
             <p>({$teacherName})</p>
-            <p>{$dateText}</p>
+            <p>{$r['date'] ? 'วันที่ ' . $r['date']['day'] . ' เดือน ' . $r['date']['month'] . ' พ.ศ. ' . $r['date']['year'] : $blankDate}</p>
         </div>
     </div>
 </section>
 {/foreach}
+
+{define reportLines}
+    {if $lines}
+        {foreach $lines as $line}<p class="indent">{$line}</p>{/foreach}
+    {else}<p class="dots"></p><p class="dots"></p>{/if}
+{/define}
 
 <script>
 (function () {

@@ -332,7 +332,13 @@ final class QuizWizardController
         if ($publish) {
             Flash::success('บันทึกเป็นแบบทดสอบแล้ว');
 
-            return $this->redirect($response, "/courses/{$course['id']}?tab=units");
+            // กลับไปหน้าหน่วยการเรียนของแบบทดสอบนี้ · ไม่ผูกกับหน่วย (หรือหน่วยถูกลบไปแล้ว) = แท็บแบบทดสอบของรายวิชา
+            $unit = (int) ($quiz['unit_id'] ?? 0) > 0 ? $this->units->find((int) $quiz['unit_id']) : null;
+            if ($unit !== null && (int) $unit['course_id'] === (int) $course['id']) {
+                return $this->redirect($response, "/courses/{$course['id']}/units/{$unit['id']}/edit");
+            }
+
+            return $this->redirect($response, "/courses/{$course['id']}?tab=quizzes");
         }
 
         Flash::success('เก็บไว้ในรายการรอตรวจแล้ว');

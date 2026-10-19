@@ -1,0 +1,86 @@
+{layout '../layout.latte'}
+
+{block title}ตรวจแผนการสอน{/block}
+
+{block content}
+{* ตรวจการจัดทำแผนการสอนของทุกรายวิชา (อ่านอย่างเดียว) · เปิดแผนที่สั่งพิมพ์ได้ทุกรายวิชา *}
+<div class="page-head">
+    <div>
+        <h1>ตรวจแผนการสอน</h1>
+        <div class="sub">
+            {count($rows)} รายวิชา · ข้อมูลแผนครบ {$complete} รายวิชา · บันทึกหลังสอนแล้ว {$reportedUnits} จาก {$lessonUnits} หน่วย
+        </div>
+    </div>
+</div>
+
+<form method="get" action="{$base}/plans" class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <select name="term" class="input" style="width:220px" aria-label="ภาคเรียน" onchange="this.form.submit()">
+        {foreach $terms as $t}
+            <option value="{$t['id']}" selected="{$termId === (int) $t['id']}">{$t['name']}{if $t['is_current']} (ปัจจุบัน){/if}</option>
+        {/foreach}
+        <option value="all" selected="{$termId === null}">ทุกภาคเรียน</option>
+    </select>
+    <input type="text" name="q" class="input" style="width:260px" value="{$query}" placeholder="ค้นรหัสวิชา ชื่อวิชา หรือชื่อครู">
+    <button type="submit" class="btn btn-primary btn-sm">ค้นหา</button>
+    {if $query}<a href="{$base}/plans{if $termId === null}?term=all{elseif $termId}?term={$termId}{/if}" class="btn btn-sm">ล้างคำค้น</a>{/if}
+</form>
+
+{if !$rows}
+    <div class="empty">
+        <h3>ไม่พบรายวิชา</h3>
+        <p>ลองเลือกภาคเรียนอื่น หรือค้นด้วยรหัสวิชาเพียงบางส่วน</p>
+    </div>
+{else}
+    <div class="card flush">
+        <div class="table-scroll">
+            <table class="data plan-review">
+                <thead>
+                    <tr>
+                        <th>รหัสวิชา</th><th>ชื่อวิชา</th><th>ครูผู้สอน</th>
+                        {if $withDeptHead}<th>หัวหน้าแผนก</th>{/if}
+                        <th class="num">หน่วย</th><th>บันทึกหลังสอน</th><th>ข้อมูลแผน</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {foreach $rows as $r}
+                    <tr>
+                        <td class="mono">{$r['code']}</td>
+                        <td>
+                            {$r['name']}
+                            {if $r['classroom_name']}<div class="hint">{$r['classroom_name']}</div>{/if}
+                            {if $r['status'] === 'archived'}<span class="chip chip-muted">เก็บเข้าคลัง</span>{/if}
+                        </td>
+                        <td>{$r['teacher_name']}</td>
+                        {if $withDeptHead}<td>{$r['dept_head_name'] ?? '—'}</td>{/if}
+                        <td class="num mono">{$r['lesson_units']}</td>
+                        <td>
+                            {if $r['lesson_units'] === 0}
+                                <span class="hint">—</span>
+                            {else}
+                                {var $pct = (int) round($r['reported'] / $r['lesson_units'] * 100)}
+                                <div class="plan-progress" title="บันทึกแล้ว {$r['reported']} จาก {$r['lesson_units']} หน่วย">
+                                    <span class="plan-progress-bar"><span style="width:{$pct}%"></span></span>
+                                    <span class="mono">{$r['reported']}/{$r['lesson_units']}</span>
+                                </div>
+                            {/if}
+                        </td>
+                        <td>
+                            {if $r['missing']}
+                                <span class="chip chip-warn" title="ยังขาด: {implode(', ', $r['missing'])}">ขาด {count($r['missing'])} รายการ</span>
+                                <div class="hint">{implode(' · ', $r['missing'])}</div>
+                            {else}
+                                <span class="chip chip-ok">ครบ</span>
+                            {/if}
+                        </td>
+                        <td style="text-align:right;white-space:nowrap">
+                            <a class="btn btn-sm" href="{$base}/plans/{$r['id']}" target="_blank" rel="noopener"><span class="msi">print</span> เปิดแผน</a>
+                        </td>
+                    </tr>
+                {/foreach}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <p class="hint" style="margin-top:10px">ข้อมูลแผนตรวจจาก คำอธิบายรายวิชา ผลลัพธ์การเรียนรู้ หน่วยการเรียน วันที่จัดทำแผน{if $withDeptHead} และหัวหน้าแผนก{/if} · บันทึกหลังสอนนับเฉพาะหน่วยการเรียน (ไม่รวมหน่วยสอบ) · หน้านี้ดูได้อย่างเดียว ครูผู้สอนเป็นผู้แก้ไขแผนของตนเอง</p>
+{/if}
+{/block}

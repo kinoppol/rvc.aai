@@ -65,6 +65,7 @@ final class UnitController
             $kind = 'lesson';
         }
         $quizzes = $unit ? $this->quizzes->forUnit($unitId) : [];
+        $hasReport = $unit !== null && $kind === 'lesson';
 
         return $this->view->render($response, 'courses/unit-edit', [
             'page' => 'courses',
@@ -79,7 +80,89 @@ final class UnitController
             'posttests' => array_values(array_filter($quizzes, static fn (array $q): bool => $q['kind'] !== 'pretest')),
             'assignments' => $unit ? $this->assignments->forUnit($unitId) : [],
             'drafted' => $this->pullDraft($unitId),
+            'report' => $hasReport ? $this->units->report($unitId) : null,
+            'learnerSummary' => $hasReport ? $this->learnerSummary($unitId, $course) : '',
         ]);
+    }
+
+    /** บันทึกหลังการจัดการเรียนรู้ของหน่วย (ข้อ 9 ในแผนการสอน) */
+    public function saveReport(Request $request, Response $response, array $args): Response
+    {
+        [, $unit] = $this->ownedUnit($request, $args);
+        $courseId = (int) $args['courseId'];
+        $unitId = (int) $unit['id'];
+        if (UnitRepository::isExam($unit)) {
+            throw new HttpNotFoundException($request, 'หน่วยสอบไม่มีบันทึกหลังสอน');
+        }
+
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
+
+            return $this->redirectToUnit($response, $courseId, $unitId);
+        }
+
+        $text = static fn (string $key): ?string => mb_substr(trim((string) ($data[$key] ?? '')), 0, 5000) ?: null;
+        $date = (string) ($data['recorded_on'] ?? '');
+        $valid = preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1
+            && checkdate((int) substr($date, 5, 2), (int) substr($date, 8, 2), (int) substr($date, 0, 4));
+
+        $report = [
+            'plan_result' => $text('plan_result'),
+            'learner_result' => $text('learner_result'),
+            'problems' => $text('problems'),
+            'recorded_on' => $valid ? $date : date('Y-m-d'),
+        ];
+        if ($report['plan_result'] === null && $report['learner_result'] === null && $report['problems'] === null) {
+            Flash::error('กรุณากรอกบันทึกหลังสอนอย่างน้อยหนึ่งข้อ');
+
+            return $this->redirectToUnit($response, $courseId, $unitId, '#report-form');
+        }
+
+        try {
+            $this->units->saveReport($unitId, (int) $request->getAttribute('user')['id'], $report);
+        } catch (Throwable $e) {
+            $this->logger->error('บันทึกหลังสอนไม่สำเร็จ', ['unit' => $unitId, 'error' => $e->getMessage()]);
+            Flash::error('บันทึกไม่สำเร็จ — ผู้ดูแลระบบอาจยังไม่ได้อัปเดตฐานข้อมูล (ไมเกรชัน 000127)');
+
+            return $this->redirectToUnit($response, $courseId, $unitId, '#report');
+        }
+        Flash::success('บันทึกหลังการจัดการเรียนรู้แล้ว · จะพิมพ์ลงข้อ 9 ของแผนการสอน');
+
+        return $this->redirectToUnit($response, $courseId, $unitId, '#report');
+    }
+
+    /** ข้อความสรุปผลแบบทดสอบของหน่วย ให้ครูกดใส่ลงข้อ 9.2 ได้ · ยังไม่มีใครทำแบบทดสอบ = '' */
+    private function learnerSummary(int $unitId, array $course): string
+    {
+        $threshold = (float) $course['pass_threshold'];
+        $s = $this->units->quizSummary($unitId, (int) $course['id'], $threshold);
+        $pct = static fn (float $n): string => rtrim(rtrim(number_format($n, 1, '.', ''), '0'), '.');
+        $out = [];
+
+        if ($s['post'] !== null) {
+            $post = $s['post'];
+            $out[] = sprintf(
+                'ผู้เรียน%s ทำแบบทดสอบหลังเรียน %d คน คะแนนเฉลี่ยร้อยละ %s ผ่านเกณฑ์ร้อยละ %s จำนวน %d คน (ร้อยละ %s)',
+                $s['enrolled'] > 0 ? ' ' . $s['enrolled'] . ' คน' : '',
+                $post['count'],
+                $pct($post['avg']),
+                $pct($threshold),
+                $post['passed'],
+                $pct($post['passed'] / $post['count'] * 100)
+            );
+        }
+        if ($s['pre'] !== null) {
+            $line = sprintf('คะแนนเฉลี่ยก่อนเรียนร้อยละ %s', $pct($s['pre']['avg']));
+            if ($s['post'] !== null) {
+                $diff = $s['post']['avg'] - $s['pre']['avg'];
+                $line .= abs($diff) < 0.05 ? ' เท่ากับหลังเรียน'
+                    : sprintf(' หลังเรียน%sขึ้นร้อยละ %s', $diff > 0 ? 'เพิ่ม' : 'ลด', $pct(abs($diff)));
+            }
+            $out[] = $line;
+        }
+
+        return $out === [] ? '' : implode("\n", $out);
     }
 
     /** บันทึกหน่วยการเรียน (สร้างหรือแก้ไข) */
@@ -474,8 +557,8 @@ final class UnitController
         return $response->withHeader('Location', Url::to("/courses/$courseId?tab=units"))->withStatus(302);
     }
 
-    private function redirectToUnit(Response $response, int $courseId, int $unitId): Response
+    private function redirectToUnit(Response $response, int $courseId, int $unitId, string $anchor = ''): Response
     {
-        return $response->withHeader('Location', Url::to("/courses/$courseId/units/$unitId/edit"))->withStatus(302);
+        return $response->withHeader('Location', Url::to("/courses/$courseId/units/$unitId/edit") . $anchor)->withStatus(302);
     }
 }

@@ -141,7 +141,20 @@
             <div class="field">
                 <label for="cPlanDate">วันที่จัดทำแผน</label>
                 <input class="input" id="cPlanDate" name="plan_date" type="date" value="{$course['plan_date'] ?? ''}">
+                <div class="hint">พิมพ์ใต้ลายมือชื่อครูในหน้าลักษณะรายวิชา · ท้ายแผนแต่ละหน่วยใช้วันที่บันทึกหลังสอน</div>
             </div>
+            {if $staff !== null}
+                <div class="field">
+                    <label for="cDeptHead">หัวหน้าแผนกวิชา (ผู้ลงนาม)</label>
+                    <select class="input" id="cDeptHead" name="dept_head_id" data-combo>
+                        <option value="0">ยังไม่ระบุ</option>
+                        {foreach $staff as $s}
+                            <option value="{$s['id']}" selected="{$s['id'] === $deptHeadId}">{$s['full_name']}</option>
+                        {/foreach}
+                    </select>
+                    <div class="hint">พิมพ์ชื่อใต้ช่องลงนามหัวหน้าแผนกวิชาในหน้าลักษณะรายวิชา · ผู้ลงนามตำแหน่งอื่นผู้ดูแลระบบกำหนดให้</div>
+                </div>
+            {/if}
             <div class="field" style="grid-column:1 / -1">
                 <label for="cClo">ผลลัพธ์การเรียนรู้ระดับรายวิชา</label>
                 <textarea class="input" id="cClo" name="learning_outcomes" rows="4"

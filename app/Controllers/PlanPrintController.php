@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Auth\Roles;
 use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
+use App\Domain\PlanSignerRepository;
 use App\Domain\UnitRepository;
 use App\Support\Db;
 use App\Support\Semester;
@@ -29,6 +31,7 @@ final class PlanPrintController
         private readonly UnitRepository $units,
         private readonly AssignmentRepository $assignments,
         private readonly Db $db,
+        private readonly PlanSignerRepository $signers,
     ) {
     }
 
@@ -39,7 +42,9 @@ final class PlanPrintController
         if ($course === null) {
             throw new HttpNotFoundException($request, 'ไม่พบรายวิชานี้');
         }
-        if ((int) $course['teacher_id'] !== (int) $user['id']) {
+        // เจ้าของรายวิชา หรือผู้ตรวจแผน (หัวหน้างานพัฒนาหลักสูตร ผู้ดูแลครู ผู้ดูแลระบบ) ซึ่งเปิดดูจาก /plans/{id}
+        $owner = (int) $course['teacher_id'] === (int) $user['id'];
+        if (!$owner && !Roles::canReviewPlans($user)) {
             throw new HttpForbiddenException($request, 'คุณไม่ได้เป็นผู้สอนรายวิชานี้');
         }
 
@@ -60,6 +65,7 @@ final class PlanPrintController
         $schedule = $this->schedule($units, $weeks, $weekly);
         $totalHours = array_sum(array_column($schedule, 'hours'));
 
+        $reports = $this->units->reportsForCourse((int) $course['id']);
         $plans = [];
         $lessonNo = 0;
         foreach ($units as $i => $u) {
@@ -91,6 +97,13 @@ final class PlanPrintController
                 'assignments'  => $this->assignments->forUnit($unitId),
                 'pretests'     => array_values(array_filter($quizzes, fn ($q) => $q['kind'] === 'pretest')),
                 'posttests'    => array_values(array_filter($quizzes, fn ($q) => $q['kind'] === 'posttest')),
+                // ข้อ 9 บันทึกหลังสอน: ข้อความที่ครูบันทึกไว้ และวันที่บันทึก (ไม่ใช่วันที่จัดทำแผน)
+                'report'       => [
+                    'plan'     => $this->lines($reports[$unitId]['plan_result'] ?? null),
+                    'learner'  => $this->lines($reports[$unitId]['learner_result'] ?? null),
+                    'problems' => $this->lines($reports[$unitId]['problems'] ?? null),
+                    'date'     => Thai::formalDate($reports[$unitId]['recorded_on'] ?? null),
+                ],
             ];
         }
 
@@ -108,7 +121,11 @@ final class PlanPrintController
             'courseCompetencies' => $this->lines($course['competencies'] ?? null),
             'courseOutcomes'     => $this->lines($course['learning_outcomes'] ?? null),
             'planDate'           => Thai::formalDate($course['plan_date'] ?? null),
+            // ชื่อผู้ลงนาม: หัวหน้าแผนกจากรายวิชา ที่เหลือจากการตั้งค่าของผู้ดูแลระบบ · ยังไม่ระบุ = null (เว้นจุด)
+            'signers'            => ['dept_head' => $this->signers->name((int) ($course['dept_head_id'] ?? 0))]
+                + $this->signers->names(),
             'level'              => Semester::level((string) $course['code'])['label'],
+            'reviewing'          => !$owner,
         ]);
     }
 

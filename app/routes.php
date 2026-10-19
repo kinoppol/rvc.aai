@@ -30,6 +30,7 @@ use App\Controllers\UnitController;
 use App\Controllers\UnitOutlineController;
 use App\Controllers\LessonPlanController;
 use App\Controllers\PlanPrintController;
+use App\Controllers\PlanReviewController;
 use App\Controllers\QuizWizardController;
 use App\Controllers\PublicCourseController;
 use App\Controllers\RegisterController;
@@ -145,6 +146,7 @@ return static function (App $app): void {
             $t->post('/{courseId:[0-9]+}/tasks/{id:[0-9]+}/draft', [AssignmentController::class, 'draft']);
             $t->post('/{courseId:[0-9]+}/tasks/{id:[0-9]+}/delete', [AssignmentController::class, 'delete']);
 
+            $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/report', [UnitController::class, 'saveReport']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft', [UnitController::class, 'draftContent']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft/save', [UnitController::class, 'saveDraftContent']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections', [UnitController::class, 'addSection']);
@@ -183,6 +185,12 @@ return static function (App $app): void {
 
         // ถังขยะของครู: แบบทดสอบที่ลบไว้จากทุกรายวิชา (กู้คืน/ลบถาวรผ่าน /courses/{id}/quizzes/{quizId}/restore|destroy)
         $group->get('/trash', [CourseController::class, 'trash'])->add(new RoleMiddleware(Roles::TEACHING));
+
+        // ตรวจแผนการสอน (อ่านอย่างเดียว) — ตัวควบคุมตรวจ Roles::canReviewPlans() เอง เพราะหัวหน้างานหลักสูตรเป็นค่าตั้งรายผู้ใช้ ไม่ใช่บทบาท
+        $group->group('/plans', function (RouteCollectorProxy $p): void {
+            $p->get('', [PlanReviewController::class, 'index']);
+            $p->get('/{id:[0-9]+}', [PlanPrintController::class, 'show']);
+        })->add(new RoleMiddleware(Roles::STAFF));
 
         $group->group('/board', function (RouteCollectorProxy $b): void {
             $b->get('', [BoardController::class, 'index'])->setName('board');
@@ -285,6 +293,7 @@ return static function (App $app): void {
             $admin->post('/settings', [GeneralController::class, 'save']);
             $admin->post('/settings/login', [GeneralController::class, 'saveLogin']);
             $admin->post('/settings/rvc-one', [GeneralController::class, 'saveRvcOne']);
+            $admin->post('/settings/signers', [GeneralController::class, 'saveSigners']);
         })->add(new RoleMiddleware(['admin']));
     })->add(ViewContext::class)->add(AuthMiddleware::class);
 };

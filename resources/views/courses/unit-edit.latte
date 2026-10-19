@@ -323,6 +323,79 @@
         {/if}
     </div>
 </div>
+
+
+{* ── บันทึกหลังการจัดการเรียนรู้ (ข้อ 9 ของแผนการสอน) — กรอกหลังสอนจบหน่วย พิมพ์ลงแผนพร้อมวันที่บันทึก
+   การ์ดแสดงสรุปสิ่งที่บันทึกไว้ · ปุ่ม "บันทึกหลังสอน" เปิดแบบฟอร์มใน modal (ลิงก์ #report-form เปิดให้ทันที) ── *}
+{if !$isExam}
+{var $reportFields = ['plan_result' => '9.1 ผลการใช้แผนการจัดการเรียนรู้', 'learner_result' => '9.2 ผลการเรียนรู้ของผู้เรียน', 'problems' => '9.3 ปัญหาที่พบและแนวทางแก้ไข']}
+<div class="card" id="report" style="margin-top:16px">
+    <div class="report-card-head">
+        <div class="grow">
+            <div class="card-head" style="margin-bottom:4px">บันทึกหลังการจัดการเรียนรู้</div>
+            <div class="hint">
+                {if $report}บันทึกไว้เมื่อ {App\Support\Thai::date($report['recorded_on'] ?? $report['updated_at'])} · {else}ยังไม่ได้บันทึก · {/if}กรอกหลังสอนหน่วยนี้จบ จะพิมพ์ลงข้อ 9 ของแผนการสอนหน่วยนี้
+            </div>
+        </div>
+        <button type="button" n:class="btn, !$report ? btn-primary" data-open-report>
+            <span class="msi">edit_note</span> {$report ? 'แก้ไขบันทึกหลังสอน' : 'บันทึกหลังสอน'}
+        </button>
+    </div>
+    {if $report}
+        <dl class="report-body" style="padding:4px 0 0">
+            {foreach $reportFields as $field => $label}
+                <dt>{$label}</dt>
+                <dd n:class="!$report[$field] ? muted">{$report[$field] ?: 'ยังไม่ได้กรอก'}</dd>
+            {/foreach}
+        </dl>
+    {/if}
+</div>
+
+<div class="modal-backdrop" id="reportModal" hidden>
+    <div class="modal-panel report-modal" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle">
+        <div class="modal-head">
+            <div class="grow">
+                <div class="modal-title" id="reportModalTitle">บันทึกหลังการจัดการเรียนรู้</div>
+                <div class="hint">{$unit['title']}</div>
+            </div>
+            <button type="button" class="icon-btn" data-close-report aria-label="ปิด">✕</button>
+        </div>
+        <form method="post" action="{$base}/courses/{$course['id']}/units/{$unit['id']}/report" class="modal-body" id="reportForm">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <div class="field">
+                <label for="planResult">{$reportFields['plan_result']}</label>
+                <textarea class="input" id="planResult" name="plan_result" rows="3" maxlength="5000"
+                          placeholder="เช่น จัดกิจกรรมได้ครบตามแผน ใช้เวลามากกว่าที่วางไว้ในขั้นฝึกปฏิบัติ">{$report['plan_result'] ?? ''}</textarea>
+            </div>
+            <div class="field">
+                <label for="learnerResult">{$reportFields['learner_result']}</label>
+                <textarea class="input" id="learnerResult" name="learner_result" rows="3" maxlength="5000"
+                          placeholder="เช่น ผู้เรียนส่วนใหญ่ผ่านเกณฑ์ ปฏิบัติงานตามใบงานได้ถูกต้อง">{$report['learner_result'] ?? ''}</textarea>
+                {if $learnerSummary}
+                    <div class="hint" style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;margin-top:6px">
+                        <span style="flex:1 1 260px;white-space:pre-line">ผลจากระบบ: {$learnerSummary}</span>
+                        <button type="button" class="btn btn-sm" id="useSummary" data-summary="{$learnerSummary}">ใส่ผลจากระบบ</button>
+                    </div>
+                {/if}
+            </div>
+            <div class="field">
+                <label for="problems">{$reportFields['problems']}</label>
+                <textarea class="input" id="problems" name="problems" rows="3" maxlength="5000"
+                          placeholder="เช่น ผู้เรียนบางคนยังใช้โปรแกรมไม่คล่อง — จัดกลุ่มเพื่อนช่วยเพื่อนและสอนเสริมนอกเวลา">{$report['problems'] ?? ''}</textarea>
+            </div>
+            <div class="field" style="max-width:240px;margin-bottom:0">
+                <label for="recordedOn">วันที่บันทึก</label>
+                <input class="input" type="date" id="recordedOn" name="recorded_on" value="{$report['recorded_on'] ?? date('Y-m-d')}">
+            </div>
+        </form>
+        <div class="modal-foot">
+            <button type="button" class="btn" data-close-report>ยกเลิก</button>
+            <div class="grow"></div>
+            <button type="submit" form="reportForm" class="btn btn-primary">บันทึกหลังสอน</button>
+        </div>
+    </div>
+</div>
+{/if}
 {/if}
 
 {define partQuizzes}
@@ -390,6 +463,41 @@
             if (area) area.placeholder = area.getAttribute(exam ? 'data-ph-exam' : 'data-ph-lesson');
         });
     }
+})();
+
+(function () {
+    // แบบฟอร์มบันทึกหลังสอนใน modal: เปิดจากปุ่ม หรือเมื่อเข้าหน้านี้ด้วย #report-form (ลิงก์จากแท็บบันทึกหลังสอน)
+    var modal = document.getElementById('reportModal');
+    if (!modal) return;
+    function open() {
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+        document.getElementById('planResult').focus();
+    }
+    function close() {
+        modal.hidden = true;
+        document.body.style.overflow = '';
+    }
+    document.querySelectorAll('[data-open-report]').forEach(function (b) { b.addEventListener('click', open); });
+    modal.querySelectorAll('[data-close-report]').forEach(function (b) { b.addEventListener('click', close); });
+    modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) close(); });
+    if (location.hash === '#report-form') {
+        document.getElementById('report').scrollIntoView();
+        open();
+    }
+
+    // ใส่สรุปผลแบบทดสอบจากระบบลงข้อ 9.2 (ต่อท้ายถ้าครูพิมพ์ไว้แล้ว)
+    var btn = document.getElementById('useSummary');
+    var area = document.getElementById('learnerResult');
+    if (!btn || !area) return;
+    btn.addEventListener('click', function () {
+        var text = btn.getAttribute('data-summary');
+        if (area.value.indexOf(text) === -1) {
+            area.value = area.value.trim() ? area.value.trim() + '\n' + text : text;
+        }
+        area.focus();
+    });
 })();
 
 (function () {
