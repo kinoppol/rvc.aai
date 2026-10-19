@@ -8,6 +8,7 @@ use App\Auth\Auth;
 use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
 use App\Domain\EnrollmentRepository;
+use App\Domain\PlanSignerRepository;
 use App\Domain\QuizRepository;
 use App\Domain\StudentAccountRepository;
 use App\Domain\UnitRepository;
@@ -39,6 +40,7 @@ final class CourseController
         private readonly StudentAccountRepository $studentAccounts,
         private readonly Auth $auth,
         private readonly Db $db,
+        private readonly PlanSignerRepository $signers,
     ) {
     }
 
@@ -342,6 +344,11 @@ final class CourseController
             'terms' => $this->courses->terms(),
             'classrooms' => $this->courses->classrooms(),
             'currentTermId' => $this->courses->currentTermId(),
+            // หัวหน้าแผนกผู้ลงนามในแผนการสอน · รายวิชาใหม่ใช้คนที่ครูเลือกไว้ในรายวิชาล่าสุด
+            'staff' => $this->signers->ready() ? $this->signers->staff() : null,
+            'deptHeadId' => $course !== null
+                ? (int) ($course['dept_head_id'] ?? 0)
+                : $this->signers->lastDeptHead((int) $user['id']),
         ]);
     }
 
@@ -401,6 +408,11 @@ final class CourseController
             // สีหน้าปก — ว่าง = ให้ระบบสุ่มจาก id วิชา (สีเดิมเสมอ)
             'cover_color' => Cover::normalise((string) ($data['cover_color'] ?? '')),
         ];
+
+        // ก่อนรันไมเกรชัน 000128 ยังไม่มีคอลัมน์นี้ — ข้ามไปให้บันทึกรายวิชาได้ตามปกติ
+        if ($this->signers->ready()) {
+            $fields['dept_head_id'] = $this->signers->validStaff((int) ($data['dept_head_id'] ?? 0));
+        }
 
         if ($course === null) {
             $id = $this->courses->create((int) $user['id'], $fields);

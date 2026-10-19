@@ -26,6 +26,27 @@
         </div>
     </form>
 
+    <form method="post" action="{$base}/admin/settings/signers" class="card" id="signers" style="margin-top:16px">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <div class="step-label">ผู้ลงนามในแผนการสอน</div>
+        <div class="hint" style="margin-top:4px">ชื่อที่พิมพ์ใต้ช่องลงนามในหน้าลักษณะรายวิชาของแผนการสอนทุกรายวิชา · หัวหน้าแผนกวิชาครูเลือกเองในฟอร์มรายวิชา</div>
+        {foreach $signerPositions as $key => $label}
+            <div class="field" style="margin-top:14px">
+                <label for="sign-{$key}">{$label}{if $key === 'plan_sign_director'}{$collegeName}{/if}</label>
+                <select class="input" id="sign-{$key}" name="{$key}" data-combo>
+                    <option value="0">ยังไม่ระบุ</option>
+                    {foreach $staff as $s}
+                        <option value="{$s['id']}" selected="{$s['id'] === $signers[$key]}">{$s['full_name']}</option>
+                    {/foreach}
+                </select>
+            </div>
+        {/foreach}
+        <div class="hint" style="margin-top:6px">รายชื่อจากบัญชีบุคลากรที่ยังใช้งานอยู่ (นำเข้าจาก RMS ได้ที่แท็บ RMS)</div>
+        <div style="margin-top:18px">
+            <button type="submit" class="btn btn-primary">บันทึกผู้ลงนาม</button>
+        </div>
+    </form>
+
     <form method="post" action="{$base}/admin/settings/login" class="card login-methods" style="margin-top:16px">
         <input type="hidden" name="_token" value="{$csrf}">
         <div class="step-label">วิธีเข้าสู่ระบบ</div>

@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
+use App\Domain\PlanSignerRepository;
 use App\Domain\UnitRepository;
 use App\Support\Db;
 use App\Support\Semester;
@@ -29,6 +30,7 @@ final class PlanPrintController
         private readonly UnitRepository $units,
         private readonly AssignmentRepository $assignments,
         private readonly Db $db,
+        private readonly PlanSignerRepository $signers,
     ) {
     }
 
@@ -116,6 +118,9 @@ final class PlanPrintController
             'courseCompetencies' => $this->lines($course['competencies'] ?? null),
             'courseOutcomes'     => $this->lines($course['learning_outcomes'] ?? null),
             'planDate'           => Thai::formalDate($course['plan_date'] ?? null),
+            // ชื่อผู้ลงนาม: หัวหน้าแผนกจากรายวิชา ที่เหลือจากการตั้งค่าของผู้ดูแลระบบ · ยังไม่ระบุ = null (เว้นจุด)
+            'signers'            => ['dept_head' => $this->signers->name((int) ($course['dept_head_id'] ?? 0))]
+                + $this->signers->names(),
             'level'              => Semester::level((string) $course['code'])['label'],
         ]);
     }
