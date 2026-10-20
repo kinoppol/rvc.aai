@@ -645,7 +645,7 @@
         $('cwheelOutHead').hidden = W.out.length === 0;
     }
 
-    function loadRoster(courseId, fresh) {
+    function loadRoster(courseId, fresh, soft) {
         if (!canRoster) return Promise.resolve();
         return fetch(base + '/tools/roster?course=' + (courseId || 0), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
             .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
@@ -659,6 +659,12 @@
                     o.value = c.id; o.textContent = c.label + ' (' + c.count + ' คน)';
                     courseSel.appendChild(o);
                 });
+                // soft = ลองวิชาของหน้าที่เปิดอยู่ — ถ้าไม่ใช่วิชาของครูคนนี้ คงรายชื่อเดิมบนวงล้อไว้
+                if (soft && !data.course) {
+                    courseSel.value = String(W.course || 0);
+                    renderNames(); drawWheel();
+                    return;
+                }
                 courseSel.value = String(data.course || 0);
                 if (fresh || W.course !== data.course) {
                     W.course = data.course;
@@ -677,7 +683,7 @@
             });
     }
 
-    // วิชาเริ่มต้น: ที่เลือกไว้ก่อน หรือวิชาของหน้าที่เปิดอยู่ (/courses/{id}…)
+    // วิชาเริ่มต้น: วิชาของหน้าที่เปิดอยู่ (/courses/{id}…) ไม่งั้นวิชาที่เลือกไว้ก่อน
     function pageCourse() {
         var m = location.pathname.match(/\/courses\/(\d+)(?:\/|$)/);
         return m ? parseInt(m[1], 10) : 0;
@@ -693,8 +699,13 @@
             drawWheel();
             return;
         }
-        var wanted = W.course || pageCourse();
-        loadRoster(wanted, !W.course && W.names.length === 0);
+        // อยู่หน้าของรายวิชาอื่น → เปลี่ยนวงล้อเป็นนักเรียนทุกคนของวิชานั้น (รายชื่อมาจากการลงทะเบียนเรียน ไม่ต้องมีกลุ่มเรียน)
+        var page = pageCourse();
+        if (page && page !== W.course) {
+            loadRoster(page, true, true);
+            return;
+        }
+        loadRoster(W.course, !W.course && W.names.length === 0);
     }
 
     courseSel.addEventListener('change', function () {

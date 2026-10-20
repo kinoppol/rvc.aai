@@ -6,7 +6,7 @@
     รวมอยู่ใน ai-chat.latte ภายใน .aichat-panel
 *}
 <div class="aichat-pane ctools" data-pane="tools" id="ctools" hidden
-     data-roster="{in_array($user['role'] ?? '', ['teacher', 'supervisor'], true) ? 1 : 0}">
+     data-roster="{App\Auth\Roles::canTeach($user ?? null) ? 1 : 0}">
     <div class="ctools-bar">
         <div class="ctools-seg" role="tablist" aria-label="เลือกเครื่องมือ">
             <button type="button" class="is-on" data-tool-btn="timer"><span class="msi" aria-hidden="true">timer</span>นาฬิกา</button>
