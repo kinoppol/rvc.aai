@@ -8,6 +8,15 @@
         <div class="sub"><a href="{$base}/courses/{$course['id']}?tab=units">{$course['name']}</a></div>
         <h1>{if $unit}{$unit['title']}{elseif $isExam}{$kinds[$kind]}{else}หน่วยการเรียนใหม่{/if}</h1>
     </div>
+    {if $unit}
+        <div class="actions">
+            {* เนื้อหาทั้งหน่วยรวมใบงานเป็นไฟล์ .md สำหรับนำไปสร้างงานนำเสนอต่อ (ส่งออกตามที่บันทึกไว้แล้ว) *}
+            <a class="btn" href="{$base}/courses/{$course['id']}/units/{$unit['id']}/export.md"
+               title="บทนำ ส่วนเนื้อหา และใบงานของหน่วยนี้ · คั่นหัวข้อด้วย --- เพื่อนำไปสร้างสไลด์ต่อ">
+                <span class="msi">download</span> ส่งออก Markdown (.md)
+            </a>
+        </div>
+    {/if}
 </div>
 
 {* ── ฟอร์มข้อมูลหน่วย ── *}

@@ -13,6 +13,7 @@ use App\Domain\UnitRepository;
 use App\Support\Csrf;
 use App\Support\Flash;
 use App\Support\Paths;
+use App\Support\Thai;
 use App\Support\Url;
 use App\Support\View;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -83,6 +84,96 @@ final class UnitController
             'report' => $hasReport ? $this->units->report($unitId) : null,
             'learnerSummary' => $hasReport ? $this->learnerSummary($unitId, $course) : '',
         ]);
+    }
+
+    /**
+     * ส่งออกเนื้อหาทั้งหน่วย (บทนำ · ส่วนเนื้อหา · ใบงาน) เป็นไฟล์ Markdown
+     * ให้ครูนำไปสร้างงานนำเสนอต่อ — คั่นแต่ละหัวข้อด้วย --- ซึ่งเครื่องมือสร้างสไลด์ส่วนใหญ่ถือเป็นการขึ้นสไลด์ใหม่
+     */
+    public function exportMarkdown(Request $request, Response $response, array $args): Response
+    {
+        [$course, $unit] = $this->ownedUnit($request, $args);
+        $unitId = (int) $unit['id'];
+        $isExam = UnitRepository::isExam($unit);
+
+        // ลำดับหน่วยนับเฉพาะหน่วยการเรียน (หน่วยสอบไม่มีเลขหน่วย)
+        $no = 0;
+        foreach ($this->units->forCourse((int) $course['id']) as $u) {
+            if (!UnitRepository::isExam($u)) {
+                $no++;
+            }
+            if ((int) $u['id'] === $unitId) {
+                break;
+            }
+        }
+
+        $md = [];
+        $md[] = '# ' . ($isExam ? '' : "หน่วยที่ $no ") . self::mdLine((string) $unit['title']);
+        $md[] = '';
+        $md[] = self::mdLine(trim($course['code'] . ' ' . $course['name']));
+
+        $intro = $isExam
+            ? ['คำชี้แจงการสอบ' => $unit['key_content']]
+            : ['สาระสำคัญ' => $unit['key_content'], 'วัตถุประสงค์การเรียนรู้' => $unit['objectives'], 'สมรรถนะประจำหน่วย' => $unit['competencies']];
+        foreach ($intro as $label => $text) {
+            $text = trim((string) $text);
+            if ($text !== '') {
+                // จุดประสงค์/สมรรถนะเก็บบรรทัดละข้อ — ทำเป็นรายการ ไม่อย่างนั้น Markdown จะรวมเป็นย่อหน้าเดียว
+                array_push($md, '', '---', '', "## $label", '', $label === 'สาระสำคัญ' || $isExam ? $text : self::mdList($text));
+            }
+        }
+
+        if (!$isExam) {
+            foreach ($this->units->sectionsFor($unitId) as $i => $s) {
+                $title = self::mdLine((string) $s['title']) ?: 'เนื้อหาส่วนที่ ' . ($i + 1);
+                array_push($md, '', '---', '', '## ' . $title, '');
+                if ($s['type'] === 'video') {
+                    $md[] = 'วีดิโอ: <' . $s['video_url'] . '>';
+                } elseif ($s['type'] === 'pdf') {
+                    $md[] = 'เอกสาร PDF: ' . self::mdLine((string) ($s['file_name'] ?? basename((string) $s['file_path'])));
+                } else {
+                    $md[] = trim((string) $s['content']);
+                }
+            }
+
+            foreach ($this->assignments->forUnit($unitId) as $i => $a) {
+                array_push($md, '', '---', '', '## ใบงานที่ ' . ($i + 1) . ' ' . self::mdLine((string) $a['title']), '');
+                $meta = 'คะแนนเต็ม ' . (float) $a['max_score'] . ' คะแนน';
+                if ($a['due_at']) {
+                    $meta .= ' · กำหนดส่ง ' . Thai::dateTime($a['due_at']);
+                }
+                $md[] = '*' . $meta . '*';
+                $description = trim((string) ($a['description'] ?? ''));
+                if ($description !== '') {
+                    array_push($md, '', $description);
+                }
+            }
+        }
+
+        $body = preg_replace("/\r\n?/", "\n", implode("\n", $md)) . "\n";
+        $name = preg_replace('/[\\\\\/:*?"<>|\s]+/u', '_', ($isExam ? '' : "หน่วยที่{$no}-") . $unit['title']);
+        $response->getBody()->write($body);
+
+        return $response
+            ->withHeader('Content-Type', 'text/markdown; charset=utf-8')
+            ->withHeader('Content-Disposition', "attachment; filename*=UTF-8''" . rawurlencode(mb_substr($name, 0, 80) . '.md'));
+    }
+
+    /** ข้อความบรรทัดเดียวสำหรับหัวข้อ Markdown (ตัดการขึ้นบรรทัดใหม่ออก) */
+    private static function mdLine(string $text): string
+    {
+        return trim((string) preg_replace('/\s+/u', ' ', $text));
+    }
+
+    /** ข้อความบรรทัดละข้อ → รายการ Markdown (บรรทัดที่ขึ้นต้นด้วยเลขข้อหรือ -/* อยู่แล้วคงไว้) */
+    private static function mdList(string $text): string
+    {
+        $lines = array_filter(array_map('trim', preg_split('/\R/u', $text)), static fn (string $l): bool => $l !== '');
+
+        return implode("\n", array_map(
+            static fn (string $l): string => preg_match('/^([-*+]|\d+[.)])\s/u', $l) ? $l : '- ' . ltrim($l, '•· '),
+            $lines
+        ));
     }
 
     /** บันทึกหลังการจัดการเรียนรู้ของหน่วย (ข้อ 9 ในแผนการสอน) */

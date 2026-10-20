@@ -125,6 +125,7 @@ return static function (App $app): void {
 
             $t->get('/{courseId:[0-9]+}/units/new', [UnitController::class, 'edit']);
             $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/edit', [UnitController::class, 'edit']);
+            $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/export.md', [UnitController::class, 'exportMarkdown']);
             $t->get('/{courseId:[0-9]+}/preview', [StudentController::class, 'previewCourse']);
             $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/preview', [StudentController::class, 'preview']);
             $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/preview/{kind:section|worksheet}/{itemId:[0-9]+}', [StudentController::class, 'previewItem']);
