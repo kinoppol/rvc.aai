@@ -10,8 +10,8 @@ use App\Support\Db;
  * เส้นทางการเรียนของนักเรียน: รายการในแต่ละหน่วยเรียงตามลำดับเรียน
  * แบบทดสอบก่อนเรียน → ส่วนเนื้อหา → ใบงาน → แบบทดสอบหลังเรียน พร้อมสถานะว่าทำครบแล้วหรือยัง
  *
- * ความคืบหน้านับเฉพาะส่วนเนื้อหา (เปิดอ่านแล้ว = section_progress) และแบบทดสอบ (ส่งแล้วอย่างน้อยหนึ่งครั้ง)
- * ใบงานแสดงในรายการแต่ไม่นับ เพราะนักเรียนยังส่งใบงานผ่านระบบไม่ได้
+ * ความคืบหน้านับส่วนเนื้อหา (เปิดอ่านแล้ว = section_progress) แบบทดสอบ (ส่งแล้วอย่างน้อยหนึ่งครั้ง)
+ * และใบงาน / งานที่มอบหมาย (ส่งงานแล้ว และครูไม่ได้ส่งกลับให้แก้)
  */
 final class LearnPathRepository
 {
@@ -25,6 +25,7 @@ final class LearnPathRepository
         'video'     => ['วิดีโอ', 'smart_display', 'video'],
         'pdf'       => ['เอกสาร', 'description', 'pdf'],
         'worksheet' => ['ใบงาน', 'assignment', 'work'],
+        'task'      => ['งานที่มอบหมาย', 'assignment', 'work'],
         'posttest'  => ['แบบทดสอบหลังเรียน', 'task_alt', 'post'],
         'exam'      => ['ข้อสอบ', 'edit_note', 'exam'],
     ];
@@ -58,7 +59,7 @@ final class LearnPathRepository
         );
         $worksheets = $this->db->all(
             'SELECT a.id, a.unit_id, a.title, a.max_score, a.due_at,
-                    EXISTS(SELECT 1 FROM {submissions} sb WHERE sb.assignment_id = a.id AND sb.student_id = ?) AS done
+                    EXISTS(SELECT 1 FROM {submissions} sb WHERE sb.assignment_id = a.id AND sb.student_id = ? AND sb.status <> \'returned\') AS done
              FROM {assignments} a
              WHERE a.course_id = ? AND a.kind = \'worksheet\' AND a.unit_id IS NOT NULL
              ORDER BY a.created_at, a.id',
@@ -92,12 +93,7 @@ final class LearnPathRepository
             if (!isset($buckets[$uid]) || $exams[$uid]) {
                 continue;
             }
-            $buckets[$uid]['work'][] = $this->item('worksheet', (int) $a['id'], 'worksheet', (string) $a['title'], (bool) $a['done'], false)
-                + [
-                    'minutes' => 0,
-                    'score' => (float) $a['max_score'] > 0 ? self::num($a['max_score']) . ' คะแนน' : null,
-                    'meta' => $a['due_at'] ? 'ส่ง ' . \App\Support\Thai::date((string) $a['due_at']) : 'ส่งกับครูผู้สอน',
-                ];
+            $buckets[$uid]['work'][] = $this->workItem('worksheet', $a);
         }
 
         $result = [];
@@ -118,6 +114,39 @@ final class LearnPathRepository
             'done' => count(array_filter($counted, static fn (array $i): bool => $i['done'])),
             'total' => count($counted),
             'minutes' => array_sum(array_column($items, 'minutes')),
+        ];
+    }
+
+    /**
+     * งานที่มอบหมาย (kind = task) ของรายวิชา — งานที่ไม่ผูกหน่วย หรือผูกกับหน่วยที่เผยแพร่แล้ว
+     *
+     * @param list<int> $publishedUnitIds
+     * @return list<array<string,mixed>>
+     */
+    public function tasks(int $courseId, int $studentId, array $publishedUnitIds): array
+    {
+        $rows = $this->db->all(
+            'SELECT a.id, a.unit_id, a.title, a.max_score, a.due_at,
+                    EXISTS(SELECT 1 FROM {submissions} sb WHERE sb.assignment_id = a.id AND sb.student_id = ? AND sb.status <> \'returned\') AS done
+             FROM {assignments} a
+             WHERE a.course_id = ? AND a.kind = \'task\'
+             ORDER BY a.due_at IS NULL, a.due_at, a.created_at, a.id',
+            [$studentId, $courseId]
+        );
+
+        return array_values(array_map(
+            fn (array $a): array => $this->workItem('task', $a),
+            array_filter($rows, static fn (array $a): bool => $a['unit_id'] === null || in_array((int) $a['unit_id'], $publishedUnitIds, true))
+        ));
+    }
+
+    /** @param array<string,mixed> $a ใบงาน / งานที่มอบหมาย — นับในความคืบหน้าเมื่อส่งงานแล้ว */
+    private function workItem(string $type, array $a): array
+    {
+        return $this->item($type, (int) $a['id'], $type, (string) $a['title'], (bool) $a['done'], true) + [
+            'minutes' => 0,
+            'score' => (float) $a['max_score'] > 0 ? self::num($a['max_score']) . ' คะแนน' : null,
+            'meta' => $a['due_at'] ? 'ส่ง ' . \App\Support\Thai::date((string) $a['due_at']) : 'ไม่กำหนดวันส่ง',
         ];
     }
 

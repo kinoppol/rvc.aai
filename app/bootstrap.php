@@ -84,6 +84,7 @@ $builder->addDefinitions([
             (int) @filemtime(Paths::root() . '/public/assets/js/ui.js'),
             (int) @filemtime(Paths::root() . '/public/assets/js/class-tools.js'),
             (int) @filemtime(Paths::root() . '/public/assets/js/pdf-view.js'),
+            (int) @filemtime(Paths::root() . '/public/assets/js/submission.js'),
             (int) @filemtime(Paths::root() . '/public/assets/css/landing.css'),
             1
         ),

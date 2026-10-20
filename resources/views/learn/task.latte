@@ -1,0 +1,39 @@
+{layout '../layout.latte'}
+
+{block title}{$assignment['title']}{/block}
+
+{* งานที่มอบหมาย (kind = task) ของนักเรียน — รายละเอียดงาน + กล่องส่งงาน · ครูเปิดในมุมมองนักเรียนได้ (preview) *}
+{block content}
+<div class="learn-page">
+    <a class="back-link" href="{$base}{$backUrl}">← {$course['name']}</a>
+    {if $preview}
+        <div class="preview-banner">
+            <span class="msi" aria-hidden="true">visibility</span>
+            <div><b>มุมมองของนักเรียน</b> · <a href="{$base}/courses/{$course['id']}/assignments/{$assignment['id']}/submissions">ดูงานที่นักเรียนส่ง</a></div>
+        </div>
+    {/if}
+
+    <div class="learn-item-head">
+        <span class="path-type path-tone-work"><span class="msi" aria-hidden="true">assignment</span>งานที่มอบหมาย</span>
+        <span class="path-meta">
+            เต็ม {rtrim(rtrim(number_format((float) $assignment['max_score'], 2, '.', ''), '0'), '.')} คะแนน
+            {if $unit} · {$unit['title']}{/if}
+        </span>
+    </div>
+    <h1 class="learn-item-title">{$assignment['title']}</h1>
+
+    <section class="learn-card learn-item-body">
+        {if $assignment['description']}
+            <div class="learn-text learn-reading">{$assignment['description']}</div>
+        {else}
+            <p class="learn-text">ครูยังไม่ได้ใส่รายละเอียดของงานนี้</p>
+        {/if}
+        <p class="learn-note">
+            <span class="msi" aria-hidden="true">schedule</span>
+            {if $assignment['due_at']}กำหนดส่ง {App\Support\Thai::dateTime($assignment['due_at'])}{if !$assignment['allow_late']} (ไม่รับส่งช้า){/if}{else}ไม่กำหนดวันส่ง{/if}
+        </p>
+    </section>
+
+    {include '../_partials/submission.latte'}
+</div>
+{/block}

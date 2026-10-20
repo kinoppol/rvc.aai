@@ -76,10 +76,14 @@
             {/if}
             <p class="learn-note">
                 <span class="msi" aria-hidden="true">info</span>
-                ใบงานนี้ส่งกับครูผู้สอนตามที่ครูกำหนด{if $item['score']} · เต็ม {$item['score']}{/if}{if $record['due_at']} · กำหนดส่ง {App\Support\Thai::dateTime($record['due_at'])}{/if}
+                ส่งใบงานได้ที่ช่องด้านล่าง{if $item['score']} · เต็ม {$item['score']}{/if}{if $record['due_at']} · กำหนดส่ง {App\Support\Thai::dateTime($record['due_at'])}{if !$record['allow_late']} (ไม่รับส่งช้า){/if}{/if}
             </p>
         {/if}
     </section>
+
+    {if $item['kind'] === 'worksheet'}
+        {include '../_partials/submission.latte'}
+    {/if}
 
     <nav class="learn-nav" aria-label="รายการก่อนหน้าและถัดไป">
         <div>{if $prevItem}{include navLink, $prevItem, 'prev'}{/if}</div>

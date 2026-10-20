@@ -95,6 +95,15 @@
             <div class="empty"><h3>ยังไม่มีหน่วยการเรียนที่เผยแพร่</h3></div>
         {/if}
 
+        {if $tasks}
+            <h2 class="learn-list-title">งานที่มอบหมาย ({count($tasks)} งาน)</h2>
+            <div class="path-list">
+                {foreach $tasks as $it}
+                    {include '../_partials/path-row.latte', it: $it, no: $iterator->counter, itemBase: $taskBase, preview: $preview}
+                {/foreach}
+            </div>
+        {/if}
+
         {if $looseQuizzes}
             <h2 class="learn-list-title">แบบทดสอบเพิ่มเติม</h2>
             <div class="path-list">

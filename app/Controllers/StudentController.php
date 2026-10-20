@@ -9,6 +9,7 @@ use App\Domain\EnrollmentRepository;
 use App\Domain\LearnPathRepository;
 use App\Domain\UnitRepository;
 use App\Domain\QuizRepository;
+use App\Domain\SubmissionRepository;
 use App\Support\Cover;
 use App\Support\Csrf;
 use App\Support\Db;
@@ -36,6 +37,7 @@ final class StudentController
         private readonly AttemptRepository $attempts,
         private readonly LearnPathRepository $path,
         private readonly Db $db,
+        private readonly SubmissionRepository $submissions,
     ) {
     }
 
@@ -380,7 +382,8 @@ final class StudentController
         $path = $this->path->build($courseId, $studentId, $units,
             $this->decorateQuizzes($this->quizzes->publishedForStudent($courseId, $studentId)));
 
-        $allItems = array_merge(array_merge([], ...array_column($path['units'], 'items')), $path['loose']);
+        $tasks = $this->path->tasks($courseId, $studentId, array_map(static fn (array $u): int => (int) $u['id'], $units));
+        $allItems = array_merge(array_merge([], ...array_column($path['units'], 'items')), $path['loose'], $tasks);
         $next = null;
         foreach ($units as $u) {
             $p = $path['units'][(int) $u['id']];
@@ -396,6 +399,9 @@ final class StudentController
             'units' => $units,
             'path' => $path['units'],
             'looseQuizzes' => $path['loose'],
+            'tasks' => $tasks,
+            // งานที่มอบหมาย: นักเรียน /learn/task/{id} · ครู /courses/{c}/preview/task/{id}
+            'taskBase' => $preview ? '/courses/' . $courseId . '/preview' : '/learn',
             'totals' => LearnPathRepository::summary($allItems),
             'typeCounts' => $this->typeCounts($allItems),
             'nextUnit' => $next,
@@ -476,6 +482,15 @@ final class StudentController
             ? $this->units->findSection($itemId)
             : $this->db->first('SELECT * FROM {assignments} WHERE id = ?', [$itemId]);
 
+        // ใบงาน: ฟอร์มส่งงานของนักเรียน (มุมมองของครูเห็นฟอร์มแต่ส่งไม่ได้)
+        $work = $kind === 'worksheet' && $record !== null
+            ? SubmissionController::formContext(
+                $record,
+                $preview ? null : $this->submissions->forStudent($itemId, $studentId),
+                $preview
+            ) + ['assignment' => $record]
+            : [];
+
         return $this->view->render($response, 'learn/item', [
             'page' => $preview ? 'courses' : 'learn',
             'item' => $ctx['items'][$pos],
@@ -483,7 +498,7 @@ final class StudentController
             'position' => $pos + 1,
             'prevItem' => $ctx['items'][$pos - 1] ?? null,
             'nextInPath' => $ctx['items'][$pos + 1] ?? null,
-        ] + $ctx);
+        ] + $work + $ctx);
     }
 
     /**
@@ -517,6 +532,7 @@ final class StudentController
             $label = match ($it['kind']) {
                 'section' => $it['label'],
                 'quiz' => 'แบบทดสอบ',
+                'task' => 'งานที่มอบหมาย',
                 default => 'ใบงาน',
             };
             $counts[$label] = ($counts[$label] ?? 0) + 1;

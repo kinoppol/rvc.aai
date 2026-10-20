@@ -147,6 +147,7 @@
                                 {if $a['submission_count'] > 0} · ส่งแล้ว {$a['submission_count']} คน{/if}
                             </div>
                         </div>
+                        <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/assignments/{$a['id']}/submissions">งานที่ส่ง ({$a['submission_count']})</a>
                         {if $a['unit_id']}
                             <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/units/{$a['unit_id']}/assignments/{$a['id']}/edit">แก้ไข</a>
                         {/if}
@@ -184,6 +185,7 @@
                                 {if $a['submission_count'] > 0} · ส่งแล้ว {$a['submission_count']} คน{/if}
                             </div>
                         </div>
+                        <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/assignments/{$a['id']}/submissions">งานที่ส่ง ({$a['submission_count']})</a>
                         <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/tasks/{$a['id']}/edit">แก้ไข</a>
                     </div>
                 {/foreach}

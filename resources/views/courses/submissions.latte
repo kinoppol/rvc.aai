@@ -1,0 +1,102 @@
+{layout '../layout.latte'}
+
+{block title}งานที่ส่ง · {$assignment['title']}{/block}
+
+{* หน้าตรวจงานของครู — นักเรียนทุกคนในรายวิชา (ส่งแล้วขึ้นก่อน) · เปิดแถวเพื่ออ่านคำตอบ ดูไฟล์ ให้คะแนน หรือส่งกลับให้แก้ *}
+{block content}
+{var $isTask = $assignment['kind'] === 'task'}
+{var $max = rtrim(rtrim(number_format((float) $assignment['max_score'], 2, '.', ''), '0'), '.')}
+{var $fileBase = $base . '/courses/' . $course['id'] . '/submissions/files/'}
+<div class="wizard-page" style="max-width:960px">
+    <a class="back-link" href="{$base}/courses/{$course['id']}?tab={$isTask ? 'tasks' : 'worksheets'}">← {$course['name']}</a>
+    <h1>{$assignment['title']}</h1>
+    <div class="sub">
+        {$isTask ? 'งานที่มอบหมาย' : 'ใบงาน'}{if $unit} · {$unit['title']}{/if}
+        · เต็ม {$max} คะแนน
+        {if $assignment['due_at']} · กำหนดส่ง {App\Support\Thai::dateTime($assignment['due_at'])}{if !$assignment['allow_late']} (ไม่รับส่งช้า){/if}{/if}
+    </div>
+
+    <div class="sub-summary">
+        <span class="chip chip-muted">นักเรียน {$counts['students']} คน</span>
+        <span class="chip chip-ok">ส่งแล้ว {$counts['sent']}</span>
+        <span n:class="chip, $counts['waiting'] ? 'chip-warn' : 'chip-muted'">รอตรวจ {$counts['waiting']}</span>
+        <span class="chip chip-muted">ตรวจแล้ว {$counts['graded']}</span>
+        <span class="chip chip-muted">ยังไม่ส่ง {$counts['students'] - $counts['sent']}</span>
+        <span class="sub-summary-actions">
+            <a class="btn btn-sm" href="{$base}{$isTask ? '/courses/' . $course['id'] . '/preview/task/' . $assignment['id'] : '/courses/' . $course['id'] . '/units/' . $assignment['unit_id'] . '/preview/worksheet/' . $assignment['id']}" target="_blank" rel="noopener"><span class="msi" aria-hidden="true">visibility</span>มุมมองนักเรียน</a>
+            <a class="btn btn-sm" href="{$base}{$isTask ? '/courses/' . $course['id'] . '/tasks/' . $assignment['id'] . '/edit' : '/courses/' . $course['id'] . '/units/' . $assignment['unit_id'] . '/assignments/' . $assignment['id'] . '/edit'}"><span class="msi" aria-hidden="true">edit</span>แก้ไขงาน</a>
+        </span>
+    </div>
+
+    {if !$roster}
+        <div class="empty card"><h3>ยังไม่มีนักเรียนในรายวิชานี้</h3><p>เพิ่มนักเรียนได้ที่แท็บ "นักเรียน" ของรายวิชา</p></div>
+    {/if}
+
+    <div class="sub-roster">
+        {foreach $roster as $r}
+            {var $late = $r['id'] && $assignment['due_at'] && strtotime($r['submitted_at']) > strtotime($assignment['due_at'])}
+            {if $r['id']}
+                <details class="card sub-row" id="s{$r['id']}" n:attr="open: $open === (int) $r['id']">
+                    <summary class="sub-row-head">
+                        <span class="sub-who"><b>{$r['full_name'] ?: $r['username']}</b> <small class="mono">{$r['username']}</small></span>
+                        <span class="sub-row-tags">
+                            <span n:class="sub-status, 'sub-status-' . $r['status']">{$statusLabels[$r['status']] ?? $r['status']}</span>
+                            {if $late}<span class="sub-status sub-status-late">ส่งช้า</span>{/if}
+                            {if $r['status'] === 'graded' && $r['score'] !== null}<b class="sub-row-score">{rtrim(rtrim(number_format((float) $r['score'], 2, '.', ''), '0'), '.')}/{$max}</b>{/if}
+                            <small class="sub-row-time">{App\Support\Thai::dateTime($r['submitted_at'])}</small>
+                            {if $r['files']}<small class="sub-row-time"><span class="msi" aria-hidden="true">attach_file</span>{count($r['files'])}</small>{/if}
+                        </span>
+                    </summary>
+
+                    <div class="sub-row-body">
+                        {if $r['content']}
+                            <div class="sub-label">คำตอบ / ข้อความ</div>
+                            <div class="learn-text sub-answer">{$r['content']}</div>
+                        {/if}
+                        {if $r['files']}
+                            <div class="sub-label">ไฟล์ที่ส่ง ({count($r['files'])})</div>
+                            <div class="sub-files">
+                                {foreach $r['files'] as $f}
+                                    <div class="sub-file">
+                                        {if $f['is_image']}
+                                            <a class="sub-thumb" href="{$fileBase}{$f['id']}" target="_blank" rel="noopener"><img src="{$fileBase}{$f['id']}" alt="{$f['original_name']}" loading="lazy"></a>
+                                        {else}
+                                            <a class="sub-thumb is-pdf" href="{$fileBase}{$f['id']}" target="_blank" rel="noopener"><span class="msi" aria-hidden="true">picture_as_pdf</span></a>
+                                        {/if}
+                                        <a class="sub-file-name" href="{$fileBase}{$f['id']}" target="_blank" rel="noopener">{$f['original_name']}</a>
+                                    </div>
+                                {/foreach}
+                            </div>
+                        {/if}
+
+                        <form class="sub-grade" method="post" action="{$base}/courses/{$course['id']}/assignments/{$assignment['id']}/submissions/{$r['id']}">
+                            <input type="hidden" name="_token" value="{$csrf}">
+                            <div class="field sub-grade-score">
+                                <label for="score{$r['id']}">คะแนน (เต็ม {$max})</label>
+                                <input class="input" type="number" id="score{$r['id']}" name="score" min="0" max="{$max}" step="0.5"
+                                       value="{$r['score'] !== null ? rtrim(rtrim(number_format((float) $r['score'], 2, '.', ''), '0'), '.') : ''}">
+                            </div>
+                            <div class="field sub-grade-note">
+                                <label for="feedback{$r['id']}">ความเห็นถึงนักเรียน</label>
+                                <textarea class="input" id="feedback{$r['id']}" name="feedback" rows="2" maxlength="5000"
+                                          placeholder="ไม่บังคับเมื่อให้คะแนน · ต้องเขียนเมื่อส่งกลับให้แก้">{$r['feedback'] ?? ''}</textarea>
+                            </div>
+                            <div class="sub-grade-actions">
+                                <button type="submit" name="do" value="grade" class="btn btn-primary btn-sm">บันทึกคะแนน</button>
+                                <button type="submit" name="do" value="return" class="btn btn-sm" formnovalidate>ส่งกลับให้แก้ไข</button>
+                            </div>
+                        </form>
+                    </div>
+                </details>
+            {else}
+                <div class="card sub-row is-missing">
+                    <div class="sub-row-head">
+                        <span class="sub-who"><b>{$r['full_name'] ?: $r['username']}</b> <small class="mono">{$r['username']}</small></span>
+                        <span class="sub-row-tags"><span class="sub-status sub-status-none">ยังไม่ส่ง</span></span>
+                    </div>
+                </div>
+            {/if}
+        {/foreach}
+    </div>
+</div>
+{/block}

@@ -1,0 +1,107 @@
+{*
+    กล่องส่งงานของนักเรียน — ใช้ในหน้าใบงาน (learn/item.latte) และหน้างานที่มอบหมาย (learn/task.latte)
+    ตัวแปรจาก SubmissionController::formContext(): $assignment, $submission, $subEditable, $subClosed, $subLate, $subStatus, $subLimits, $preview
+    ไฟล์แนบเปิดผ่าน /learn/submissions/files/{id} (เฉพาะเจ้าของงาน) · สคริปต์ย่อรูป/จัดรายการไฟล์: public/assets/js/submission.js
+*}
+{var $max = rtrim(rtrim(number_format((float) $assignment['max_score'], 2, '.', ''), '0'), '.')}
+<section class="learn-card sub-card" id="submit">
+    <div class="sub-head">
+        <h2 class="learn-h">ส่งงาน</h2>
+        {if $submission}
+            <span n:class="sub-status, 'sub-status-' . $submission['status']">{$subStatus[$submission['status']] ?? $submission['status']}</span>
+            {if $subLate}<span class="sub-status sub-status-late">ส่งช้า</span>{/if}
+        {elseif $subClosed}
+            <span class="sub-status sub-status-closed">ปิดรับงานแล้ว</span>
+        {/if}
+    </div>
+
+    {if $preview}
+        <p class="learn-note"><span class="msi" aria-hidden="true">visibility</span>มุมมองของครู · นักเรียนพิมพ์คำตอบ แนบรูปภาพหรือไฟล์ PDF แล้วกดส่งได้ที่กล่องนี้ (ครูดูงานที่ส่งได้จากปุ่ม "ดูงานที่ส่ง")</p>
+    {else}
+        {if $submission}
+            <p class="sub-meta">
+                ส่งล่าสุด {App\Support\Thai::dateTime($submission['submitted_at'])}
+                {if $assignment['due_at']} · กำหนดส่ง {App\Support\Thai::dateTime($assignment['due_at'])}{/if}
+            </p>
+            {if $submission['status'] === 'graded' && $submission['score'] !== null}
+                <div class="sub-score"><span class="msi" aria-hidden="true">grade</span>ได้ <b>{rtrim(rtrim(number_format((float) $submission['score'], 2, '.', ''), '0'), '.')}</b> จาก {$max} คะแนน</div>
+            {/if}
+            {if $submission['feedback']}
+                <div n:class="sub-feedback, $submission['status'] === 'returned' ? is-returned">
+                    <b>ความเห็นจากครู</b>
+                    <div>{$submission['feedback']}</div>
+                </div>
+            {/if}
+        {/if}
+
+        {if $subEditable}
+            <form class="sub-form" method="post" action="{$base}/learn/assignments/{$assignment['id']}/submit" enctype="multipart/form-data"
+                  data-submission data-max-files="{$subLimits['files']}" data-max-mb="{$subLimits['mb']}"
+                  data-kept="{count($submission['files'] ?? [])}">
+                <input type="hidden" name="_token" value="{$csrf}">
+                <label class="sub-label" for="subContent">คำตอบ / ข้อความ</label>
+                <textarea class="input sub-text" id="subContent" name="content" rows="6" maxlength="{$subLimits['text']}"
+                          placeholder="พิมพ์คำตอบหรือรายละเอียดของงานที่นี่ (ไม่บังคับถ้าแนบไฟล์)">{$subText}</textarea>
+
+                {if $submission && $submission['files']}
+                    <div class="sub-label">ไฟล์ที่ส่งไว้ <small>ติ๊ก "ลบ" เพื่อเอาออกตอนบันทึก</small></div>
+                    <div class="sub-files">
+                        {foreach $submission['files'] as $f}
+                            {include subFile, $f, true}
+                        {/foreach}
+                    </div>
+                {/if}
+
+                <div class="sub-label">แนบรูปภาพหรือไฟล์ PDF</div>
+                <label class="sub-pick">
+                    <input type="file" name="files[]" multiple accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" data-sub-input>
+                    <span class="msi" aria-hidden="true">attach_file</span>
+                    <span>เลือกไฟล์ / ถ่ายรูป</span>
+                </label>
+                <div class="sub-new" data-sub-list></div>
+                <p class="hint">ได้สูงสุด {$subLimits['files']} ไฟล์ ไฟล์ละไม่เกิน {$subLimits['mb']} MB · รูปภาพขนาดใหญ่จะถูกย่อให้อัตโนมัติก่อนส่ง</p>
+
+                <div class="sub-actions">
+                    <button type="submit" class="btn btn-primary" data-sub-submit>
+                        <span class="msi" aria-hidden="true">send</span>{$submission ? 'บันทึกการแก้ไขและส่งใหม่' : 'ส่งงาน'}
+                    </button>
+                    {if $submission && $submission['status'] === 'returned'}<span class="hint">ส่งใหม่แล้วงานจะกลับไปรอครูตรวจอีกครั้ง</span>{/if}
+                </div>
+            </form>
+            <script src="{$base}/assets/js/submission.js?v={$assetVer}" defer></script>
+        {elseif $submission}
+            {if $submission['content']}
+                <div class="sub-label">คำตอบ / ข้อความ</div>
+                <div class="learn-text sub-answer">{$submission['content']}</div>
+            {/if}
+            {if $submission['files']}
+                <div class="sub-label">ไฟล์ที่ส่ง</div>
+                <div class="sub-files">
+                    {foreach $submission['files'] as $f}
+                        {include subFile, $f, false}
+                    {/foreach}
+                </div>
+            {/if}
+            {if $submission['status'] !== 'graded'}
+                <p class="hint">เลยกำหนดส่งแล้ว งานนี้ไม่รับการแก้ไข</p>
+            {/if}
+        {elseif $subClosed}
+            <p class="learn-text">เลยกำหนดส่ง {App\Support\Thai::dateTime($assignment['due_at'])} แล้ว และงานนี้ไม่รับส่งช้า กรุณาติดต่อครูผู้สอน</p>
+        {/if}
+    {/if}
+</section>
+
+{define subFile, $f, $removable}
+    {var $url = $base . '/learn/submissions/files/' . $f['id']}
+    <div class="sub-file">
+        {if $f['is_image']}
+            <a class="sub-thumb" href="{$url}" target="_blank" rel="noopener"><img src="{$url}" alt="{$f['original_name']}" loading="lazy"></a>
+        {else}
+            <a class="sub-thumb is-pdf" href="{$url}" target="_blank" rel="noopener"><span class="msi" aria-hidden="true">picture_as_pdf</span></a>
+        {/if}
+        <a class="sub-file-name" href="{$url}" target="_blank" rel="noopener">{$f['original_name']}</a>
+        {if $removable}
+            <label class="sub-remove"><input type="checkbox" name="remove[]" value="{$f['id']}" data-sub-remove> ลบ</label>
+        {/if}
+    </div>
+{/define}

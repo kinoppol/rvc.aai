@@ -39,6 +39,7 @@ use App\Controllers\ReviewController;
 use App\Controllers\SettingsController;
 use App\Controllers\SsoController;
 use App\Controllers\SsoSignupController;
+use App\Controllers\SubmissionController;
 use App\Controllers\StudentController;
 use App\Controllers\Teacher\StudentsController as TeacherStudentsController;
 use App\Support\ViewContext;
@@ -151,6 +152,11 @@ return static function (App $app): void {
             $t->post('/{courseId:[0-9]+}/tasks/{id:[0-9]+}', [AssignmentController::class, 'save']);
             $t->post('/{courseId:[0-9]+}/tasks/{id:[0-9]+}/draft', [AssignmentController::class, 'draft']);
             $t->post('/{courseId:[0-9]+}/tasks/{id:[0-9]+}/delete', [AssignmentController::class, 'delete']);
+            // งานที่นักเรียนส่ง (ใบงาน / งานที่มอบหมาย) — ตรวจ ให้คะแนน ส่งกลับให้แก้
+            $t->get('/{courseId:[0-9]+}/preview/task/{id:[0-9]+}', [SubmissionController::class, 'previewTask']);
+            $t->get('/{courseId:[0-9]+}/assignments/{id:[0-9]+}/submissions', [SubmissionController::class, 'index']);
+            $t->post('/{courseId:[0-9]+}/assignments/{id:[0-9]+}/submissions/{sid:[0-9]+}', [SubmissionController::class, 'grade']);
+            $t->get('/{courseId:[0-9]+}/submissions/files/{fileId:[0-9]+}', [SubmissionController::class, 'teacherFile']);
 
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/report', [UnitController::class, 'saveReport']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft', [UnitController::class, 'draftContent']);
@@ -224,6 +230,9 @@ return static function (App $app): void {
             $s->get('/units/{id:[0-9]+}', [StudentController::class, 'unit']);
             $s->get('/units/{id:[0-9]+}/{kind:section|worksheet}/{itemId:[0-9]+}', [StudentController::class, 'item']);
             $s->get('/units/{id:[0-9]+}/section/{itemId:[0-9]+}/file', [StudentController::class, 'file']);
+            $s->get('/task/{id:[0-9]+}', [SubmissionController::class, 'task']);
+            $s->post('/assignments/{id:[0-9]+}/submit', [SubmissionController::class, 'submit']);
+            $s->get('/submissions/files/{fileId:[0-9]+}', [SubmissionController::class, 'studentFile']);
             $s->post('/quizzes/{quizId:[0-9]+}/start', [StudentController::class, 'startQuiz']);
             $s->get('/attempts/{attemptId:[0-9]+}', [StudentController::class, 'take']);
             $s->post('/attempts/{attemptId:[0-9]+}/answer', [StudentController::class, 'answer']);
