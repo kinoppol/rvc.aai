@@ -2,79 +2,155 @@
 
 {block title}งานที่ส่ง · {$assignment['title']}{/block}
 
-{* หน้าตรวจงานของครู — นักเรียนทุกคนในรายวิชา (ส่งแล้วขึ้นก่อน) · เปิดแถวเพื่ออ่านคำตอบ ดูไฟล์ ให้คะแนน หรือส่งกลับให้แก้ *}
+{*
+    หน้าตรวจงานของครู (แบบ Google Classroom)
+      • ซ้าย: รายชื่อนักเรียนทุกคน จัดกลุ่มตามสถานะ (รอตรวจ / ส่งกลับให้แก้ไข / ตรวจแล้ว / ยังไม่ส่ง) พร้อมคะแนน __/เต็ม
+      • ขวา: "นักเรียนทั้งหมด" = กริดงานทุกชิ้นที่ส่งแล้ว มีชื่อเจ้าของงานกำกับ · คลิกชื่อหรือการ์ด = งานของคนนั้น + ช่องให้คะแนน
+    สลับมุมมองด้วย hash (#all / #s{studentId}) ผ่าน public/assets/js/submissions-review.js — บันทึกคะแนนแล้วกลับมาที่คนเดิม
+*}
+
+
 {block content}
 {var $isTask = $assignment['kind'] === 'task'}
-{var $max = rtrim(rtrim(number_format((float) $assignment['max_score'], 2, '.', ''), '0'), '.')}
+{var $fmt = fn($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.')}
 {var $fileBase = $base . '/courses/' . $course['id'] . '/submissions/files/'}
-<div class="wizard-page" style="max-width:960px">
+<div class="rv-page">
     <a class="back-link" href="{$base}/courses/{$course['id']}?tab={$isTask ? 'tasks' : 'worksheets'}">← {$course['name']}</a>
-    <h1>{$assignment['title']}</h1>
-    <div class="sub">
-        {$isTask ? 'งานที่มอบหมาย' : 'ใบงาน'}{if $unit} · {$unit['title']}{/if}
-        · เต็ม {$max} คะแนน
-        {if $assignment['due_at']} · กำหนดส่ง {App\Support\Thai::dateTime($assignment['due_at'])}{if !$assignment['allow_late']} (ไม่รับส่งช้า){/if}{/if}
-    </div>
-
-    <div class="sub-summary">
-        <span class="chip chip-muted">นักเรียน {$counts['students']} คน</span>
-        <span class="chip chip-ok">ส่งแล้ว {$counts['sent']}</span>
-        <span n:class="chip, $counts['waiting'] ? 'chip-warn' : 'chip-muted'">รอตรวจ {$counts['waiting']}</span>
-        <span class="chip chip-muted">ตรวจแล้ว {$counts['graded']}</span>
-        <span class="chip chip-muted">ยังไม่ส่ง {$counts['students'] - $counts['sent']}</span>
-        <span class="sub-summary-actions">
+    <div class="rv-top">
+        <div class="rv-title">
+            <h1>{$assignment['title']}</h1>
+            <div class="sub">
+                {$isTask ? 'งานที่มอบหมาย' : 'ใบงาน'}{if $unit} · {$unit['title']}{/if}
+                · เต็ม {$fmt($assignment['max_score'])} คะแนน
+                {if $assignment['due_at']} · กำหนดส่ง {App\Support\Thai::dateTime($assignment['due_at'])}{if !$assignment['allow_late']} (ไม่รับส่งช้า){/if}{/if}
+            </div>
+        </div>
+        <div class="rv-top-actions">
             <a class="btn btn-sm" href="{$base}{$isTask ? '/courses/' . $course['id'] . '/preview/task/' . $assignment['id'] : '/courses/' . $course['id'] . '/units/' . $assignment['unit_id'] . '/preview/worksheet/' . $assignment['id']}" target="_blank" rel="noopener"><span class="msi" aria-hidden="true">visibility</span>มุมมองนักเรียน</a>
             <a class="btn btn-sm" href="{$base}{$isTask ? '/courses/' . $course['id'] . '/tasks/' . $assignment['id'] . '/edit' : '/courses/' . $course['id'] . '/units/' . $assignment['unit_id'] . '/assignments/' . $assignment['id'] . '/edit'}"><span class="msi" aria-hidden="true">edit</span>แก้ไขงาน</a>
-        </span>
+        </div>
     </div>
 
     {if !$roster}
         <div class="empty card"><h3>ยังไม่มีนักเรียนในรายวิชานี้</h3><p>เพิ่มนักเรียนได้ที่แท็บ "นักเรียน" ของรายวิชา</p></div>
-    {/if}
+    {else}
+    <div class="rv-layout" data-review>
+        {* ── รายชื่อนักเรียน ── *}
+        <aside class="rv-side card" aria-label="รายชื่อนักเรียน">
+            <a class="rv-all" href="#all" data-target="all">
+                <span class="msi" aria-hidden="true">group</span>
+                <span class="rv-person-name">นักเรียนทั้งหมด</span>
+                <small>{$counts['sent']}/{$counts['students']} ส่งแล้ว</small>
+            </a>
+            {foreach $groups as $key => $people}
+                <div class="rv-group">
+                    <div class="rv-group-head">{$groupLabels[$key]} <small>{count($people)}</small></div>
+                    {foreach $people as $r}
+                        <a class="rv-person" href="#s{$r['student_id']}" data-target="s{$r['student_id']}">
+                            <span n:class="rv-avatar, 'is-' . ($r['status'] ?? 'none')">{App\Support\Thai::initials($r['full_name'] ?: $r['username'])}</span>
+                            <span class="rv-person-name">{$r['full_name'] ?: $r['username']}</span>
+                            <span n:class="rv-person-score, $r['status'] === 'graded' ? is-graded">
+                                {if $r['status'] === 'graded' && $r['score'] !== null}{$fmt($r['score'])}{else}__{/if}/{$fmt($assignment['max_score'])}
+                            </span>
+                        </a>
+                    {/foreach}
+                </div>
+            {/foreach}
+        </aside>
 
-    <div class="sub-roster">
-        {foreach $roster as $r}
-            {var $late = $r['id'] && $assignment['due_at'] && strtotime($r['submitted_at']) > strtotime($assignment['due_at'])}
-            {if $r['id']}
-                <details class="card sub-row" id="s{$r['id']}" n:attr="open: $open === (int) $r['id']">
-                    <summary class="sub-row-head">
-                        <span class="sub-who"><b>{$r['full_name'] ?: $r['username']}</b> <small class="mono">{$r['username']}</small></span>
-                        <span class="sub-row-tags">
-                            <span n:class="sub-status, 'sub-status-' . $r['status']">{$statusLabels[$r['status']] ?? $r['status']}</span>
-                            {if $late}<span class="sub-status sub-status-late">ส่งช้า</span>{/if}
-                            {if $r['status'] === 'graded' && $r['score'] !== null}<b class="sub-row-score">{rtrim(rtrim(number_format((float) $r['score'], 2, '.', ''), '0'), '.')}/{$max}</b>{/if}
-                            <small class="sub-row-time">{App\Support\Thai::dateTime($r['submitted_at'])}</small>
-                            {if $r['files']}<small class="sub-row-time"><span class="msi" aria-hidden="true">attach_file</span>{count($r['files'])}</small>{/if}
-                        </span>
-                    </summary>
+        <section class="rv-main">
+            {* ── กริดงานของทุกคน ── *}
+            <div class="rv-pane" data-pane="all">
+                <div class="sub-summary">
+                    <span class="chip chip-ok">ส่งแล้ว {$counts['sent']}</span>
+                    <span n:class="chip, $counts['waiting'] ? 'chip-warn' : 'chip-muted'">รอตรวจ {$counts['waiting']}</span>
+                    <span class="chip chip-muted">ตรวจแล้ว {$counts['graded']}</span>
+                    <span class="chip chip-muted">ยังไม่ส่ง {$counts['students'] - $counts['sent']}</span>
+                </div>
+                <div class="rv-grid">
+                    {foreach $order as $r}
+                        {continueIf !$r['id']}
+                        {var $img = null}
+                        {foreach $r['files'] as $f}{if $f['is_image']}{var $img = $f}{breakIf true}{/if}{/foreach}
+                        <a class="rv-card card" href="#s{$r['student_id']}">
+                            <span class="rv-card-preview">
+                                {if $img}
+                                    <img src="{$fileBase}{$img['id']}" alt="" loading="lazy">
+                                {elseif $r['files']}
+                                    <span class="rv-card-doc"><span class="msi" aria-hidden="true">picture_as_pdf</span><small>{$r['files'][0]['original_name']}</small></span>
+                                {else}
+                                    <span class="rv-card-text">{$r['content']|truncate:220}</span>
+                                {/if}
+                                {if count($r['files']) > 1}<span class="rv-card-count"><span class="msi" aria-hidden="true">attach_file</span>{count($r['files'])}</span>{/if}
+                            </span>
+                            <span class="rv-card-foot">
+                                <span class="rv-avatar is-{$r['status']}">{App\Support\Thai::initials($r['full_name'] ?: $r['username'])}</span>
+                                <span class="rv-card-who">
+                                    <b>{$r['full_name'] ?: $r['username']}</b>
+                                    <small>{$statusLabels[$r['status']] ?? $r['status']}{if $r['status'] === 'graded' && $r['score'] !== null} · {$fmt($r['score'])}/{$fmt($assignment['max_score'])}{/if}</small>
+                                </span>
+                            </span>
+                        </a>
+                    {/foreach}
+                </div>
+                {if !$counts['sent']}
+                    <div class="empty"><h3>ยังไม่มีนักเรียนส่งงาน</h3><p>งานที่นักเรียนส่งจะขึ้นเป็นการ์ดที่นี่ พร้อมชื่อเจ้าของงาน</p></div>
+                {/if}
+            </div>
 
-                    <div class="sub-row-body">
+            {* ── งานของนักเรียนทีละคน ── *}
+            {foreach $order as $i => $r}
+                {var $prev = $order[$i - 1] ?? null}
+                {var $next = $order[$i + 1] ?? null}
+                {var $late = $r['id'] && $assignment['due_at'] && strtotime($r['submitted_at']) > strtotime($assignment['due_at'])}
+                <div class="rv-pane card rv-detail" data-pane="s{$r['student_id']}" hidden>
+                    <div class="rv-detail-head">
+                        <a class="icon-act" href="#all" data-tip="กลับไปดูทั้งหมด" aria-label="กลับไปดูงานทั้งหมด"><span class="msi" aria-hidden="true">arrow_back</span></a>
+                        <div class="rv-detail-who">
+                            <h2>{$r['full_name'] ?: $r['username']} <small class="mono">{$r['username']}</small></h2>
+                            <div class="rv-detail-state">
+                                {if $r['id']}
+                                    <span class="sub-status sub-status-{$r['status']}">{$statusLabels[$r['status']] ?? $r['status']}</span>
+                                    {if $late}<span class="sub-status sub-status-late">ส่งช้า</span>{/if}
+                                    <small>ส่งเมื่อ {App\Support\Thai::dateTime($r['submitted_at'])}</small>
+                                {else}
+                                    <span class="sub-status sub-status-none">ยังไม่ส่ง</span>
+                                {/if}
+                            </div>
+                        </div>
+                        <div class="rv-detail-score">
+                            {if $r['status'] === 'graded' && $r['score'] !== null}<b>{$fmt($r['score'])}</b>/{$fmt($assignment['max_score'])}{else}ไม่มีคะแนน{/if}
+                        </div>
+                        <div class="rv-detail-nav">
+                            {if $prev}<a class="icon-act" href="#s{$prev['student_id']}" data-tip="{$prev['full_name'] ?: $prev['username']}" aria-label="คนก่อนหน้า"><span class="msi" aria-hidden="true">chevron_left</span></a>{/if}
+                            {if $next}<a class="icon-act" href="#s{$next['student_id']}" data-tip="{$next['full_name'] ?: $next['username']}" aria-label="คนถัดไป"><span class="msi" aria-hidden="true">chevron_right</span></a>{/if}
+                        </div>
+                    </div>
+
+                    {if $r['id']}
+                        {if $r['files']}
+                            <div class="rv-files">
+                                {foreach $r['files'] as $f}
+                                    <a class="rv-file" href="{$fileBase}{$f['id']}" target="_blank" rel="noopener">
+                                        <span class="rv-file-name"><b>{$f['original_name']}</b><small>{$f['is_image'] ? 'รูปภาพ' : 'PDF'} · {$f['size_bytes'] >= 1048576 ? round($f['size_bytes'] / 1048576, 1) . ' MB' : max(1, round($f['size_bytes'] / 1024)) . ' KB'}</small></span>
+                                        <span class="rv-file-thumb">
+                                            {if $f['is_image']}<img src="{$fileBase}{$f['id']}" alt="" loading="lazy">{else}<span class="msi" aria-hidden="true">picture_as_pdf</span>{/if}
+                                        </span>
+                                    </a>
+                                {/foreach}
+                            </div>
+                        {/if}
                         {if $r['content']}
                             <div class="sub-label">คำตอบ / ข้อความ</div>
                             <div class="learn-text sub-answer">{$r['content']}</div>
-                        {/if}
-                        {if $r['files']}
-                            <div class="sub-label">ไฟล์ที่ส่ง ({count($r['files'])})</div>
-                            <div class="sub-files">
-                                {foreach $r['files'] as $f}
-                                    <div class="sub-file">
-                                        {if $f['is_image']}
-                                            <a class="sub-thumb" href="{$fileBase}{$f['id']}" target="_blank" rel="noopener"><img src="{$fileBase}{$f['id']}" alt="{$f['original_name']}" loading="lazy"></a>
-                                        {else}
-                                            <a class="sub-thumb is-pdf" href="{$fileBase}{$f['id']}" target="_blank" rel="noopener"><span class="msi" aria-hidden="true">picture_as_pdf</span></a>
-                                        {/if}
-                                        <a class="sub-file-name" href="{$fileBase}{$f['id']}" target="_blank" rel="noopener">{$f['original_name']}</a>
-                                    </div>
-                                {/foreach}
-                            </div>
                         {/if}
 
                         <form class="sub-grade" method="post" action="{$base}/courses/{$course['id']}/assignments/{$assignment['id']}/submissions/{$r['id']}">
                             <input type="hidden" name="_token" value="{$csrf}">
                             <div class="field sub-grade-score">
-                                <label for="score{$r['id']}">คะแนน (เต็ม {$max})</label>
-                                <input class="input" type="number" id="score{$r['id']}" name="score" min="0" max="{$max}" step="0.5"
-                                       value="{$r['score'] !== null ? rtrim(rtrim(number_format((float) $r['score'], 2, '.', ''), '0'), '.') : ''}">
+                                <label for="score{$r['id']}">คะแนน (เต็ม {$fmt($assignment['max_score'])})</label>
+                                <input class="input" type="number" id="score{$r['id']}" name="score" min="0" max="{$fmt($assignment['max_score'])}" step="0.5"
+                                       value="{if $r['score'] !== null}{$fmt($r['score'])}{/if}" data-score>
                             </div>
                             <div class="field sub-grade-note">
                                 <label for="feedback{$r['id']}">ความเห็นถึงนักเรียน</label>
@@ -86,17 +162,14 @@
                                 <button type="submit" name="do" value="return" class="btn btn-sm" formnovalidate>ส่งกลับให้แก้ไข</button>
                             </div>
                         </form>
-                    </div>
-                </details>
-            {else}
-                <div class="card sub-row is-missing">
-                    <div class="sub-row-head">
-                        <span class="sub-who"><b>{$r['full_name'] ?: $r['username']}</b> <small class="mono">{$r['username']}</small></span>
-                        <span class="sub-row-tags"><span class="sub-status sub-status-none">ยังไม่ส่ง</span></span>
-                    </div>
+                    {else}
+                        <div class="empty"><h3>ยังไม่ส่งงาน</h3><p>{$r['full_name'] ?: $r['username']} ยังไม่ได้ส่งงานนี้</p></div>
+                    {/if}
                 </div>
-            {/if}
-        {/foreach}
+            {/foreach}
+        </section>
     </div>
+    <script src="{$base}/assets/js/submissions-review.js?v={$assetVer}" defer></script>
+    {/if}
 </div>
 {/block}

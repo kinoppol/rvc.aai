@@ -210,6 +210,14 @@ final class SubmissionController
         $roster = $this->submissions->roster((int) $assignment['id'], (int) $course['id']);
         $sent = array_values(array_filter($roster, static fn (array $r): bool => $r['id'] !== null));
 
+        // รายชื่อด้านข้างจัดกลุ่มตามสถานะ (แบบ Google Classroom) — งานที่ต้องตรวจขึ้นก่อน
+        $groups = ['submitted' => [], 'returned' => [], 'graded' => [], 'none' => []];
+        foreach ($roster as $r) {
+            $groups[$r['status'] ?? 'none'][] = $r;
+        }
+        // ลำดับเดียวกับรายชื่อด้านข้าง ใช้ทำปุ่มคนก่อนหน้า/ถัดไป
+        $order = array_merge(...array_values($groups));
+
         return $this->view->render($response, 'courses/submissions', [
             'page'       => 'courses',
             'course'     => $course,
@@ -223,7 +231,9 @@ final class SubmissionController
                 'waiting'  => count(array_filter($sent, static fn (array $r): bool => $r['status'] === 'submitted')),
             ],
             'statusLabels' => SubmissionRepository::STATUS,
-            'open'       => (int) ($request->getQueryParams()['open'] ?? 0),
+            'groups'     => array_filter($groups),
+            'groupLabels' => ['submitted' => 'รอตรวจ', 'returned' => 'ส่งกลับให้แก้ไข', 'graded' => 'ตรวจแล้ว', 'none' => 'ยังไม่ส่ง'],
+            'order'      => $order,
         ]);
     }
 
@@ -240,7 +250,7 @@ final class SubmissionController
         if (!Csrf::check($data['_token'] ?? null)) {
             Flash::error('เซสชันหมดอายุ กรุณาลองใหม่');
 
-            return $response->withHeader('Location', Url::to($url . '?open=' . $submission['id']))->withStatus(302);
+            return $response->withHeader('Location', Url::to($url . '#s' . $submission['student_id']))->withStatus(302);
         }
 
         $feedback = trim(mb_substr((string) ($data['feedback'] ?? ''), 0, 5000));
@@ -250,7 +260,7 @@ final class SubmissionController
             if ($feedback === '') {
                 Flash::error('กรุณาเขียนความเห็นบอกนักเรียนว่าต้องแก้ไขอะไร ก่อนส่งกลับ');
 
-                return $response->withHeader('Location', Url::to($url . '?open=' . $submission['id']))->withStatus(302);
+                return $response->withHeader('Location', Url::to($url . '#s' . $submission['student_id']))->withStatus(302);
             }
             $this->submissions->grade((int) $submission['id'], null, $feedback, 'returned', (int) $request->getAttribute('user')['id']);
             Flash::success('ส่งงานกลับให้นักเรียนแก้ไขแล้ว');
@@ -258,14 +268,14 @@ final class SubmissionController
             if ($raw === '' || !is_numeric($raw) || (float) $raw < 0 || (float) $raw > $max) {
                 Flash::error(sprintf('คะแนนต้องอยู่ระหว่าง 0 – %s', rtrim(rtrim(number_format($max, 2, '.', ''), '0'), '.')));
 
-                return $response->withHeader('Location', Url::to($url . '?open=' . $submission['id']))->withStatus(302);
+                return $response->withHeader('Location', Url::to($url . '#s' . $submission['student_id']))->withStatus(302);
             }
             $this->submissions->grade((int) $submission['id'], round((float) $raw, 2), $feedback, 'graded', (int) $request->getAttribute('user')['id']);
             Flash::success('บันทึกคะแนนแล้ว');
         }
         $this->auth->log('submission.' . (($data['do'] ?? '') === 'return' ? 'return' : 'grade'), 'submission:' . $submission['id']);
 
-        return $response->withHeader('Location', Url::to($url . '#s' . $submission['id']))->withStatus(302);
+        return $response->withHeader('Location', Url::to($url . '#s' . $submission['student_id']))->withStatus(302);
     }
 
     public function teacherFile(Request $request, Response $response, array $args): Response
