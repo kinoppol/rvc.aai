@@ -38,7 +38,56 @@
     <h1>โอนข้อมูลจาก RMS</h1>
     <div class="sub">ดึงข้อมูลบุคลากร กลุ่มเรียน และนักเรียนจากระบบ RMS ของวิทยาลัยเข้ามาใช้ในระบบ — กดซ้ำได้ ข้อมูลไม่ซ้ำซ้อน</div>
 
-    <form method="post" action="{$base}/admin/rms/url" class="card" style="margin-top:22px">
+    <div class="card" style="margin-top:22px">
+        <div class="rms-item">
+            <div class="rms-icon">🔑</div>
+            <div class="rms-body">
+                <h3>ผู้ใช้จาก RVC-ONE</h3>
+                <div class="hint">
+                    ผูกกับ RVC-ONE แล้ว {$oa['linked']} บัญชี
+                    {if $oa['since']} · ซิงค์ครบล่าสุดถึง {App\Support\Thai::dateTime($oa['since'])}{else} · ยังไม่เคยซิงค์ครบ (รอบแรกจะดึงทั้งหมด){/if}
+                </div>
+                <ul>
+                    <li>ดึงครูและบุคลากร และนักเรียนนักศึกษา จาก User-sync API ของ RVC-ONE ด้วยรหัสแอปเดียวกับปุ่มเข้าสู่ระบบ (client_secret ตั้งที่หน้า "ทั่วไป")</li>
+                    <li>จับคู่ด้วย id ของ RVC-ONE — บัญชีเดิม (เช่นที่โอนจาก RMS) จะถูกผูกด้วยเลขบัตร / ชื่อผู้ใช้ / อีเมล แทนการสร้างซ้ำ · บัญชีใหม่เข้าสู่ระบบผ่าน RVC-ONE</li>
+                    <li>ผู้ที่ถูกระงับใน RVC-ONE จะถูก <b>ระงับบัญชี</b> (ไม่ลบ ยกเว้นผู้ดูแลระบบ) และเปิดคืนเองเมื่อกลับมาใช้งาน · ไม่ทับบทบาทและรหัสผ่าน</li>
+                    <li>ตั้งเวลาให้รันเองได้บนเซิร์ฟเวอร์: <code>php bin/rvc-one-sync.php</code> (เพิ่ม <code>--full</code> เพื่อดึงทั้งหมดใหม่)</li>
+                </ul>
+                {if !$oa['ready']}
+                    <div class="rms-result"><span class="chip chip-warn">ต้องรันไมเกรชันที่หน้า "ไมเกรชัน" ก่อนจึงจะซิงค์ได้</span></div>
+                {elseif $oa['last']}
+                    {var $l = $oa['last']}
+                    <div class="rms-result">
+                        <span class="chip chip-muted">รอบล่าสุด {App\Support\Thai::dateTime($l['at'] ?? null)} · {($l['full'] ?? false) ? 'ทั้งหมด' : 'เฉพาะที่เปลี่ยน'}</span>
+                        {if $l['ok'] ?? false}
+                            {var $s = $l['stats'] ?? []}
+                            <span class="chip chip-ok">เพิ่ม {$s['created'] ?? 0}</span>
+                            <span class="chip chip-muted">อัปเดต {$s['updated'] ?? 0}</span>
+                            <span class="chip chip-muted">ผูกบัญชีเดิม {$s['linked'] ?? 0}</span>
+                            <span n:class="chip, ($s['suspended'] ?? 0) ? 'chip-warn' : 'chip-muted'">ระงับ {$s['suspended'] ?? 0}</span>
+                            <span class="chip chip-muted">เปิดคืน {$s['reactivated'] ?? 0}</span>
+                            <span n:class="chip, ($s['skipped'] ?? 0) ? 'chip-warn' : 'chip-muted'">ข้าม {$s['skipped'] ?? 0}</span>
+                        {else}
+                            <span class="chip chip-err">ไม่สำเร็จ: {$l['message'] ?? ''}</span>
+                        {/if}
+                    </div>
+                {/if}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+                <form method="post" action="{$base}/admin/rms/rvc-one">
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <button type="submit" class="btn btn-primary" style="width:100%" n:attr="disabled: !$oa['ready']">ซิงค์ที่เปลี่ยน</button>
+                </form>
+                <form method="post" action="{$base}/admin/rms/rvc-one" data-confirm="ดึงรายชื่อผู้ใช้ทั้งหมดจาก RVC-ONE ใหม่ตั้งแต่ต้น อาจใช้เวลาหลายนาที" data-confirm-title="ซิงค์ทั้งหมดใหม่" data-confirm-ok="เริ่มซิงค์">
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <input type="hidden" name="mode" value="full">
+                    <button type="submit" class="btn" style="width:100%" n:attr="disabled: !$oa['ready']">ซิงค์ทั้งหมดใหม่</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" action="{$base}/admin/rms/url" class="card" style="margin-top:16px">
         <input type="hidden" name="_token" value="{$csrf}">
         <div class="step-label">ที่อยู่เซิร์ฟเวอร์ RMS</div>
         <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">

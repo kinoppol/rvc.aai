@@ -1,0 +1,83 @@
+{layout '../public-layout.latte'}
+
+{block title}กรอกข้อมูลนักศึกษาก่อนเข้าใช้งาน · {$appName}{/block}
+{block description}นักศึกษาปริญญาตรีที่เข้าสู่ระบบผ่าน RVC-ONE ครั้งแรก กรอกข้อมูลที่จำเป็นก่อนเข้าใช้งาน{/block}
+
+{block content}
+<section class="lp-hero lp-auth">
+        <svg class="lp-hero-deco d1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" width="220" height="220"><path d="m12 4 9 4-9 4-9-4 9-4Z"/><path d="M6 11v4c0 1.5 3 3 6 3s6-1.5 6-3v-4"/></svg>
+        <svg class="lp-hero-deco d2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" width="260" height="260"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></svg>
+
+    <div class="lp-wrap lp-auth-inner lp-auth-single">
+        <form class="lp-auth-card lp-auth-wide" method="post" action="{$base}/auth/register-student" autocomplete="off">
+            <div class="lp-auth-head">
+                <span class="lp-logo-mark">RV</span>
+                <h2>กรอกข้อมูลนักศึกษาก่อนเข้าใช้งาน</h2>
+                <p>ยืนยันตัวตนกับ RVC-ONE แล้ว แต่ยังไม่พบข้อมูลนักศึกษารหัสนี้ในระบบ · กรอกข้อมูลที่จำเป็นด้านล่างเพื่อเริ่มใช้งาน</p>
+            </div>
+
+            {foreach $flash as $message}
+                <div class="lp-alert lp-alert-{$message['type']}">{$message['message']}</div>
+            {/foreach}
+
+            <input type="hidden" name="_token" value="{$csrf}">
+
+            <div class="lp-auth-grid">
+                <div class="lp-field">
+                    <label for="code">รหัสนักศึกษา</label>
+                    <input class="lp-input" type="text" id="code" value="{$code}" readonly>
+                    <div class="lp-hint">จากอีเมลที่ยืนยันกับ RVC-ONE — ใช้เป็นชื่อผู้ใช้</div>
+                </div>
+                <div class="lp-field">
+                    <label for="email">อีเมล</label>
+                    <input class="lp-input" type="email" id="email" value="{$email}" readonly>
+                </div>
+
+                <div class="lp-field">
+                    <label for="full_name">ชื่อ-นามสกุล</label>
+                    <input class="lp-input" type="text" id="full_name" name="full_name" value="{$full_name}" maxlength="150" required>
+                </div>
+                <div class="lp-field">
+                    <label for="major">สาขาวิชา</label>
+                    <input class="lp-input" type="text" id="major" name="major" value="{$major}" maxlength="150"
+                           list="majorList" placeholder="เช่น เทคโนโลยีไฟฟ้า" required>
+                    <datalist id="majorList">
+                        {foreach $majors as $m}<option value="{$m}">{/foreach}
+                    </datalist>
+                </div>
+
+                <div class="lp-field">
+                    <label for="year">ชั้นปี (ทล.บ.)</label>
+                    <select class="lp-input" id="year" name="year" required>
+                        <option value="">— เลือกชั้นปี —</option>
+                        {foreach $years as $y}
+                            <option value="{$y}" n:attr="selected: (string) $y === $year">ปี {$y}</option>
+                        {/foreach}
+                    </select>
+                </div>
+                <div class="lp-field">
+                    <label for="group">กลุ่มเรียน (ถ้าทราบ)</label>
+                    <input class="lp-input" type="text" id="group" name="group" value="{$group}" maxlength="150" list="groupList">
+                    <datalist id="groupList">
+                        {foreach $groups as $g}<option value="{$g}">{/foreach}
+                    </datalist>
+                </div>
+
+                <div class="lp-field">
+                    <label for="phone">เบอร์โทรศัพท์ (ถ้ามี)</label>
+                    <input class="lp-input" type="tel" id="phone" name="phone" value="{$phone}" maxlength="20" autocomplete="tel">
+                </div>
+            </div>
+
+            <label class="lp-hint" style="display:flex;gap:8px;align-items:flex-start;margin:4px 0 16px;font-size:14px">
+                <input type="checkbox" name="confirm" value="1" required style="margin-top:3px">
+                <span>ข้าพเจ้ายืนยันว่าข้อมูลข้างต้นถูกต้อง และเป็นนักศึกษาระดับปริญญาตรีของ{$college}</span>
+            </label>
+
+            <button type="submit" class="lp-btn lp-btn-solid lp-btn-block">บันทึกและเข้าใช้งาน</button>
+
+            <p class="lp-auth-note">ไม่ใช่บัญชีของคุณ? <a href="{$base}/login">กลับไปหน้าเข้าสู่ระบบ</a></p>
+        </form>
+    </div>
+</section>
+{/block}

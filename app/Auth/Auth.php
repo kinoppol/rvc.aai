@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Auth;
 
 use PDO;
+use PDOException;
 
 final class Auth
 {
@@ -214,6 +215,7 @@ final class Auth
      * จับคู่ผู้ใช้จาก RVC-ONE กับบัญชีในระบบ — ไม่สร้างบัญชีใหม่ให้เอง
      * ลำดับ: เลขประจำตัวประชาชน (= people_id ของบุคลากรที่โอนจาก RMS) → ชื่อผู้ใช้ → อีเมล
      * ทุกขั้นต้องเจอบัญชีเดียวเท่านั้น ถ้าเจอหลายบัญชีถือว่าไม่แน่ชัดและไม่เดา
+     * ก่อนทั้งหมดดู oa_user_id (id เดียวกับที่ User-sync API ส่งมา) และข้ามบัญชีที่ผูกกับคนอื่นใน RVC-ONE แล้ว
      *
      * @param array<string,mixed> $ssoUser object user จาก verify_token (ทุกช่องเป็น optional ยกเว้น id/ชื่อ)
      * @return array<string,mixed>|null
@@ -224,6 +226,19 @@ final class Auth
         $nationalId = preg_replace('/\D/', '', (string) ($ssoUser['national_id'] ?? '')) ?? '';
         $username = trim((string) ($ssoUser['username'] ?? ''));
         $email = trim((string) ($ssoUser['email'] ?? ''));
+        $oaId = is_numeric($ssoUser['id'] ?? null) ? (int) $ssoUser['id'] : 0;
+
+        // คอลัมน์ oa_user_id มาจากไมเกรชัน 000129 — ยังไม่ได้รันก็จับคู่แบบเดิมต่อได้
+        $unlinked = '';
+        try {
+            $stmt = $this->db->prepare(sprintf('SELECT %s FROM `%susers` WHERE oa_user_id = ? LIMIT 1', $columns, $this->prefix));
+            $stmt->execute([$oaId]);
+            if (($row = $stmt->fetch()) !== false) {
+                return $row;
+            }
+            $unlinked = ' AND oa_user_id IS NULL';
+        } catch (PDOException) {
+        }
 
         $lookups = [];
         if (strlen($nationalId) === 13) {
@@ -236,9 +251,16 @@ final class Auth
         if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) !== false) {
             $lookups[] = ['LOWER(email) = LOWER(?)', [$email]];
         }
+        // อีเมลนักศึกษาปริญญาตรี = รหัสนักศึกษา 11 หลัก @rvc.ac.th → บัญชีนักศึกษาที่ชื่อผู้ใช้เป็นรหัสนั้น
+        foreach ([$email, trim((string) ($ssoUser['google_email'] ?? ''))] as $mail) {
+            if (preg_match('/^(\d{11})@rvc\.ac\.th$/i', $mail, $m) === 1) {
+                $lookups[] = ["username = ? AND role = 'student'", [$m[1]]];
+                break;
+            }
+        }
 
         foreach ($lookups as [$where, $params]) {
-            $stmt = $this->db->prepare(sprintf('SELECT %s FROM `%susers` WHERE %s LIMIT 2', $columns, $this->prefix, $where));
+            $stmt = $this->db->prepare(sprintf('SELECT %s FROM `%susers` WHERE (%s)%s LIMIT 2', $columns, $this->prefix, $where, $unlinked));
             $stmt->execute($params);
             $rows = $stmt->fetchAll();
             if (count($rows) === 1) {
@@ -247,6 +269,24 @@ final class Auth
         }
 
         return null;
+    }
+
+    /** ผูกบัญชีกับ id ของ RVC-ONE หลังเข้าสู่ระบบผ่าน SSO สำเร็จ — ครั้งต่อไปจับคู่ด้วย id ได้ทันที (ทำได้ก็ทำ ไม่ได้ก็ข้าม) */
+    public function linkSso(int $userId, int $oaId): void
+    {
+        if ($oaId <= 0) {
+            return;
+        }
+        try {
+            $stmt = $this->db->prepare(sprintf(
+                'UPDATE `%1$susers` SET oa_user_id = ? WHERE id = ? AND oa_user_id IS NULL
+                   AND NOT EXISTS (SELECT 1 FROM (SELECT id FROM `%1$susers` WHERE oa_user_id = ?) AS taken)',
+                $this->prefix
+            ));
+            $stmt->execute([$oaId, $userId, $oaId]);
+        } catch (PDOException) {
+            // ยังไม่ได้รันไมเกรชัน 000129
+        }
     }
 
     /** หน้าที่ผู้ใช้ตั้งใจเปิดก่อนถูกพามาเข้าสู่ระบบ — รับเฉพาะ path ภายในระบบ กันการพาออกไปเว็บอื่น */

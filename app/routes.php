@@ -38,6 +38,7 @@ use App\Controllers\ResetPasswordController;
 use App\Controllers\ReviewController;
 use App\Controllers\SettingsController;
 use App\Controllers\SsoController;
+use App\Controllers\SsoSignupController;
 use App\Controllers\StudentController;
 use App\Controllers\Teacher\StudentsController as TeacherStudentsController;
 use App\Support\ViewContext;
@@ -57,6 +58,9 @@ return static function (App $app): void {
     $app->get('/auth/login', [SsoController::class, 'start'])->setName('sso.start');
     $app->get('/auth/rvc-one', [SsoController::class, 'start']); // ลิงก์เดิม
     $app->map(['GET', 'POST'], '/auth/callback', [SsoController::class, 'callback'])->setName('sso.callback');
+    // นักศึกษาปริญญาตรีที่ยืนยันตัวตนกับ RVC-ONE แล้วแต่ยังไม่มีบัญชี — กรอกข้อมูลเองก่อนเข้าใช้งาน
+    $app->get('/auth/register-student', [SsoSignupController::class, 'show'])->setName('sso.register');
+    $app->post('/auth/register-student', [SsoSignupController::class, 'save']);
 
     // ครูทั่วไปสมัครเข้าใช้ระบบเอง — บัญชีเริ่มที่สถานะ "รออนุมัติ" เสมอ
     $app->get('/register', [RegisterController::class, 'show'])->setName('register');
@@ -288,6 +292,7 @@ return static function (App $app): void {
             $admin->post('/rms/groups', [RmsController::class, 'groups']);
             $admin->post('/rms/students/count', [RmsController::class, 'studentCount']);
             $admin->post('/rms/students/batch', [RmsController::class, 'studentBatch']);
+            $admin->post('/rms/rvc-one', [RmsController::class, 'rvcOne']);
 
             $admin->get('/overview', [DashboardController::class, 'overview'])->setName('admin.overview');
             $admin->get('/settings', [GeneralController::class, 'index'])->setName('admin.settings');

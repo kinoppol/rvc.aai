@@ -110,6 +110,13 @@ final class SsoController
 
         $ssoId = (string) ($ssoUser['id'] ?? '');
         $user = $this->auth->findBySso($ssoUser);
+        if ($user === null && ($code = SsoSignupController::studentCode($ssoUser)) !== null) {
+            // นักศึกษาปริญญาตรีที่ยังไม่มีบัญชี — ให้กรอกข้อมูลที่จำเป็นเองก่อนเข้าใช้งาน
+            SsoSignupController::remember($ssoUser, $code);
+            $this->logger->notice('RVC-ONE login: bachelor student self-signup', ['sso_user_id' => $ssoId]);
+
+            return $this->redirect($response, '/auth/register-student');
+        }
         if ($user === null) {
             $this->logger->notice('RVC-ONE login: no matching account', ['sso_user_id' => $ssoId]);
 
@@ -124,6 +131,7 @@ final class SsoController
                 : 'บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ');
         }
 
+        $this->auth->linkSso((int) $user['id'], (int) $ssoId);
         $this->auth->start($user);
         $this->auth->log('login', null, ['via' => 'rvc-one', 'sso_user_id' => $ssoId]);
 

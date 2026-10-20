@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Controllers\Admin;
 
 use App\Auth\Auth;
+use App\Auth\RvcOneException;
 use App\Domain\SettingsRepository;
 use App\Integration\RmsClient;
 use App\Integration\RmsException;
 use App\Integration\RmsSync;
+use App\Integration\RvcOneUserSync;
 use App\Support\Csrf;
 use App\Support\Flash;
 use App\Support\Url;
@@ -30,6 +32,7 @@ final class RmsController
         private readonly View $view,
         private readonly RmsClient $rms,
         private readonly RmsSync $sync,
+        private readonly RvcOneUserSync $oaSync,
         private readonly SettingsRepository $settings,
         private readonly Auth $auth,
         private readonly LoggerInterface $logger,
@@ -42,6 +45,7 @@ final class RmsController
             'page'    => 'admin-rms',
             'rmsUrl'  => $this->rms->baseUrl(),
             'totals'  => $this->sync->totals(),
+            'oa'      => $this->oaSync->status(),
         ]);
     }
 
@@ -90,6 +94,57 @@ final class RmsController
             $offset === 0 ? 'students' : null,
             fn () => $this->sync->studentBatch($offset, $row)
         );
+    }
+
+    /**
+     * ซิงค์รายชื่อผู้ใช้จาก RVC-ONE — `mode=full` ดึงทั้งหมดใหม่ ไม่งั้นดึงเฉพาะที่เปลี่ยนตั้งแต่รอบก่อน
+     * (งานตั้งเวลาใช้ bin/rvc-one-sync.php ตัวเดียวกัน)
+     */
+    public function rvcOne(Request $request, Response $response): Response
+    {
+        $data = (array) $request->getParsedBody();
+        $back = $response->withHeader('Location', Url::to('/admin/rms'))->withStatus(302);
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::add('error', 'เซสชันหมดอายุ กรุณาลองใหม่');
+
+            return $back;
+        }
+        $full = ($data['mode'] ?? '') === 'full';
+
+        @set_time_limit(600);
+        // ปล่อย session ระหว่างรอ RVC-ONE ไม่ให้หน้าอื่นของผู้ดูแลค้างตาม
+        session_write_close();
+        try {
+            $stats = $this->oaSync->run($full);
+            $error = null;
+        } catch (RvcOneException $e) {
+            $error = $e->getMessage();
+            $this->logger->warning('RVC-ONE user sync failed: ' . $e->getMessage(), ['error' => $e->error]);
+        } catch (Throwable $e) {
+            $error = 'บันทึกข้อมูลไม่สำเร็จ ดูรายละเอียดที่หน้าบันทึกข้อขัดข้อง';
+            $this->logger->error('RVC-ONE user sync failed: ' . $e->getMessage(), ['exception' => $e]);
+        }
+        session_start();
+
+        if ($error !== null) {
+            Flash::add('error', 'ซิงค์ผู้ใช้จาก RVC-ONE ไม่สำเร็จ: ' . $error);
+
+            return $back;
+        }
+        $this->auth->log('oa.sync.' . ($full ? 'full' : 'changes'), null, $stats);
+        Flash::add('success', sprintf(
+            'ซิงค์ผู้ใช้จาก RVC-ONE แล้ว (%s): ได้มา %s คน · เพิ่ม %s · อัปเดต %s (ผูกบัญชีเดิม %s) · ระงับ %s · เปิดคืน %s · ข้าม %s',
+            $full ? 'ทั้งหมด' : 'เฉพาะที่เปลี่ยน',
+            number_format($stats['fetched']),
+            number_format($stats['created']),
+            number_format($stats['updated']),
+            number_format($stats['linked']),
+            number_format($stats['suspended']),
+            number_format($stats['reactivated']),
+            number_format($stats['skipped'])
+        ));
+
+        return $back;
     }
 
     /** ตรวจ CSRF เรียกงาน แล้วห่อผลเป็น JSON — บันทึก audit เฉพาะครั้งที่ระบุชื่อ (ท่อนแรกของนักเรียน) */

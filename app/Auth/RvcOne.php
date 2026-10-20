@@ -32,8 +32,14 @@ final class RvcOne
         'client_secret' => '',
         // ต้องตรงกับที่ลงทะเบียนไว้ใน RVC-ONE ทุกตัวอักษร
         'redirect_uri'  => 'https://aai.rvc.ac.th/web/auth/callback',
+        // User-sync API — ดึงรายชื่อผู้ใช้แบบ server-to-server ด้วย client_id / client_secret ชุดเดียวกับ SSO
+        'users_url'     => 'http://workspace.rvc.ac.th/oa/api/users.php',
     ];
     private const TIMEOUT = 10;
+    /** User-sync หน้าละไม่เกิน 1,000 คน ใช้เวลานานกว่าการตรวจโทเคน */
+    private const USERS_TIMEOUT = 60;
+    /** เรียกซ้ำเมื่อเชื่อมต่อไม่ได้ / 429 / 5xx — ไม่เกินจำนวนนี้ */
+    private const USERS_ATTEMPTS = 3;
 
     public function __construct(
         private readonly Config $config,
@@ -169,6 +175,81 @@ final class RvcOne
         }
 
         return $user;
+    }
+
+    /**
+     * ดึงรายชื่อผู้ใช้หนึ่งหน้าจาก User-sync API ของ RVC-ONE (เรียกจากฝั่ง server เท่านั้น)
+     *
+     * @param array{type?:?string,since?:?string,limit?:int,cursor?:?string} $params ส่ง cursor แล้วไม่ต้องส่ง type/since ซ้ำ
+     * @return array{users:list<array<string,mixed>>,has_more:bool,next_cursor:?string,server_time:string}
+     * @throws RvcOneException reason `config` = รหัสแอปผิด/ยังไม่ได้ตั้ง/ยังไม่ได้รับสิทธิ์, `invalid` = พารามิเตอร์ผิด
+     *                         (error = bad_cursor ฯลฯ), `unavailable` = เรียก API ไม่สำเร็จหลังลองซ้ำครบแล้ว
+     */
+    public function users(array $params): array
+    {
+        ['secret' => $secret] = $this->secret();
+        if ($secret === '') {
+            throw new RvcOneException('config', 'ยังไม่ได้ตั้งค่า client_secret ของ RVC-ONE — ตั้งได้ที่หน้าตั้งค่าระบบ (การเชื่อมต่อ RVC-ONE)');
+        }
+        // secret ไปทาง HTTP Basic เท่านั้น ห้ามอยู่ใน query string
+        $url = (string) $this->setting('users_url') . '?' . http_build_query(array_filter(
+            $params,
+            static fn (mixed $v): bool => $v !== null && $v !== ''
+        ), '', '&', PHP_QUERY_RFC3986);
+
+        for ($attempt = 1; ; $attempt++) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_HTTPGET        => true,
+                CURLOPT_HTTPHEADER     => ['Accept: application/json'],
+                CURLOPT_HTTPAUTH       => CURLAUTH_BASIC,
+                CURLOPT_USERPWD        => $this->clientId() . ':' . $secret,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => self::USERS_TIMEOUT,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_FOLLOWLOCATION => false,
+            ]);
+            $raw = curl_exec($ch);
+            $errno = curl_errno($ch);
+            $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            curl_close($ch);
+
+            $retry = $raw === false || $errno !== 0 || $status === 429 || $status >= 500;
+            if (!$retry || $attempt >= self::USERS_ATTEMPTS) {
+                break;
+            }
+            sleep($attempt * 2);
+        }
+
+        if ($raw === false || $errno !== 0) {
+            throw new RvcOneException('unavailable', sprintf(
+                $errno === CURLE_OPERATION_TIMEDOUT
+                    ? 'RVC-ONE ตอบสนองช้าเกินไประหว่างดึงรายชื่อผู้ใช้ (ลองแล้ว %d ครั้ง)'
+                    : 'เชื่อมต่อ RVC-ONE ไม่สำเร็จระหว่างดึงรายชื่อผู้ใช้ (ลองแล้ว %d ครั้ง)',
+                self::USERS_ATTEMPTS
+            ));
+        }
+
+        $data = json_decode(ltrim((string) $raw, "\xEF\xBB\xBF \r\n\t"), true);
+        $error = is_array($data) && is_string($data['error'] ?? null) ? $data['error'] : '';
+        if ($status !== 200 || !is_array($data) || ($data['ok'] ?? null) !== true) {
+            [$reason, $message] = match ($error) {
+                'invalid_client'   => ['config', 'RVC-ONE ไม่ยอมรับรหัสแอปของระบบนี้ (client_id / client_secret ไม่ถูกต้อง หรือแอปถูกปิดใช้งาน)'],
+                'sync_disabled'    => ['config', 'RVC-ONE ยังไม่ได้เปิดสิทธิ์ User-sync API ให้แอปนี้ กรุณาแจ้งผู้ดูแล RVC-ONE'],
+                'type_not_allowed' => ['config', 'แอปนี้ไม่ได้รับอนุญาตให้ดึงผู้ใช้ประเภทที่ขอจาก RVC-ONE'],
+                'bad_type', 'bad_since', 'bad_cursor' => ['invalid', 'พารามิเตอร์ที่ส่งไป RVC-ONE ไม่ถูกต้อง (' . $error . ')'],
+                default            => ['unavailable', sprintf('RVC-ONE ตอบกลับไม่ถูกต้องระหว่างดึงรายชื่อผู้ใช้ (HTTP %d)', $status)],
+            };
+
+            throw new RvcOneException($reason, $message, $error);
+        }
+
+        return [
+            'users'       => array_values(array_filter((array) ($data['users'] ?? []), 'is_array')),
+            'has_more'    => ($data['has_more'] ?? false) === true,
+            'next_cursor' => is_string($data['next_cursor'] ?? null) && $data['next_cursor'] !== '' ? $data['next_cursor'] : null,
+            'server_time' => is_string($data['server_time'] ?? null) ? $data['server_time'] : '',
+        ];
     }
 
     /**
