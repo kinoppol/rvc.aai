@@ -133,6 +133,7 @@ return static function (App $app): void {
             $t->get('/{courseId:[0-9]+}/preview', [StudentController::class, 'previewCourse']);
             $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/preview', [StudentController::class, 'preview']);
             $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/preview/{kind:section|worksheet}/{itemId:[0-9]+}', [StudentController::class, 'previewItem']);
+            $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/preview/section/{itemId:[0-9]+}/file', [StudentController::class, 'previewFile']);
             $t->post('/{courseId:[0-9]+}/units[/{id:[0-9]+}]', [UnitController::class, 'save']);
             // ใบงานของหน่วยการเรียน — เขียนเองหรือให้ผู้ช่วย AI ร่างให้แล้วแก้ต่อ
             $t->get('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments/new', [AssignmentController::class, 'edit']);
@@ -222,6 +223,7 @@ return static function (App $app): void {
             $s->get('/{courseId:[0-9]+}', [StudentController::class, 'course']);
             $s->get('/units/{id:[0-9]+}', [StudentController::class, 'unit']);
             $s->get('/units/{id:[0-9]+}/{kind:section|worksheet}/{itemId:[0-9]+}', [StudentController::class, 'item']);
+            $s->get('/units/{id:[0-9]+}/section/{itemId:[0-9]+}/file', [StudentController::class, 'file']);
             $s->post('/quizzes/{quizId:[0-9]+}/start', [StudentController::class, 'startQuiz']);
             $s->get('/attempts/{attemptId:[0-9]+}', [StudentController::class, 'take']);
             $s->post('/attempts/{attemptId:[0-9]+}/answer', [StudentController::class, 'answer']);

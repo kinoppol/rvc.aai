@@ -13,6 +13,7 @@ use App\Support\Cover;
 use App\Support\Csrf;
 use App\Support\Db;
 use App\Support\Flash;
+use App\Support\Paths;
 use App\Support\Thai;
 use App\Support\Url;
 use App\Support\View;
@@ -20,6 +21,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Exception\HttpForbiddenException;
 use Slim\Exception\HttpNotFoundException;
+use Slim\Psr7\Stream;
 
 /**
  * มุมมองนักเรียน: ดูเนื้อหาบทเรียนที่เผยแพร่แล้ว และทำแบบทดสอบ
@@ -129,6 +131,58 @@ final class StudentController
         [$course, $unit] = $this->teacherUnit($request, (int) $args['courseId'], (int) $args['id'], (int) $user['id']);
 
         return $this->renderItem($request, $response, $args, $course, $unit, 0, true);
+    }
+
+    /** ไฟล์ PDF ของส่วนเนื้อหา — นักเรียนที่ลงทะเบียน (หน่วยที่เผยแพร่แล้ว) */
+    public function file(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [, $unit] = $this->studentUnit($request, (int) $args['id'], (int) $user['id']);
+
+        return $this->sendPdf($request, $response, (int) $unit['id'], (int) $args['itemId']);
+    }
+
+    /** ไฟล์ PDF ของส่วนเนื้อหา — ครูเจ้าของรายวิชา (ทุกสถานะ ใช้ในหน้าแก้ไขหน่วยและมุมมองนักเรียน) */
+    public function previewFile(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [, $unit] = $this->teacherUnit($request, (int) $args['courseId'], (int) $args['id'], (int) $user['id']);
+
+        return $this->sendPdf($request, $response, (int) $unit['id'], (int) $args['itemId']);
+    }
+
+    /** ส่งไฟล์ให้เบราว์เซอร์เปิดอ่านในหน้า (inline) — ไฟล์อยู่ใน storage/uploads นอก public/ จึงต้องผ่านการตรวจสิทธิ์ที่นี่เสมอ */
+    private function sendPdf(Request $request, Response $response, int $unitId, int $sectionId): Response
+    {
+        $section = $this->units->findSection($sectionId);
+        $root = realpath(Paths::storage('uploads'));
+        $path = $section !== null && $section['type'] === 'pdf' && (int) $section['unit_id'] === $unitId
+            ? realpath(Paths::storage('uploads/' . (string) $section['file_path']))
+            : false;
+        // กัน file_path ที่ชี้ออกนอกโฟลเดอร์ uploads
+        if ($root === false || $path === false || !is_file($path) || !str_starts_with($path, $root . DIRECTORY_SEPARATOR)) {
+            throw new HttpNotFoundException($request, 'ไม่พบไฟล์นี้');
+        }
+
+        $name = (string) ($section['file_name'] ?: basename($path));
+        if (!str_ends_with(strtolower($name), '.pdf')) {
+            $name .= '.pdf';
+        }
+        $ascii = preg_replace('/[^A-Za-z0-9._-]+/', '_', $name) ?: 'document.pdf';
+        $download = ($request->getQueryParams()['download'] ?? '') === '1';
+
+        return $response
+            ->withBody(new Stream(fopen($path, 'rb')))
+            ->withHeader('Content-Type', 'application/pdf')
+            ->withHeader('Content-Length', (string) filesize($path))
+            ->withHeader('Content-Disposition', sprintf(
+                '%s; filename="%s"; filename*=UTF-8\'\'%s',
+                $download ? 'attachment' : 'inline',
+                $ascii,
+                rawurlencode($name)
+            ))
+            ->withHeader('Cache-Control', 'private, max-age=3600')
+            ->withHeader('X-Content-Type-Options', 'nosniff');
     }
 
     public function startQuiz(Request $request, Response $response, array $args): Response

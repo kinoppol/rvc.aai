@@ -56,10 +56,17 @@
                     <iframe src="{$record['video_url']}" allowfullscreen loading="lazy" title="{$item['title']}"></iframe>
                 </div>
             {else}
+                {var $fileUrl = $base . $itemBase . '/section/' . $record['id'] . '/file'}
                 <div class="learn-file">
                     <span class="msi" aria-hidden="true">description</span>
-                    <span>{$record['file_name'] ?? 'ไฟล์ PDF'}</span>
+                    <span class="learn-file-name">{$record['file_name'] ?? 'ไฟล์ PDF'} <small class="learn-pdf-count"></small></span>
+                    <a class="btn btn-sm" href="{$fileUrl}" target="_blank" rel="noopener"><span class="msi" aria-hidden="true">open_in_new</span>เปิดเต็มจอ</a>
                 </div>
+                {* อ่านในหน้าได้เลยไม่ต้องดาวน์โหลด — pdf-view.js วาดด้วย PDF.js (ใช้ได้บนมือถือ) ไม่ได้ก็ใช้ iframe *}
+                <div class="learn-pdf" data-pdf-src="{$fileUrl}" data-pdf-title="{$record['file_name'] ?? 'ไฟล์ PDF'}">
+                    <noscript><iframe src="{$fileUrl}" title="{$record['file_name'] ?? 'ไฟล์ PDF'}"></iframe></noscript>
+                </div>
+                <script src="{$base}/assets/js/pdf-view.js?v={$assetVer}" defer></script>
             {/if}
         {else}
             {if $record['description']}

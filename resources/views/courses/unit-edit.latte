@@ -91,14 +91,19 @@
                     <span class="icon-act is-type section-type-{$s['type']}" data-tip="{$typeTip}" aria-label="{$typeTip}" role="img">
                         <span class="msi" aria-hidden="true">{$s['type'] === 'video' ? 'smart_display' : ($s['type'] === 'pdf' ? 'description' : 'article')}</span>
                     </span>
+                    {* เปิดดูเนื้อหาแบบที่นักเรียนเห็น (ร่างก็เปิดได้) ในแท็บใหม่ — หน้าแก้ไขยังเปิดค้างไว้ *}
+                    {var $viewUrl = $base . '/courses/' . $course['id'] . '/units/' . $unit['id'] . '/preview/section/' . $s['id']}
                     <div class="list-main">
-                        <div class="list-title">{$s['title']}</div>
+                        <div class="list-title"><a href="{$viewUrl}" target="_blank" rel="noopener">{$s['title']}</a></div>
                         {if $s['type'] !== 'text'}
                             <div class="list-meta mono" style="font-size:12px">
                                 {$s['type'] === 'video' ? ($s['video_url']|truncate:60) : ($s['file_name'] ?? $s['file_path'])}
                             </div>
                         {/if}
                     </div>
+                    <a class="icon-act" href="{$viewUrl}" target="_blank" rel="noopener" data-tip="เปิดดูเนื้อหา" aria-label="เปิดดู {$s['title']}">
+                        <span class="msi" aria-hidden="true">visibility</span>
+                    </a>
                     <button type="button" class="icon-act" data-tip="แก้ไขส่วนนี้" aria-label="แก้ไข {$s['title']}"
                             data-reveal="editSection{$s['id']}" aria-expanded="false" aria-controls="editSection{$s['id']}">
                         <span class="msi" aria-hidden="true">edit</span>

@@ -2201,8 +2201,18 @@ textarea.note-input { height: auto; min-height: 84px; padding: 10px 14px; line-h
 .learn-reading { font-size: 16.5px; line-height: 1.95; color: var(--ink); }
 .learn-video { aspect-ratio: 16 / 9; background: #000; border-radius: 14px; overflow: hidden; }
 .learn-video iframe { width: 100%; height: 100%; border: 0; }
-.learn-file { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: 12px; background: var(--surface2); }
-.learn-file .msi { font-size: 26px; color: #D97706; }
+.learn-file { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: 12px; background: var(--surface2); flex-wrap: wrap; }
+.learn-file > .msi { font-size: 26px; color: #D97706; }
+.learn-file-name { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.learn-file .btn .msi { font-size: 18px; }
+.learn-pdf { margin-top: 12px; border-radius: 12px; background: var(--surface2); padding: 10px; }
+.learn-pdf-pages { display: grid; gap: 10px; }
+.learn-pdf-page { width: 100%; background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgb(0 0 0 / .12); overflow: hidden; display: grid; place-items: center; color: var(--ink3); font-size: 13px; }
+.learn-pdf-page canvas { display: block; width: 100%; height: 100%; }
+.learn-pdf-status { padding: 24px; text-align: center; color: var(--ink3); font-size: 14px; }
+.learn-pdf.is-frame { padding: 0; }
+.learn-pdf iframe { display: block; width: 100%; height: min(80vh, 900px); border: 0; border-radius: 12px; }
+.learn-pdf-count { color: var(--ink3); font-weight: 400; }
 .learn-note { display: flex; align-items: center; gap: 8px; margin: 18px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--surface2); font-size: 13.5px; color: var(--ink2); }
 .learn-note .msi { font-size: 19px; color: var(--brand); }
 .learn-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -2238,7 +2248,10 @@ textarea.note-input { height: auto; min-height: 84px; padding: 10px 14px; line-h
     transition: background-color .15s ease, color .15s ease, border-color .15s ease;
 }
 .icon-act .msi { font-size: 20px; }
-button.icon-act:hover, button.icon-act:focus-visible { background: var(--brandSoft); color: var(--brand); border-color: var(--brandLine); }
+button.icon-act:hover, button.icon-act:focus-visible, a.icon-act:hover, a.icon-act:focus-visible { background: var(--brandSoft); color: var(--brand); border-color: var(--brandLine); }
+a.icon-act { text-decoration: none; }
+.list-title a { color: inherit; text-decoration: none; }
+.list-title a:hover { color: var(--brand); text-decoration: underline; }
 .icon-act.is-danger:hover, .icon-act.is-danger:focus-visible { background: var(--errSoft); color: var(--err); border-color: var(--errSoft); }
 .icon-act.is-type { cursor: default; border-color: transparent; background: var(--brandSoft); color: var(--brand); }
 .icon-act.section-type-video { background: color-mix(in srgb, #E11D48 12%, transparent); color: #E11D48; }
