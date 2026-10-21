@@ -146,10 +146,10 @@
                 <div class="prov-list">
                     {foreach $providers as $pv => $name}
                         <button type="button" data-prov="{$pv}" n:class="prov-row, $iterator->first ? is-on">
-                            <span class="prov-mark mono">{$pv === 'google' ? 'GA' : ($pv === 'openrouter' ? 'OR' : '···')}</span>
+                            <span class="prov-mark mono">{$pv === 'google' ? 'GA' : ($pv === 'openrouter' ? 'OR' : ($pv === 'thaillm' ? 'TH' : '···'))}</span>
                             <span class="grow">
                                 <span class="prov-name">{$name}</span>
-                                <span class="prov-hint">{$pv === 'google' ? 'ขอรหัสฟรีได้ด้วยบัญชี Google' : ($pv === 'openrouter' ? 'เลือกได้หลายผู้ให้บริการในบัญชีเดียว' : 'สำหรับครูที่มีระบบของตัวเองอยู่แล้ว')}</span>
+                                <span class="prov-hint">{$pv === 'google' ? 'ขอรหัสฟรีได้ด้วยบัญชี Google' : ($pv === 'openrouter' ? 'เลือกได้หลายผู้ให้บริการในบัญชีเดียว' : ($pv === 'thaillm' ? 'โมเดลภาษาไทย thaillm.or.th · วางแค่รหัส ไม่ต้องกรอกที่อยู่' : 'สำหรับครูที่มีระบบของตัวเองอยู่แล้ว'))}</span>
                             </span>
                             <span class="prov-tick">✓</span>
                         </button>
@@ -225,7 +225,7 @@
     var modal = document.getElementById('wizardModal');
     if (!modal) return;
     var step = 1, tested = false, csrf = document.getElementById('wizardForm')._token.value;
-    var names = { google: 'Google AI Studio', openrouter: 'OpenRouter', openai_compatible: 'บริการที่กรอกที่อยู่เอง' };
+    var names = { google: 'Google AI Studio', openrouter: 'OpenRouter', thaillm: 'ThaiLLM', openai_compatible: 'บริการที่กรอกที่อยู่เอง' };
 
     function show(s) {
         step = s; tested = false;

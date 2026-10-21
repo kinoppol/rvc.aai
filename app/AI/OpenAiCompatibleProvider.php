@@ -13,6 +13,8 @@ use SensitiveParameter;
 final class OpenAiCompatibleProvider implements AiProvider
 {
     public const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
+    // ThaiLLM (thaillm.or.th) — ครูวางแค่รหัส ระบบใส่ที่อยู่ให้เอง
+    public const THAILLM_BASE = 'http://thaillm.or.th/api/v1';
     public const OPENROUTER_DEFAULT_MODEL = 'openrouter/auto';
 
     public function __construct(

@@ -29,6 +29,7 @@ final class SettingsController
     private const PROVIDERS = [
         'google' => 'Google AI Studio',
         'openrouter' => 'OpenRouter',
+        'thaillm' => 'ThaiLLM',
         'openai_compatible' => 'บริการอื่นที่กรอกที่อยู่เองได้',
     ];
 
@@ -86,7 +87,7 @@ final class SettingsController
 
         $provider = (string) ($data['provider'] ?? '');
         $key = trim((string) ($data['key'] ?? ''));
-        $baseUrl = trim((string) ($data['base_url'] ?? '')) ?: null;
+        $baseUrl = self::baseUrlFor($provider, $data);
 
         return $this->json($response, $this->probeKey($provider, $key, $baseUrl));
     }
@@ -103,7 +104,7 @@ final class SettingsController
 
         $provider = array_key_exists((string) ($data['provider'] ?? ''), self::PROVIDERS) ? (string) $data['provider'] : 'google';
         $key = trim((string) ($data['key'] ?? ''));
-        $baseUrl = trim((string) ($data['base_url'] ?? '')) ?: null;
+        $baseUrl = self::baseUrlFor($provider, $data);
 
         $probe = $this->probeKey($provider, $key, $baseUrl);
         if (!$probe['ok']) {
@@ -311,6 +312,16 @@ final class SettingsController
         } catch (AiUnavailableException $e) {
             return ['ok' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    /** ผู้ให้บริการที่รู้ที่อยู่อยู่แล้ว (ThaiLLM) ไม่ต้องให้ครูกรอกเอง */
+    private static function baseUrlFor(string $provider, array $data): ?string
+    {
+        if ($provider === 'thaillm') {
+            return OpenAiCompatibleProvider::THAILLM_BASE;
+        }
+
+        return trim((string) ($data['base_url'] ?? '')) ?: null;
     }
 
     private function json(Response $response, array $data, int $status = 200): Response

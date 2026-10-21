@@ -331,6 +331,7 @@ final class AiRouter
                 $model,
                 $name
             ),
+            'thaillm' => new OpenAiCompatibleProvider($apiKey, OpenAiCompatibleProvider::THAILLM_BASE, $model, $name),
             default => new OpenAiCompatibleProvider($apiKey, (string) ($key['base_url'] ?? ''), $model, $name),
         };
     }
@@ -340,6 +341,7 @@ final class AiRouter
         return match ($provider) {
             'google' => 'Google AI Studio',
             'openrouter' => 'OpenRouter',
+            'thaillm' => 'ThaiLLM',
             default => 'บริการของฉัน',
         };
     }
