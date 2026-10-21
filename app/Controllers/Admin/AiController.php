@@ -71,7 +71,7 @@ final class AiController
             'teacherCount' => $teacherCount,
             'courses' => $tab === 'courses' ? $this->courses->allActiveForAdmin() : [],
             // ผู้ให้บริการทั้งหมด + ตัวที่กำลังแก้ (?edit=id หรือ ?edit=new)
-            'endpoints' => array_map(static fn (array $e): array => $e + [
+            'endpoints' => array_map(fn (array $e): array => $e + [
                 'models' => array_values(array_filter(AiRepository::enabledModels($e))),
                 'unlimited' => AiRepository::unlimitedModels($e),
                 'aliases' => $this->settings->modelAliases((int) $e['id']),
