@@ -8,15 +8,22 @@
         <div class="sub"><a href="{$base}/courses/{$course['id']}?tab=units">{$course['name']}</a></div>
         <h1>{if $unit}{$unit['title']}{elseif $isExam}{$kinds[$kind]}{else}หน่วยการเรียนใหม่{/if}</h1>
     </div>
-    {if $unit}
-        <div class="actions">
+    <div class="actions" style="align-items:center">
+        {if $unit && $unit['review_status'] === 'published'}
+            <span class="tag tag-ok">เผยแพร่แล้ว</span>
+        {else}
+            <span class="tag tag-warn">ยังไม่ได้เผยแพร่</span>
+        {/if}
+        {if $unit}
             {* เนื้อหาทั้งหน่วยรวมใบงานเป็นไฟล์ .md สำหรับนำไปสร้างงานนำเสนอต่อ (ส่งออกตามที่บันทึกไว้แล้ว) *}
             <a class="btn" href="{$base}/courses/{$course['id']}/units/{$unit['id']}/export.md"
                title="บทนำ ส่วนเนื้อหา และใบงานของหน่วยนี้ · คั่นหัวข้อด้วย --- เพื่อนำไปสร้างสไลด์ต่อ">
                 <span class="msi">download</span> ส่งออก Markdown (.md)
             </a>
-        </div>
-    {/if}
+        {/if}
+        {* ปุ่มอยู่นอกฟอร์ม จึงผูกกับ unitForm ด้วย form= — บันทึกข้อมูลในฟอร์มพร้อมเผยแพร่ *}
+        <button type="submit" form="unitForm" name="action" value="publish" class="btn btn-primary">เผยแพร่</button>
+    </div>
 </div>
 
 {* ── ฟอร์มข้อมูลหน่วย ── *}
@@ -69,8 +76,7 @@
         <div class="hint" data-exam-only n:attr="hidden: !$isExam">หน่วยสอบไม่มีเนื้อหา · บันทึกแล้วสร้างแบบทดสอบของหน่วยนี้ได้ด้านล่าง</div>
 
         <div style="display:flex;gap:8px;margin-top:8px">
-            <button type="submit" name="action" value="save" class="btn btn-primary">บันทึกฉบับร่าง</button>
-            <button type="submit" name="action" value="publish" class="btn">เผยแพร่</button>
+            <button type="submit" name="action" value="save" class="btn">บันทึกฉบับร่าง</button>
             <a href="{$base}/courses/{$course['id']}?tab=units" class="btn btn-ghost">ยกเลิก</a>
         </div>
     </form>
