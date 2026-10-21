@@ -1882,6 +1882,7 @@ a.brand-mark { text-decoration: none; }
 .key-btns { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .default-ai-form { display: flex; gap: 10px; flex-wrap: wrap; }
 .default-ai-form select { flex: 1 1 280px; }
+.mp-row .mp-alias { flex: none; width: 150px; height: 30px; padding: 4px 10px; font-size: 13px; accent-color: auto; }
 .mp-free {
     flex: none; cursor: pointer; padding: 3px 9px; border-radius: 999px;
     font: 700 11px/1.4 var(--sans); color: var(--ink3); background: var(--surface2); border: 1px solid var(--line);

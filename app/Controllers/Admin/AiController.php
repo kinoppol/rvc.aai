@@ -74,6 +74,7 @@ final class AiController
             'endpoints' => array_map(static fn (array $e): array => $e + [
                 'models' => array_values(array_filter(AiRepository::enabledModels($e))),
                 'unlimited' => AiRepository::unlimitedModels($e),
+                'aliases' => $this->settings->modelAliases((int) $e['id']),
                 'checked_ago' => $e['last_checked_at'] ? Thai::ago($e['last_checked_at']) : null,
             ], $this->ai->endpoints()),
             'editing' => $this->editingEndpoint($request),
@@ -91,7 +92,7 @@ final class AiController
         $edit = (string) ($request->getQueryParams()['edit'] ?? '');
 
         if ($edit === 'new' || ($edit === '' && $this->ai->endpoints() === [])) {
-            return ['id' => null, 'name' => '', 'kind' => 'ollama', 'base_url' => '', 'models' => [], 'unlimited' => [], 'notes' => '', 'api_key_encrypted' => null];
+            return ['id' => null, 'name' => '', 'kind' => 'ollama', 'base_url' => '', 'models' => [], 'unlimited' => [], 'aliases' => [], 'notes' => '', 'api_key_encrypted' => null];
         }
 
         $endpoint = ctype_digit($edit) ? $this->ai->endpoint((int) $edit) : null;
@@ -99,6 +100,7 @@ final class AiController
         return $endpoint === null ? null : $endpoint + [
             'models' => array_values(array_filter(AiRepository::enabledModels($endpoint))),
             'unlimited' => AiRepository::unlimitedModels($endpoint),
+            'aliases' => $this->settings->modelAliases((int) $endpoint['id']),
         ];
     }
 
@@ -257,6 +259,7 @@ final class AiController
         }
 
         $id = $this->ai->saveEndpoint($current ? (int) $current['id'] : null, $fields);
+        $this->settings->saveModelAliases($id, self::aliasField($data, json_decode((string) $models['models_enabled'], true) ?: []));
 
         // ตรวจทันทีหลังบันทึก เพื่อให้สถานะที่ครูเห็นตรงกับความเป็นจริง
         $probe = $this->probeEndpoint($kind, $baseUrl, $this->endpointKey($apiKey, $current), $fields['model']);
@@ -268,6 +271,27 @@ final class AiController
             : Flash::error('บันทึกแล้ว แต่ยังต่อไม่ได้ · ' . $probe['message']);
 
         return $this->redirect($response, $probe['ok'] ? 'settings' : 'settings&edit=' . $id);
+    }
+
+    /**
+     * ชื่อเล่นโมเดลจากฟอร์ม (alias_model[] คู่กับ alias_name[]) — เก็บเฉพาะโมเดลที่เปิดใช้ ยาวไม่เกิน 40 ตัวอักษร
+     *
+     * @param list<string> $enabled
+     * @return array<string,string>
+     */
+    private static function aliasField(array $data, array $enabled): array
+    {
+        $names = array_values((array) ($data['alias_name'] ?? []));
+        $out = [];
+        foreach (array_values((array) ($data['alias_model'] ?? [])) as $i => $model) {
+            $model = (string) $model;
+            $alias = mb_substr(trim((string) ($names[$i] ?? '')), 0, 40);
+            if ($alias !== '' && $alias !== $model && in_array($model, $enabled, true)) {
+                $out[$model] = $alias;
+            }
+        }
+
+        return $out;
     }
 
     /** ทดสอบการเชื่อมต่อโดยไม่บันทึก (เรียกจากปุ่มในหน้าจอ) */

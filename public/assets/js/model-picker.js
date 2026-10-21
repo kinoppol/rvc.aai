@@ -6,6 +6,7 @@
  * ตัวที่ติ๊กไว้ส่งไปกับฟอร์มเป็น hidden input ตามลำดับที่เลือก — ตัวแรกคือโมเดลหลัก
  * ส่ง unlimitedName: 'unlimited[]' (หน้าผู้ดูแล) เพื่อให้ติ๊ก "ใช้ได้ไม่จำกัด" เป็นรายโมเดล
  * (โมเดลฟรีที่ไม่ควรนับโควตาของครู) — ค่าเดิมส่งมาทาง unlimited: [...]
+ * ส่ง aliasName: 'alias' (หน้าผู้ดูแล) เพื่อตั้งชื่อเล่นสั้น ๆ ให้ครูจำง่าย — ส่งไปเป็น alias_model[] คู่กับ alias_name[]
  * รายชื่อจากผู้ให้บริการบางรายยาวหลายร้อยตัว จึงมีช่องค้นหาและแสดงทีละไม่เกิน 150 ตัว
  */
 (function () {
@@ -19,6 +20,8 @@
         var selected = (opts.selected || []).filter(function (m) { return m; });
         var unlimitedName = opts.unlimitedName || '';
         var unlimited = (opts.unlimited || []).slice();
+        var aliasName = opts.aliasName || '';
+        var aliases = opts.aliases || {};
         var models = [];
 
         box.classList.add('mp');
@@ -46,6 +49,15 @@
                 input.name = name;
                 input.value = m;
                 hidden.appendChild(input);
+                if (aliasName && aliases[m]) {
+                    [[aliasName + '_model[]', m], [aliasName + '_name[]', aliases[m]]].forEach(function (p) {
+                        var a = document.createElement('input');
+                        a.type = 'hidden';
+                        a.name = p[0];
+                        a.value = p[1];
+                        hidden.appendChild(a);
+                    });
+                }
                 if (unlimitedName && unlimited.indexOf(m) !== -1) {
                     var free = document.createElement('input');
                     free.type = 'hidden';
@@ -117,6 +129,23 @@
                 freeLabel.addEventListener('click', toggleFree);
                 freeLabel.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { toggleFree(e); } });
                 label.appendChild(freeLabel);
+            }
+            if (checked && aliasName) {
+                var nick = document.createElement('input');
+                nick.type = 'text';
+                nick.className = 'input mp-alias';
+                nick.placeholder = 'ชื่อเล่น';
+                nick.maxLength = 40;
+                nick.value = aliases[m] || '';
+                nick.title = 'ชื่อสั้น ๆ ที่ครูเห็นแทนชื่อโมเดลจริง (เว้นว่าง = ใช้ชื่อจริง)';
+                nick.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); nick.focus(); });
+                nick.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); } });
+                nick.addEventListener('input', function () {
+                    var v = nick.value.trim();
+                    if (v) { aliases[m] = v; } else { delete aliases[m]; }
+                    sync();
+                });
+                label.appendChild(nick);
             }
             if (checked && models.length && models.indexOf(m) === -1) {
                 var gone = document.createElement('span');

@@ -61,7 +61,7 @@ final class AiRouter
                     'id' => 'c' . $endpoint['id'] . ':' . $model,
                     'source' => 'college',
                     'group' => (string) ($endpoint['name'] ?: 'AI ของส่วนกลาง'),
-                    'label' => ($model !== '' ? $model : 'โมเดลเริ่มต้น') . ($free ? ' · ใช้ได้ไม่จำกัด' : ''),
+                    'label' => $this->settings->modelLabel((int) $endpoint['id'], $model) . ($free ? ' · ใช้ได้ไม่จำกัด' : ''),
                     'model' => $model,
                     'online' => $endpoint['status'] !== 'offline',
                     'free' => $free,
@@ -255,7 +255,7 @@ final class AiRouter
 
         $queue = max((int) $endpoint['queue_length'], $this->ai->queueLength());
         $waitSeconds = 15 + $queue * 12;
-        $chip = 'AI ส่วนกลาง' . ($model !== '' ? ' · ' . $model : '') . ($free ? ' · ไม่จำกัด' : '');
+        $chip = 'AI ส่วนกลาง' . ($model !== '' ? ' · ' . $this->settings->modelLabel((int) $endpoint['id'], $model) : '') . ($free ? ' · ไม่จำกัด' : '');
 
         return new AiRoute(
             provider: $provider,

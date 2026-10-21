@@ -85,6 +85,31 @@ final class SettingsRepository
         ];
     }
 
+    /**
+     * ชื่อเล่นของโมเดลในผู้ให้บริการส่วนกลาง (ผู้ดูแลตั้งให้ครูจำง่าย) — [ชื่อโมเดลจริง => ชื่อเล่น]
+     *
+     * @return array<string,string>
+     */
+    public function modelAliases(int $endpointId): array
+    {
+        $raw = $this->get('ai_alias:' . $endpointId);
+        $map = is_array($raw) ? $raw : json_decode((string) $raw, true);
+
+        return is_array($map) ? array_filter(array_map('strval', $map), static fn (string $v): bool => $v !== '') : [];
+    }
+
+    /** ชื่อที่แสดงให้ครูเห็น: ชื่อเล่นถ้าตั้งไว้ ไม่เช่นนั้นใช้ชื่อโมเดลจริง */
+    public function modelLabel(int $endpointId, string $model): string
+    {
+        return $this->modelAliases($endpointId)[$model] ?? ($model !== '' ? $model : 'โมเดลเริ่มต้น');
+    }
+
+    /** @param array<string,string> $aliases */
+    public function saveModelAliases(int $endpointId, array $aliases): void
+    {
+        $this->set('ai_alias:' . $endpointId, $aliases, 'json', 'ai');
+    }
+
     public function set(string $name, mixed $value, string $type = 'string', string $group = 'general'): void
     {
         $stored = $type === 'json' ? (string) json_encode($value, JSON_UNESCAPED_UNICODE) : (string) $value;
