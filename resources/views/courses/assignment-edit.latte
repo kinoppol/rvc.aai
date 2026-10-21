@@ -32,7 +32,7 @@
                       aria-label="สั่งเพิ่มเติม"
                       placeholder="{$isTask ? 'สั่งเพิ่มเติม เช่น ให้ทำรายงานสำรวจร้านค้าในชุมชน (ไม่บังคับ) · พิมพ์ได้หลายบรรทัด' : 'สั่งเพิ่มเติม เช่น ให้ทำเป็นงานกลุ่มหน้าร้านจำลอง (ไม่บังคับ) · พิมพ์ได้หลายบรรทัด'}"></textarea>
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
-                <button type="submit" class="btn">✦ ให้ AI ร่าง{$noun}</button>
+                <button type="submit" class="btn btn-primary btn-ai-draft"><span class="msi">auto_awesome</span> ให้ AI ร่าง{$noun}</button>
             </div>
             <div style="margin-top:12px;max-width:520px">
                 {include '../_partials/ai-picker.latte', options: $ai['options'], chosen: $ai['chosen'], id: 'assignAi'}

@@ -870,6 +870,9 @@ dialog.modal .modal-foot {
 .btn-ai { border-color: var(--brandLine); color: var(--brand); }
 .btn-ai:hover { background: var(--brandSoft); color: var(--brand); }
 .btn-ai .caret { font-size: 10px; opacity: .7; }
+/* ปุ่มให้ AI ร่าง (ใบงาน / งานที่มอบหมาย) — ใหญ่และเด่นกว่าปุ่มทั่วไป ไล่สี brand → violet */
+.btn.btn-ai-draft { padding: 12px 22px; font-size: 15px; background: linear-gradient(135deg, var(--brand), var(--violet)); }
+.btn.btn-ai-draft .msi { font-size: 20px; }
 .ai-menu-panel {
     position: absolute; right: 0; top: 44px; width: 288px; z-index: 30;
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
