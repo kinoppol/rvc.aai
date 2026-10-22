@@ -19,7 +19,11 @@
                         <div class="code">{$c['code']}</div>
                         <div class="teacher">{$c['teacher_name'] ?? '—'}</div>
                     </div>
-                    <div class="course-card-body"></div>
+                    <div class="course-card-body">
+                        {if $unseenPosts[(int) $c['id']] ?? 0}
+                            <span class="chip chip-warn"><span class="msi" aria-hidden="true">campaign</span>ประกาศใหม่ {$unseenPosts[(int) $c['id']]}</span>
+                        {/if}
+                    </div>
                     <div class="course-card-icons" aria-hidden="true">
                         <span class="msi" title="งานของฉัน">assignment</span>
                         <span class="msi" title="เปิดรายวิชา">folder_open</span>

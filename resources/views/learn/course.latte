@@ -41,7 +41,12 @@
             {if (int) $course['credits'] > 0}<span>{(int) $course['theory_hours']}-{(int) $course['practice_hours']}-{(int) $course['credits']}</span>{/if}
         </div>
         <h1>{$course['name']}</h1>
-        <p class="learn-hero-desc">ผู้สอน {$course['teacher_name'] ?? '—'}</p>
+        <p class="learn-hero-desc">
+            ผู้สอน {$course['teacher_name'] ?? '—'}
+            {if !$preview}
+                <a class="learn-dm" href="{$base}/messages/{$course['id']}/{$user['id']}"><span class="msi" aria-hidden="true">chat</span>ส่งข้อความถึงครู</a>
+            {/if}
+        </p>
         <div class="learn-hero-meta">
             <span class="msi" aria-hidden="true">schedule</span>
             {if $totals['minutes']}ประมาณ {$totals['minutes']} นาที · {/if}{count($units)} หน่วยการเรียน
@@ -55,6 +60,33 @@
             <b>{$pct}%</b>
         </div>
     </section>
+
+    {* ประกาศจากครู (CourseFeedController) · 3 ชิ้นแรก (ปักหมุดก่อน) แสดงเลย ที่เหลือพับไว้ *}
+    {if $posts}
+        <section class="learn-card learn-feed">
+            <h2 class="learn-h"><span class="msi" aria-hidden="true">campaign</span>ประกาศจากครู</h2>
+            {foreach array_slice($posts, 0, 3) as $p}{include feedItem, p: $p}{/foreach}
+            {var $older = array_slice($posts, 3)}
+            {if $older}
+                <details class="feed-more">
+                    <summary>ดูประกาศก่อนหน้าอีก {count($older)} รายการ</summary>
+                    {foreach $older as $p}{include feedItem, p: $p}{/foreach}
+                </details>
+            {/if}
+        </section>
+    {/if}
+
+    {define feedItem}
+        <article n:class="feed-item, $p['pinned'] ? is-pinned, $p['is_new'] ? is-new">
+            <div class="feed-item-head">
+                <b>{$p['author_name'] ?? 'ครูผู้สอน'}</b>
+                <span class="hint">{App\Support\Thai::ago($p['created_at'])}{if $p['updated_at']} · แก้ไขแล้ว{/if}</span>
+                {if $p['pinned']}<span class="chip chip-ok"><span class="msi" aria-hidden="true">push_pin</span>ปักหมุด</span>{/if}
+                {if $p['is_new']}<span class="chip chip-warn">ใหม่</span>{/if}
+            </div>
+            <div class="feed-body">{App\Support\RichText::render($p['body'])}</div>
+        </article>
+    {/define}
 
     <section class="learn-card">
         {if $course['description']}

@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Auth\Auth;
 use App\Domain\AssignmentRepository;
+use App\Domain\CourseFeedRepository;
 use App\Domain\CourseRepository;
 use App\Domain\EnrollmentRepository;
 use App\Domain\PlanSignerRepository;
@@ -28,7 +29,7 @@ use Slim\Exception\HttpNotFoundException;
 
 final class CourseController
 {
-    private const TABS = ['units', 'quizzes', 'worksheets', 'tasks', 'students', 'scores', 'reports'];
+    private const TABS = ['units', 'feed', 'quizzes', 'worksheets', 'tasks', 'students', 'scores', 'reports'];
 
     public function __construct(
         private readonly View $view,
@@ -41,6 +42,7 @@ final class CourseController
         private readonly Auth $auth,
         private readonly Db $db,
         private readonly PlanSignerRepository $signers,
+        private readonly CourseFeedRepository $feed,
     ) {
     }
 
@@ -637,6 +639,11 @@ final class CourseController
 
         $data += match ($tab) {
             'units'    => ['units' => $this->decorateUnits($this->units->forCourse($course['id']))],
+            'feed'     => [
+                'feedReady' => $this->feed->ready(),
+                'posts' => $posts = $this->feed->forCourse((int) $course['id']),
+                'seenCounts' => $this->feed->seenCounts((int) $course['id'], $posts),
+            ],
             'quizzes'  => ['quizGroups' => $this->quizGroups((int) $course['id'])],
             'worksheets' => [
                 'worksheets' => $this->assignments->forCourse((int) $course['id'], 'worksheet'),

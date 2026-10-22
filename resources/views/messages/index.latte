@@ -1,0 +1,103 @@
+{layout '../layout.latte'}
+
+{block title}ข้อความ{/block}
+
+{block content}
+<div class="dm-page">
+    <div class="page-head">
+        <div>
+            <h1>ข้อความส่วนตัว</h1>
+            <div class="sub">
+                {if $notReady ?? false}
+                    ระบบข้อความยังไม่พร้อม
+                {elseif $asTeacher}
+                    คุยกับนักเรียนเป็นรายคน เฉพาะครูกับนักเรียนคนนั้นที่เห็น · ประกาศถึงทั้งรายวิชาใช้แท็บ "ประกาศ" ในหน้ารายวิชา
+                {else}
+                    คุยกับครูผู้สอนแต่ละรายวิชาเป็นการส่วนตัว เฉพาะคุณกับครูที่เห็น
+                {/if}
+            </div>
+        </div>
+    </div>
+
+    {if $notReady ?? false}
+        <div class="alert alert-error">ผู้ดูแลระบบต้องปรับฐานข้อมูล (000130) ที่หน้าฐานข้อมูลก่อน จึงจะใช้ข้อความส่วนตัวได้</div>
+    {else}
+        {if $asTeacher}
+            {* เริ่มบทสนทนาใหม่: เลือกนักเรียนจากรายวิชาที่สอน (ค้นด้วยชื่อ รหัส หรือรายวิชาได้) *}
+            <form class="card dm-new" method="get" action="{$base}/messages" data-dm-new>
+                <h2>ส่งข้อความถึงนักเรียน</h2>
+                <div class="card-sub">เลือกนักเรียนที่เรียนอยู่ในรายวิชาของคุณ</div>
+                <div class="dm-new-row">
+                    <select class="input" data-combo data-combo-placeholder="พิมพ์ชื่อหรือรหัสนักเรียน" data-dm-pick>
+                        <option value="">— เลือกนักเรียน —</option>
+                        {foreach $recipients as $r}
+                            <option value="{$r['course_id']}/{$r['student_id']}">{$r['full_name']} · {$r['username']} · {$r['course_code']} {$r['course_name']}</option>
+                        {/foreach}
+                    </select>
+                    <button class="btn btn-primary" type="submit"><span class="msi" aria-hidden="true">chat</span>เปิดบทสนทนา</button>
+                </div>
+                {if !$recipients}<div class="hint" style="margin-top:10px">ยังไม่มีนักเรียนในรายวิชาที่เปิดสอนอยู่</div>{/if}
+            </form>
+
+            {if count($courseOptions) > 1}
+                <form class="dm-filter" method="get" action="{$base}/messages">
+                    <select class="input" name="course" onchange="this.form.submit()" aria-label="กรองตามรายวิชา">
+                        <option value="">ทุกรายวิชา</option>
+                        {foreach $courseOptions as $id => $label}
+                            <option value="{$id}" selected="{$courseFilter === $id}">{$label}</option>
+                        {/foreach}
+                    </select>
+                </form>
+            {/if}
+        {/if}
+
+        <div class="list dm-list">
+            {foreach $threads as $t}
+                {var $href = $asTeacher ? $t['course_id'] . '/' . $t['student_id'] : $t['course_id'] . '/' . $user['id']}
+                {var $name = $asTeacher ? $t['student_name'] : ($t['teacher_name'] ?? 'ครูผู้สอน')}
+                <a n:class="list-row, dm-row, $t['unread'] > 0 ? is-unread" href="{$base}/messages/{$href}">
+                    <div class="mini-avatar">{App\Support\Thai::initials($name)}</div>
+                    <div class="list-main">
+                        <div class="list-title">
+                            {$name}
+                            <span class="hint">· {$t['course_code']} {$t['course_name']}</span>
+                        </div>
+                        <div class="hint dm-excerpt">
+                            {if $t['body'] !== null}
+                                {if (int) $t['sender_id'] === (int) $user['id']}คุณ: {/if}{App\Support\RichText::excerpt($t['body'])}
+                            {else}
+                                ยังไม่มีข้อความ · กดเพื่อเริ่มคุยกับครู
+                            {/if}
+                        </div>
+                    </div>
+                    {if $t['created_at']}<span class="hint dm-when">{App\Support\Thai::ago($t['created_at'])}</span>{/if}
+                    {if $t['unread'] > 0}<span class="nav-badge dm-badge">{$t['unread']}</span>{/if}
+                </a>
+            {/foreach}
+            {if !$threads}
+                <div class="empty">
+                    {if $asTeacher}
+                        <h3>ยังไม่มีบทสนทนา</h3>
+                        <p>เลือกนักเรียนด้านบน หรือกด "ส่งข้อความ" ข้างชื่อนักเรียนในแท็บนักเรียนของรายวิชา</p>
+                    {else}
+                        <h3>ยังไม่ได้ลงทะเบียนในรายวิชาใด</h3>
+                        <p>เข้าร่วมรายวิชาก่อน แล้วจะคุยกับครูผู้สอนของรายวิชานั้นได้ที่นี่</p>
+                    {/if}
+                </div>
+            {/if}
+        </div>
+    {/if}
+</div>
+
+<script>
+    // เลือกนักเรียนแล้วไปที่บทสนทนา /messages/รายวิชา/นักเรียน
+    (function () {
+        var form = document.querySelector('[data-dm-new]');
+        if (!form) return;
+        var pick = form.querySelector('[data-dm-pick]');
+        var go = function () { if (pick.value) location.href = form.getAttribute('action') + '/' + pick.value; };
+        form.addEventListener('submit', function (e) { e.preventDefault(); go(); });
+        pick.addEventListener('change', go);
+    })();
+</script>
+{/block}

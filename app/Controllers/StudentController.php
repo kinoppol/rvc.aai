@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Domain\AttemptRepository;
+use App\Domain\CourseFeedRepository;
 use App\Domain\EnrollmentRepository;
 use App\Domain\LearnPathRepository;
 use App\Domain\UnitRepository;
@@ -38,6 +39,7 @@ final class StudentController
         private readonly LearnPathRepository $path,
         private readonly Db $db,
         private readonly SubmissionRepository $submissions,
+        private readonly CourseFeedRepository $feed,
     ) {
     }
 
@@ -49,6 +51,7 @@ final class StudentController
             'page' => 'learn',
             'firstName' => explode(' ', trim($user['full_name']))[0],
             'courses' => $this->enrollments->coursesForStudent((int) $user['id']),
+            'unseenPosts' => $this->feed->unseenByCourse((int) $user['id']),
         ]);
     }
 
@@ -408,7 +411,29 @@ final class StudentController
             // ลิงก์ไปหน้าหน่วย: นักเรียน /learn/units/{id} · ครู /courses/{c}/units/{id}/preview
             'unitBase' => $preview ? '/courses/' . $courseId . '/units/' : '/learn/units/',
             'unitSuffix' => $preview ? '/preview' : '',
-        ];
+        ] + $this->feedContext($courseId, $studentId, $preview);
+    }
+
+    /**
+     * ประกาศของรายวิชา · นักเรียนเปิดหน้ารายวิชา = เห็นประกาศทั้งหมดแล้ว (ป้าย "ใหม่" คิดจากครั้งก่อน)
+     * ครูเปิดมุมมองนักเรียนไม่นับว่าเห็น
+     *
+     * @return array{posts:list<array<string,mixed>>}
+     */
+    private function feedContext(int $courseId, int $studentId, bool $preview): array
+    {
+        $posts = $this->feed->forCourse($courseId, 50);
+        $seenAt = $preview ? null : $this->feed->seenAt($courseId, $studentId);
+        foreach ($posts as $i => $p) {
+            $posts[$i]['is_new'] = !$preview && ($seenAt === null || (string) $p['created_at'] > $seenAt);
+        }
+        if (!$preview && $posts !== []) {
+            $this->feed->markSeen($courseId, $studentId);
+            // ป้ายบนเมนูคำนวณไว้ก่อนเปิดหน้านี้ (ViewContext) — นับใหม่ให้ป้ายหายในหน้าเดียวกันเลย
+            $this->view->share('newPostCount', array_sum($this->feed->unseenByCourse($studentId)));
+        }
+
+        return ['posts' => $posts];
     }
 
     /**

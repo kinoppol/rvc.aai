@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap">
     {* ไอคอน Material Symbols เฉพาะชื่อที่ใช้จริง (icon_names ต้องเรียงตามตัวอักษร) — display=block กันชื่อไอคอนโผล่เป็นตัวหนังสือระหว่างโหลด *}
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&icon_names=admin_panel_settings,arrow_back,arrow_forward,article,assignment,attach_file,auto_awesome,calendar_month,casino,celebration,check,chevron_left,chevron_right,class,close,co_present,construction,dark_mode,dashboard,data_usage,database,delete,delete_forever,description,download,edit,edit_note,emoji_events,expand_more,fact_check,flag,folder_open,forum,fullscreen,fullscreen_exit,grade,group,home,image,info,leaderboard,library_books,light_mode,logout,manage_accounts,memory,menu,music_note,notifications,notifications_active,open_in_new,palette,pause,picture_as_pdf,pin,play_arrow,print,qr_code_2,quiz,record_voice_over,report,restart_alt,restore_from_trash,schedule,school,search,send,settings,smart_display,smart_toy,speed,sync,sync_alt,task_alt,timer,trending_up,undo,visibility,volume_up,waving_hand&display=block">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&icon_names=admin_panel_settings,arrow_back,arrow_forward,article,assignment,attach_file,auto_awesome,calendar_month,campaign,casino,celebration,chat,check,chevron_left,chevron_right,class,close,co_present,construction,dark_mode,dashboard,data_usage,database,delete,delete_forever,description,download,edit,edit_note,emoji_events,expand_more,fact_check,flag,folder_open,forum,fullscreen,fullscreen_exit,grade,group,home,image,info,leaderboard,library_books,light_mode,logout,manage_accounts,memory,menu,music_note,notifications,notifications_active,open_in_new,palette,pause,picture_as_pdf,pin,play_arrow,print,push_pin,qr_code_2,quiz,record_voice_over,report,restart_alt,restore_from_trash,schedule,school,search,send,settings,smart_display,smart_toy,speed,sync,sync_alt,task_alt,timer,trending_up,undo,visibility,volume_up,waving_hand&display=block">
     <link rel="stylesheet" href="{$base}/assets/css/app.css?v={$assetVer ?? 1}">
     {if isset($ui)}
         {* สีหลักที่ผู้ดูแลหรือครูเลือกไว้ — เขียน # ในเทมเพลตเอง เพราะ Latte จะ escape # ใน CSS *}
@@ -44,6 +44,8 @@
 <body>
 {var $role = $user['role'] ?? 'student'}
 {var $rc = $reviewCount ?? 0}
+{var $mc = $unreadMessages ?? 0}
+{var $pc = $newPostCount ?? 0}
 {* ViewContext บอกมาว่าใช้งานฝั่งครูได้ไหม (รวมผู้ดูแลระบบที่ได้รับแต่งตั้งให้สอนด้วย) *}
 {var $teaches = $userTeaches ?? ($role === 'teacher' || $role === 'supervisor')}
 {var $oversees = $role === 'admin' || $role === 'supervisor'}
@@ -59,8 +61,8 @@
         </div>
     {/if}
     {* ปุ่มลัดบนแถบเครื่องมือ — ชี้ไปหน้าที่มีอยู่แล้วตามบทบาท *}
-    {var $bellUrl = $teaches ? '/review' : ($role === 'admin' ? '/admin/users' : '/learn')}
-    {var $bellTitle = $teaches ? 'รอตรวจก่อนเผยแพร่' : ($role === 'admin' ? 'ผู้ใช้งานและคำขอสมัคร' : 'วิชาที่เรียน')}
+    {var $bellUrl = $teaches ? '/review' : ($role === 'admin' ? '/admin/users' : ($mc > 0 ? '/messages' : '/learn'))}
+    {var $bellTitle = $teaches ? 'รอตรวจก่อนเผยแพร่' : ($role === 'admin' ? 'ผู้ใช้งานและคำขอสมัคร' : ($mc > 0 ? 'ข้อความใหม่จากครู' : 'วิชาที่เรียน'))}
     {var $gearUrl = $teaches ? '/settings/ai' : ($role === 'admin' ? '/admin/settings' : '/settings/appearance')}
     {var $gearTitle = $teaches ? 'ผู้ช่วย AI ของฉัน' : ($role === 'admin' ? 'ตั้งค่าระบบ' : 'สีหลักของหน้าจอ')}
 
@@ -104,6 +106,10 @@
                         <span class="msi">fact_check</span><span class="nav-label">รอตรวจก่อนเผยแพร่</span>
                         {if $rc > 0}<span class="nav-badge">{$rc}</span>{/if}
                     </a>
+                    <a href="{$base}/messages" n:class="$page === 'messages' ? is-active" title="ข้อความส่วนตัวกับนักเรียน">
+                        <span class="msi">chat</span><span class="nav-label">ข้อความ</span>
+                        {if $mc > 0}<span class="nav-badge">{$mc}</span>{/if}
+                    </a>
                     <a href="{$base}/board" n:class="$page === 'board' ? is-active" title="กระดานสนทนา"><span class="msi">forum</span><span class="nav-label">กระดานสนทนา</span></a>
                     <a href="{$base}/trash" n:class="$page === 'trash' ? is-active" title="ถังขยะ"><span class="msi">delete</span><span class="nav-label">ถังขยะ</span></a>
                     {* หัวหน้างานพัฒนาหลักสูตร (ครูที่ผู้ดูแลระบบแต่งตั้ง) · ผู้ดูแลครู/ผู้ดูแลระบบเห็นลิงก์นี้ในกลุ่มงานกำกับดูแลแทน *}
@@ -113,7 +119,14 @@
                 {/if}
 
                 {if $role === 'student'}
-                    <a href="{$base}/learn" n:class="$page === 'learn' ? is-active" title="วิชาที่เรียน"><span class="msi">school</span><span class="nav-label">วิชาที่เรียน</span></a>
+                    <a href="{$base}/learn" n:class="$page === 'learn' ? is-active" title="วิชาที่เรียน">
+                        <span class="msi">school</span><span class="nav-label">วิชาที่เรียน</span>
+                        {if $pc > 0}<span class="nav-badge" title="ประกาศใหม่จากครู">{$pc}</span>{/if}
+                    </a>
+                    <a href="{$base}/messages" n:class="$page === 'messages' ? is-active" title="ข้อความถึงครู">
+                        <span class="msi">chat</span><span class="nav-label">ข้อความ</span>
+                        {if $mc > 0}<span class="nav-badge">{$mc}</span>{/if}
+                    </a>
                 {/if}
                 {if $teaches}
                 {var $here = in_array($page, $role === 'admin' ? ['settings'] : ['settings', 'appearance'], true)}
@@ -205,6 +218,7 @@
                 <a class="tool-btn" href="{$base}{$bellUrl}" title="{$bellTitle}">
                     <span class="msi">notifications</span>
                     {if $teaches && $rc > 0}<span class="tool-badge">{$rc}</span>{/if}
+                    {if $role === 'student' && $mc + $pc > 0}<span class="tool-badge">{$mc + $pc}</span>{/if}
                 </a>
                 <a class="tool-btn" href="{$base}{$gearUrl}" title="{$gearTitle}"><span class="msi">settings</span></a>
                 <button type="button" class="tool-btn" onclick="rvcToggleTheme()" title="สลับโหมดมืด/สว่าง" aria-label="สลับโหมดมืด/สว่าง">
@@ -235,7 +249,8 @@
                 <a href="{$base}/board" n:class="$page === 'board' ? is-active"><span class="msi">forum</span>สนทนา</a>
             {/if}
         {elseif $role === 'student'}
-            <a href="{$base}/learn" n:class="$page === 'learn' ? is-active"><span class="msi">school</span>วิชาที่เรียน</a>
+            <a href="{$base}/learn" n:class="$page === 'learn' ? is-active"><span class="msi">school{if $pc > 0}<i class="mobile-badge">{$pc}</i>{/if}</span>วิชาที่เรียน</a>
+            <a href="{$base}/messages" n:class="$page === 'messages' ? is-active"><span class="msi">chat{if $mc > 0}<i class="mobile-badge">{$mc}</i>{/if}</span>ข้อความ</a>
         {else}
             <a href="{$base}/admin/settings" n:class="$systemHere ? is-active"><span class="msi">settings</span>ตั้งค่าระบบ</a>
             <a href="{$base}/admin/users" n:class="$page === 'admin-users' ? is-active"><span class="msi">manage_accounts</span>ผู้ใช้</a>

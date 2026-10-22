@@ -6,6 +6,8 @@ namespace App\Support;
 
 use App\Auth\Auth;
 use App\Auth\Roles;
+use App\Domain\CourseFeedRepository;
+use App\Domain\MessageRepository;
 use App\Domain\ReviewRepository;
 use App\Domain\SettingsRepository;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -24,6 +26,8 @@ final class ViewContext implements MiddlewareInterface
         private readonly SettingsRepository $settings,
         private readonly ReviewRepository $reviews,
         private readonly Auth $auth,
+        private readonly MessageRepository $messages,
+        private readonly CourseFeedRepository $feed,
     ) {
     }
 
@@ -47,6 +51,15 @@ final class ViewContext implements MiddlewareInterface
             $this->view->share('userTeaches', Roles::canTeach($user));
             if (Roles::canTeach($user)) {
                 $this->view->share('reviewCount', $this->reviews->pendingCount((int) $user['id']));
+            }
+
+            // ป้ายบนเมนู: ข้อความส่วนตัวที่ยังไม่อ่าน · นักเรียนนับประกาศใหม่ของทุกรายวิชาด้วย
+            $isStudent = ($user['role'] ?? '') === Roles::STUDENT;
+            if ($isStudent || Roles::canTeach($user)) {
+                $this->view->share('unreadMessages', $this->messages->unreadCount((int) $user['id'], $isStudent));
+            }
+            if ($isStudent) {
+                $this->view->share('newPostCount', array_sum($this->feed->unseenByCourse((int) $user['id'])));
             }
         }
 

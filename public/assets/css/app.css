@@ -2661,3 +2661,87 @@ html.is-presenting { overflow: hidden; }
     border-radius: 50%; background: currentColor;
 }
 .aichat-statusbar .aichat-pick { padding: 0 0 2px; border: 0; background: transparent; }
+
+/* ---------- ประกาศของรายวิชา (แท็บประกาศของครู · หน้ารายวิชาและหน้าแรกของนักเรียน) ---------- */
+.feed-input { width: 100%; resize: vertical; min-height: 96px; line-height: 1.7; }
+.feed-compose-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.feed-edit .feed-compose-foot { justify-content: flex-end; }
+.feed-post { padding: 20px 24px; }
+.feed-post.is-pinned { border-color: var(--brandLine); box-shadow: var(--shadowBrand); }
+.feed-post-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.feed-post-head .chip .msi, .feed-item-head .chip .msi { font-size: 15px; }
+.feed-author { font: 700 14px/1.4 var(--sans); }
+.feed-body { white-space: pre-wrap; word-break: break-word; font-size: 14.5px; line-height: 1.75; color: var(--ink); }
+.feed-body a, .dm-bubble a { color: var(--brand); text-decoration: underline; word-break: break-all; }
+.feed-post-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.feed-post-foot form { margin: 0; }
+.feed-seen { display: inline-flex; align-items: center; gap: 6px; }
+.feed-seen .msi { font-size: 18px; }
+
+.learn-feed .learn-h, .dash-feed h2 { display: flex; align-items: center; gap: 8px; }
+.learn-feed .learn-h .msi, .dash-feed h2 .msi { color: var(--brand); }
+.feed-item { margin-top: 10px; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); }
+.feed-item.is-pinned { border-color: var(--brandLine); }
+.feed-item.is-new { background: var(--brandSoft); border-color: var(--brandLine); }
+.feed-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; font-size: 13.5px; }
+.feed-more summary { margin-top: 12px; cursor: pointer; color: var(--brand); font: 700 13.5px/1.5 var(--sans); }
+.learn-dm {
+    display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; padding: 4px 12px; border-radius: 999px;
+    background: rgba(255, 255, 255, .18); border: 1px solid rgba(255, 255, 255, .35); color: #fff;
+    font: 700 13px/1.4 var(--sans); text-decoration: none; vertical-align: middle;
+}
+.learn-dm:hover { background: rgba(255, 255, 255, .3); }
+.learn-dm .msi { font-size: 17px; }
+
+.dash-feed-row { display: block; padding: 12px 14px; border-radius: 14px; color: inherit; text-decoration: none; transition: background-color .2s ease; }
+.dash-feed-row:hover { background: var(--brandSoft); }
+.dash-feed-row + .dash-feed-row { margin-top: 2px; }
+.dash-feed-row.is-new { background: var(--brandSoft); }
+.dash-feed-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13.5px; }
+.dash-feed-body { margin-top: 4px; font-size: 13.5px; line-height: 1.6; color: var(--ink2); }
+
+/* ---------- ข้อความส่วนตัวครู–นักเรียน (/messages) ---------- */
+.dm-page { max-width: 880px; margin: 0 auto; animation: rvcIn .22s ease; }
+.dm-new-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.dm-new-row > .combo, .dm-new-row > select { flex: 1; min-width: 240px; }
+.dm-filter { max-width: 380px; margin: 0 0 12px; }
+.dm-row { color: inherit; text-decoration: none; }
+.dm-row:hover { background: var(--brandSoft); }
+.dm-row.is-unread .list-title { font-weight: 800; }
+.dm-row .list-title .hint { font-weight: 400; }
+.dm-row.is-unread .dm-excerpt { color: var(--ink); }
+.dm-excerpt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-when { white-space: nowrap; }
+.dm-badge { margin-left: 0; }
+.dm-thread { padding: 0; overflow: hidden; }
+.dm-thread-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.dm-thread-name { font: 700 15px/1.4 var(--sans); }
+.dm-thread-name .mono { font-size: 12px; font-weight: 500; }
+.dm-log { display: flex; flex-direction: column; gap: 10px; height: min(60vh, 560px); overflow-y: auto; padding: 18px 20px; }
+.dm-day { align-self: center; margin: 6px 0; padding: 3px 12px; border-radius: 999px; background: var(--surface2); color: var(--ink3); font-size: 12px; }
+.dm-msg { display: flex; flex-direction: column; align-items: flex-start; align-self: flex-start; max-width: min(78%, 560px); }
+.dm-msg.is-mine { align-items: flex-end; align-self: flex-end; }
+.dm-who { margin: 0 0 3px 6px; font-size: 12px; color: var(--ink3); }
+.dm-bubble {
+    padding: 10px 14px; border-radius: 18px 18px 18px 6px; border: 1px solid var(--line); background: var(--surface);
+    white-space: pre-wrap; word-break: break-word; font-size: 14.5px; line-height: 1.65; color: var(--ink);
+}
+.dm-msg.is-mine .dm-bubble { border-color: transparent; border-radius: 18px 18px 6px 18px; background: linear-gradient(135deg, var(--brand), var(--brandDark)); color: #fff; }
+.dm-msg.is-mine .dm-bubble a { color: #fff; }
+.dm-meta { margin: 3px 6px 0; font-size: 11.5px; color: var(--ink3); }
+.dm-empty { margin: auto; max-width: 420px; text-align: center; color: var(--ink3); font-size: 13.5px; line-height: 1.7; }
+.dm-empty .msi { font-size: 40px; color: var(--brandLine); }
+.dm-compose { display: flex; align-items: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--line); }
+.dm-compose textarea { flex: 1; min-height: 46px; max-height: 220px; resize: vertical; line-height: 1.6; }
+.dm-closed { padding: 14px 20px; border-top: 1px solid var(--line); }
+@media (max-width: 600px) {
+    .feed-post { padding: 16px; }
+    /* หัก header + mobile-nav + หัวบทสนทนา + ช่องพิมพ์ ให้ช่องพิมพ์อยู่ในจอโดยไม่ต้องเลื่อน */
+    .dm-log { height: calc(100dvh - 400px); min-height: 220px; padding: 14px; }
+    .dm-thread-head .btn { width: 34px; padding: 0; justify-content: center; font-size: 0; gap: 0; }
+    .dm-thread-head .btn .msi { font-size: 18px; }
+    .dm-msg { max-width: 88%; }
+    /* เว้นที่ให้ปุ่มผู้ช่วย AI ลอยมุมขวาล่าง (ฝั่งครู) ไม่ทับปุ่มส่ง */
+    .dm-compose { padding: 12px 76px 12px 14px; }
+    .dm-thread-head { padding: 12px 14px; }
+}

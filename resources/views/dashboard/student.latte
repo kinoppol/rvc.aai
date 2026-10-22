@@ -17,6 +17,23 @@
 
     {include '../_partials/join-form.latte'}
 
+    {* ประกาศล่าสุดจากทุกรายวิชาที่เรียน — กดแล้วไปหน้ารายวิชา (เปิดแล้วนับว่าเห็น) *}
+    {if $latestPosts}
+        <section class="card dash-feed">
+            <h2><span class="msi" aria-hidden="true">campaign</span>ประกาศล่าสุดจากครู</h2>
+            {foreach $latestPosts as $p}
+                <a n:class="dash-feed-row, $p['is_new'] ? is-new" href="{$base}/learn/{$p['course_id']}">
+                    <div class="dash-feed-top">
+                        <b>{$p['course_code']} {$p['course_name']}</b>
+                        <span class="hint">{$p['author_name'] ?? ''} · {App\Support\Thai::ago($p['created_at'])}</span>
+                        {if $p['is_new']}<span class="chip chip-warn">ใหม่</span>{/if}
+                    </div>
+                    <div class="dash-feed-body">{App\Support\RichText::excerpt($p['body'], 160)}</div>
+                </a>
+            {/foreach}
+        </section>
+    {/if}
+
     {if $courses}
         <div class="course-grid">
             {foreach $courses as $c}
@@ -27,7 +44,11 @@
                         <div class="code">{$c['code']}</div>
                         <div class="teacher">{$c['teacher_name'] ?? '—'}</div>
                     </div>
-                    <div class="course-card-body"></div>
+                    <div class="course-card-body">
+                        {if $unseenPosts[(int) $c['id']] ?? 0}
+                            <span class="chip chip-warn"><span class="msi" aria-hidden="true">campaign</span>ประกาศใหม่ {$unseenPosts[(int) $c['id']]}</span>
+                        {/if}
+                    </div>
                     <div class="course-card-icons" aria-hidden="true">
                         <span class="msi" title="งานของฉัน">assignment</span>
                         <span class="msi" title="เปิดรายวิชา">folder_open</span>

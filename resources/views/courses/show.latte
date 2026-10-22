@@ -48,7 +48,7 @@
             </div>
 
             <div class="tabs">
-                {var $tabs = ['units' => ['หน่วยการเรียน', 'library_books'], 'quizzes' => ['แบบทดสอบ', 'quiz'], 'worksheets' => ['ใบงาน', 'description'], 'tasks' => ['งานที่มอบหมาย', 'assignment'], 'students' => ['นักเรียน', 'group'], 'scores' => ['คะแนน', 'leaderboard'], 'reports' => ['บันทึกหลังสอน', 'edit_note']]}
+                {var $tabs = ['units' => ['หน่วยการเรียน', 'library_books'], 'feed' => ['ประกาศ', 'campaign'], 'quizzes' => ['แบบทดสอบ', 'quiz'], 'worksheets' => ['ใบงาน', 'description'], 'tasks' => ['งานที่มอบหมาย', 'assignment'], 'students' => ['นักเรียน', 'group'], 'scores' => ['คะแนน', 'leaderboard'], 'reports' => ['บันทึกหลังสอน', 'edit_note']]}
                 {foreach $tabs as $key => [$label, $icon]}
                     <a href="{$base}/courses/{$course['id']}?tab={$key}" n:class="tab, $tab === $key ? is-active"><span class="msi">{$icon}</span>{$label}</a>
                 {/foreach}
@@ -81,6 +81,73 @@
                     <a class="btn" href="{$base}/courses/{$course['id']}/units/design">✦ ให้ AI ออกแบบรายชื่อหน่วย</a>
                 {/if}
             </div>
+
+        {elseif $tab === 'feed'}
+            {* ประกาศข่าวสารถึงนักเรียนทั้งรายวิชา (CourseFeedController) · นักเรียนเห็นที่หน้า /learn/{id} · ข้อความถึงรายคนอยู่ที่ /messages *}
+            {if !$feedReady}
+                <div class="alert alert-error">ระบบประกาศยังไม่พร้อม — ผู้ดูแลระบบต้องปรับฐานข้อมูล (000130) ที่หน้าฐานข้อมูลก่อน</div>
+            {else}
+                <form class="card feed-compose" method="post" action="{$base}/courses/{$course['id']}/posts">
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <h2>ประกาศถึงนักเรียนทั้งรายวิชา</h2>
+                    <div class="card-sub">
+                        นักเรียน {$course['student_count']} คนในรายวิชาจะเห็นประกาศที่หน้ารายวิชา พร้อมป้าย "ใหม่"
+                        · ถ้าต้องการคุยกับนักเรียนเป็นรายคน ใช้ <a href="{$base}/messages?course={$course['id']}">ข้อความส่วนตัว</a>
+                    </div>
+                    <textarea class="input feed-input" name="body" rows="4" required maxlength="{App\Domain\CourseFeedRepository::MAX_BODY}"
+                              placeholder="เช่น สัปดาห์หน้างดเรียนวันอังคาร ให้ทำใบงานที่ 3 ส่งในระบบแทน · วางลิงก์ได้ นักเรียนกดเปิดได้ทันที"></textarea>
+                    <div class="feed-compose-foot">
+                        <label class="check-row">
+                            <input type="checkbox" name="pinned" value="1">
+                            <span>ปักหมุดไว้บนสุด</span>
+                        </label>
+                        <button class="btn btn-primary" type="submit"><span class="msi" aria-hidden="true">campaign</span>ประกาศ</button>
+                    </div>
+                </form>
+
+                {foreach $posts as $p}
+                    <article n:class="card, feed-post, $p['pinned'] ? is-pinned">
+                        <header class="feed-post-head">
+                            <div class="mini-avatar">{App\Support\Thai::initials($p['author_name'] ?? '?')}</div>
+                            <div class="grow">
+                                <div class="feed-author">{$p['author_name'] ?? 'ครูผู้สอน'}</div>
+                                <div class="hint">{App\Support\Thai::dateTime($p['created_at'])}{if $p['updated_at']} · แก้ไขแล้ว{/if}</div>
+                            </div>
+                            {if $p['pinned']}<span class="chip chip-ok"><span class="msi" aria-hidden="true">push_pin</span>ปักหมุด</span>{/if}
+                        </header>
+                        <div class="feed-body" data-feed-view>{App\Support\RichText::render($p['body'])}</div>
+                        <form class="feed-edit" method="post" action="{$base}/courses/{$course['id']}/posts/{$p['id']}" data-feed-form hidden>
+                            <input type="hidden" name="_token" value="{$csrf}">
+                            <textarea class="input feed-input" name="body" rows="4" required maxlength="{App\Domain\CourseFeedRepository::MAX_BODY}">{$p['body']}</textarea>
+                            <div class="feed-compose-foot">
+                                <button type="button" class="btn btn-sm" data-feed-cancel>ยกเลิก</button>
+                                <button class="btn btn-sm btn-primary" type="submit">บันทึกการแก้ไข</button>
+                            </div>
+                        </form>
+                        <footer class="feed-post-foot">
+                            <span class="hint feed-seen" title="นับนักเรียนที่เปิดหน้ารายวิชาหลังประกาศนี้">
+                                <span class="msi" aria-hidden="true">visibility</span>เห็นแล้ว {$seenCounts[(int) $p['id']] ?? 0} จาก {$course['student_count']} คน
+                            </span>
+                            <span class="grow"></span>
+                            <button type="button" class="btn btn-sm" data-feed-edit><span class="msi" aria-hidden="true">edit</span>แก้ไข</button>
+                            <form method="post" action="{$base}/courses/{$course['id']}/posts/{$p['id']}/pin">
+                                <input type="hidden" name="_token" value="{$csrf}">
+                                <input type="hidden" name="pinned" value="{$p['pinned'] ? 0 : 1}">
+                                <button class="btn btn-sm" type="submit"><span class="msi" aria-hidden="true">push_pin</span>{$p['pinned'] ? 'เลิกปักหมุด' : 'ปักหมุด'}</button>
+                            </form>
+                            <form method="post" action="{$base}/courses/{$course['id']}/posts/{$p['id']}/delete"
+                                  data-confirm-title="ลบประกาศ" data-confirm-ok="ลบประกาศ" data-confirm-danger
+                                  data-confirm="นักเรียนจะไม่เห็นประกาศนี้อีก และกู้คืนไม่ได้">
+                                <input type="hidden" name="_token" value="{$csrf}">
+                                <button class="btn btn-sm btn-danger" type="submit"><span class="msi" aria-hidden="true">delete</span>ลบ</button>
+                            </form>
+                        </footer>
+                    </article>
+                {/foreach}
+                {if !$posts}
+                    <div class="empty"><h3>ยังไม่มีประกาศ</h3><p>แจ้งข่าวสาร กำหนดส่งงาน หรือเปลี่ยนแปลงตารางเรียนให้นักเรียนทั้งรายวิชาทราบได้จากช่องด้านบน</p></div>
+                {/if}
+            {/if}
 
         {elseif $tab === 'quizzes'}
             {* จัดกลุ่มตามหน่วย · ไอคอน/สีแยกก่อนเรียน (ฟ้า) หลังเรียน (เขียว) และข้อสอบของหน่วยสอบ (ม่วง) *}
@@ -362,6 +429,7 @@
                             <div class="list-title">{$s['full_name']}</div>
                             {if $s['email']}<div class="hint mono">{$s['email']}</div>{/if}
                         </div>
+                        <a class="btn btn-sm" href="{$base}/messages/{$course['id']}/{$s['id']}" title="ส่งข้อความส่วนตัวถึง {$s['full_name']}"><span class="msi" aria-hidden="true">chat</span>ส่งข้อความ</a>
                     </div>
                 {/foreach}
                 {if !$students}<div class="empty"><h3>ยังไม่มีนักเรียนในรายวิชานี้</h3><p>แจกรหัสหรือลิงก์เข้าร่วมด้านบนให้นักเรียน รายชื่อจะขึ้นที่นี่เมื่อนักเรียนเข้าร่วมแล้ว</p></div>{/if}
@@ -439,6 +507,22 @@
         toggle.addEventListener('click', function (e) { e.stopPropagation(); panel.hidden = !panel.hidden; });
         document.addEventListener('click', function () { panel.hidden = true; });
     })();
+
+    // แท็บประกาศ: สลับระหว่างข้อความประกาศกับฟอร์มแก้ไขของประกาศชิ้นนั้น
+    document.querySelectorAll('.feed-post').forEach(function (post) {
+        var view = post.querySelector('[data-feed-view]');
+        var form = post.querySelector('[data-feed-form]');
+        var edit = post.querySelector('[data-feed-edit]');
+        if (!form || !edit) return;
+        var toggle = function (editing) {
+            form.hidden = !editing;
+            view.hidden = editing;
+            edit.hidden = editing;
+            if (editing) form.querySelector('textarea').focus();
+        };
+        edit.addEventListener('click', function () { toggle(true); });
+        form.querySelector('[data-feed-cancel]').addEventListener('click', function () { toggle(false); });
+    });
 
     // ปุ่มคัดลอกรหัส/ลิงก์เข้าร่วม
     // ติ๊ก/เอาออกทั้งกลุ่ม — ข้ามคนที่อยู่ในรายวิชาแล้ว (checkbox ถูกปิดไว้)

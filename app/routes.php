@@ -19,6 +19,7 @@ use App\Controllers\AssignmentController;
 use App\Controllers\AuthController;
 use App\Controllers\ClassToolsController;
 use App\Controllers\CourseController;
+use App\Controllers\CourseFeedController;
 use App\Controllers\CourseOutcomesController;
 use App\Controllers\DashboardController;
 use App\Controllers\ImpersonationController;
@@ -29,6 +30,7 @@ use App\Controllers\BoardController;
 use App\Controllers\UnitController;
 use App\Controllers\UnitOutlineController;
 use App\Controllers\LessonPlanController;
+use App\Controllers\MessageController;
 use App\Controllers\PlanPrintController;
 use App\Controllers\PlanReviewController;
 use App\Controllers\QuizWizardController;
@@ -123,6 +125,11 @@ return static function (App $app): void {
             $t->post('/{id:[0-9]+}/students', [CourseController::class, 'addStudents']);
             // เพิ่มนักเรียนที่ติ๊กเลือกจากกลุ่มเรียนของรายวิชา
             $t->post('/{id:[0-9]+}/students/classroom', [CourseController::class, 'addClassroomStudents']);
+            // ประกาศข่าวสารถึงนักเรียนทั้งรายวิชา (แท็บประกาศ)
+            $t->post('/{id:[0-9]+}/posts', [CourseFeedController::class, 'create']);
+            $t->post('/{id:[0-9]+}/posts/{postId:[0-9]+}', [CourseFeedController::class, 'update']);
+            $t->post('/{id:[0-9]+}/posts/{postId:[0-9]+}/pin', [CourseFeedController::class, 'pin']);
+            $t->post('/{id:[0-9]+}/posts/{postId:[0-9]+}/delete', [CourseFeedController::class, 'delete']);
             // ให้ AI ออกแบบรายชื่อหน่วยการเรียนให้ครอบคลุมคำอธิบายรายวิชา (ครูเลือกก่อนบันทึก)
             $t->get('/{courseId:[0-9]+}/units/design', [UnitOutlineController::class, 'form']);
             $t->post('/{courseId:[0-9]+}/units/design', [UnitOutlineController::class, 'generate']);
@@ -219,6 +226,13 @@ return static function (App $app): void {
             $b->get('/{groupId:[0-9]+}/topics/{topicId:[0-9]+}', [BoardController::class, 'topic']);
             $b->post('/{groupId:[0-9]+}/topics/{topicId:[0-9]+}/replies', [BoardController::class, 'saveReply']);
         })->add(new RoleMiddleware(Roles::TEACHING));
+
+        // ข้อความส่วนตัวครู–นักเรียน (หนึ่งบทสนทนา = รายวิชา + นักเรียน) — ตัวควบคุมตรวจว่าเป็นครูผู้สอนหรือนักเรียนคนนั้นเอง
+        $group->group('/messages', function (RouteCollectorProxy $m): void {
+            $m->get('', [MessageController::class, 'inbox'])->setName('messages');
+            $m->get('/{courseId:[0-9]+}/{studentId:[0-9]+}', [MessageController::class, 'thread']);
+            $m->post('/{courseId:[0-9]+}/{studentId:[0-9]+}', [MessageController::class, 'send']);
+        })->add(new RoleMiddleware([...Roles::TEACHING, Roles::STUDENT]));
 
         // ลิงก์เข้าร่วมรายวิชาที่ครูแจก — ไม่จำกัดบทบาทที่นี่ เพื่อบอกครูที่เผลอเปิดลิงก์ได้ว่าลิงก์นี้สำหรับนักเรียน
         $group->get('/join/{code}', [JoinController::class, 'show'])->setName('join');

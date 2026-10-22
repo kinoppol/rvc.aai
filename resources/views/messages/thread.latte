@@ -1,0 +1,85 @@
+{layout '../layout.latte'}
+
+{block title}ข้อความ · {$other}{/block}
+
+{block content}
+<div class="dm-page">
+    <a class="back-link" href="{$base}/messages{$asTeacher ? '?course=' . $course['id'] : ''}">← กล่องข้อความ</a>
+
+    <section class="card dm-thread">
+        <header class="dm-thread-head">
+            <div class="mini-avatar">{App\Support\Thai::initials($other)}</div>
+            <div class="grow">
+                <div class="dm-thread-name">{$other}{if $asTeacher} <span class="hint mono">{$student['username']}</span>{/if}</div>
+                <div class="hint">{$course['code']} {$course['name']} · {$asTeacher ? 'นักเรียน' : 'ครูผู้สอน'}</div>
+            </div>
+            {if $asTeacher}
+                <a class="btn btn-sm" href="{$base}/courses/{$course['id']}?tab=students"><span class="msi" aria-hidden="true">group</span>นักเรียนในรายวิชา</a>
+            {else}
+                <a class="btn btn-sm" href="{$base}/learn/{$course['id']}"><span class="msi" aria-hidden="true">school</span>ไปที่รายวิชา</a>
+            {/if}
+        </header>
+
+        <div class="dm-log" id="dmLog">
+            {var $lastDay = ''}
+            {foreach $messages as $m}
+                {var $day = App\Support\Thai::date($m['created_at'])}
+                {if $day !== $lastDay}
+                    <div class="dm-day">{$day}</div>
+                    {var $lastDay = $day}
+                {/if}
+                {var $mine = (int) $m['sender_id'] === (int) $user['id']}
+                <div n:class="dm-msg, $mine ? is-mine">
+                    {if !$mine}<div class="dm-who">{$m['sender_name'] ?? '—'}</div>{/if}
+                    <div class="dm-bubble">{App\Support\RichText::render($m['body'])}</div>
+                    <div class="dm-meta">
+                        {date('H:i', strtotime($m['created_at']))}
+                        {if $mine}· {$m['read_at'] ? 'อ่านแล้ว' : 'ยังไม่อ่าน'}{/if}
+                    </div>
+                </div>
+            {/foreach}
+            {if !$messages}
+                <div class="dm-empty">
+                    <span class="msi" aria-hidden="true">chat</span>
+                    <p>{$asTeacher ? 'ยังไม่มีข้อความ · ข้อความนี้เห็นเฉพาะคุณกับ ' . $other : 'ยังไม่มีข้อความ · ถามเรื่องการเรียน งาน หรือคะแนนกับครูได้ที่นี่ เฉพาะคุณกับครูที่เห็น'}</p>
+                </div>
+            {/if}
+        </div>
+
+        {if $canSend}
+            <form class="dm-compose" method="post" action="{$base}/messages/{$course['id']}/{$student['id']}">
+                <input type="hidden" name="_token" value="{$csrf}">
+                <textarea class="input" name="body" rows="2" required maxlength="{$maxBody}" id="dmBody"
+                          placeholder="พิมพ์ข้อความถึง {$other}" title="Enter = ส่ง · Shift+Enter = ขึ้นบรรทัดใหม่">{$draft}</textarea>
+                <button class="btn btn-primary" type="submit" title="ส่ง"><span class="msi" aria-hidden="true">send</span>ส่ง</button>
+            </form>
+        {else}
+            <div class="dm-closed hint">
+                {$asTeacher ? 'นักเรียนคนนี้ไม่ได้อยู่ในรายวิชาแล้ว · อ่านข้อความเดิมได้แต่ส่งเพิ่มไม่ได้' : 'รายวิชานี้ปิดแล้ว · อ่านข้อความเดิมได้แต่ส่งเพิ่มไม่ได้'}
+            </div>
+        {/if}
+    </section>
+</div>
+
+<script>
+    (function () {
+        var log = document.getElementById('dmLog');
+        if (log) log.scrollTop = log.scrollHeight;
+        var body = document.getElementById('dmBody');
+        if (!body) return;
+        body.focus();
+        // Enter = ส่ง · Shift+Enter = ขึ้นบรรทัดใหม่ · ไม่ส่งระหว่างกำลังพิมพ์ด้วย IME
+        // จอสัมผัส (มือถือ) ให้ Enter ขึ้นบรรทัดใหม่ตามปกติ แล้วกดปุ่มส่งเอง
+        var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        body.addEventListener('keydown', function (e) {
+            if (!touch && e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+                e.preventDefault();
+                if (body.value.trim() !== '') body.form.requestSubmit();
+            }
+        });
+        body.form.addEventListener('submit', function () {
+            body.form.querySelector('button[type=submit]').disabled = true;
+        });
+    })();
+</script>
+{/block}

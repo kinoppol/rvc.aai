@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Auth\Roles;
+use App\Domain\CourseFeedRepository;
 use App\Domain\CourseRepository;
 use App\Domain\EnrollmentRepository;
 use App\Domain\ReviewRepository;
@@ -30,6 +31,7 @@ final class DashboardController
         private readonly SettingsRepository $settings,
         private readonly Migrator $migrator,
         private readonly PDO $pdo,
+        private readonly CourseFeedRepository $feed,
     ) {
     }
 
@@ -92,6 +94,8 @@ final class DashboardController
             'page' => 'dashboard',
             'firstName' => $this->firstName($user['full_name']),
             'courses' => $courses,
+            'unseenPosts' => $this->feed->unseenByCourse((int) $user['id']),
+            'latestPosts' => $this->feed->latestForStudent((int) $user['id'], 5),
         ]);
     }
 
