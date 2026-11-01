@@ -95,7 +95,7 @@ final class LessonPlanController
         try {
             $quality = $this->settings->userQualityPref((int) $user['id']);
             // AI ที่ครูเลือกในหน้าแผนการสอน ('' = ค่าเริ่มต้นของครู)
-            $route = $this->router->route((int) $user['id'], $quality, real: true, target: trim((string) ($q['ai'] ?? '')));
+            $route = $this->router->route((int) $user['id'], $quality, real: true, target: trim((string) ($q['ai'] ?? '')), task: 'lesson_plan');
         } catch (AiUnavailableException $e) {
             $send('error', ['reason' => $e->reason, 'message' => $e->getMessage()]);
 
@@ -266,7 +266,7 @@ final class LessonPlanController
     private function safeChip(int $userId): string
     {
         try {
-            return $this->router->route($userId, $this->settings->userQualityPref($userId), real: true)->chip;
+            return $this->router->route($userId, $this->settings->userQualityPref($userId), real: true, task: 'lesson_plan')->chip;
         } catch (AiUnavailableException) {
             return 'ผู้ช่วย AI ยังใช้งานไม่ได้';
         }

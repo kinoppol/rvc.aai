@@ -60,7 +60,7 @@ final class AiChatController
 
         try {
             $quality = $this->settings->userQualityPref($uid);
-            $route = $this->router->route($uid, $quality, false, real: true, target: $target);
+            $route = $this->router->route($uid, $quality, false, real: true, target: $target, task: 'chat');
 
             return $this->json($response, [
                 'ok' => true,
@@ -123,7 +123,7 @@ final class AiChatController
         $wanted = trim((string) ($params['ai'] ?? ''));
 
         try {
-            $route = $this->router->route((int) $user['id'], $quality, false, real: true, target: $wanted);
+            $route = $this->router->route((int) $user['id'], $quality, false, real: true, target: $wanted, task: 'chat');
         } catch (AiUnavailableException $e) {
             $send('error', ['reason' => $e->reason, 'message' => $e->getMessage()]);
 

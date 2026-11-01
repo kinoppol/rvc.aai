@@ -8,6 +8,7 @@ use App\AI\AiUnavailableException;
 use App\AI\GoogleAiProvider;
 use App\AI\HttpClient;
 use App\AI\KeyCipher;
+use App\AI\ModelRoles;
 use App\AI\OpenAiCompatibleProvider;
 use App\Auth\Auth;
 use App\Domain\AiRepository;
@@ -38,6 +39,7 @@ final class AiController
         private readonly Auth $auth,
         private readonly KeyCipher $cipher,
         private readonly CourseRepository $courses,
+        private readonly ModelRoles $modelRoles,
     ) {
     }
 
@@ -75,6 +77,7 @@ final class AiController
                 'models' => array_values(array_filter(AiRepository::enabledModels($e))),
                 'unlimited' => AiRepository::unlimitedModels($e),
                 'aliases' => $this->settings->modelAliases((int) $e['id']),
+                'roles' => $this->modelRoles->forModels('c' . $e['id'], array_values(array_filter(AiRepository::enabledModels($e)))),
                 'checked_ago' => $e['last_checked_at'] ? Thai::ago($e['last_checked_at']) : null,
             ], $this->ai->endpoints()),
             'editing' => $this->editingEndpoint($request),
@@ -92,7 +95,7 @@ final class AiController
         $edit = (string) ($request->getQueryParams()['edit'] ?? '');
 
         if ($edit === 'new' || ($edit === '' && $this->ai->endpoints() === [])) {
-            return ['id' => null, 'name' => '', 'kind' => 'ollama', 'base_url' => '', 'models' => [], 'unlimited' => [], 'aliases' => [], 'notes' => '', 'api_key_encrypted' => null];
+            return ['id' => null, 'name' => '', 'kind' => 'ollama', 'base_url' => '', 'models' => [], 'unlimited' => [], 'aliases' => [], 'roles' => [], 'notes' => '', 'api_key_encrypted' => null];
         }
 
         $endpoint = ctype_digit($edit) ? $this->ai->endpoint((int) $edit) : null;
@@ -101,6 +104,7 @@ final class AiController
             'models' => array_values(array_filter(AiRepository::enabledModels($endpoint))),
             'unlimited' => AiRepository::unlimitedModels($endpoint),
             'aliases' => $this->settings->modelAliases((int) $endpoint['id']),
+            'roles' => $this->modelRoles->forModels('c' . $endpoint['id'], array_values(array_filter(AiRepository::enabledModels($endpoint)))),
         ];
     }
 
@@ -260,6 +264,7 @@ final class AiController
 
         $id = $this->ai->saveEndpoint($current ? (int) $current['id'] : null, $fields);
         $this->settings->saveModelAliases($id, self::aliasField($data, json_decode((string) $models['models_enabled'], true) ?: []));
+        $this->modelRoles->savePosted('c' . $id, (string) ($data['roles_json'] ?? ''), json_decode((string) $models['models_enabled'], true) ?: []);
 
         // ตรวจทันทีหลังบันทึก เพื่อให้สถานะที่ครูเห็นตรงกับความเป็นจริง
         $probe = $this->probeEndpoint($kind, $baseUrl, $this->endpointKey($apiKey, $current), $fields['model']);

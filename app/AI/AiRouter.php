@@ -15,7 +15,8 @@ use App\Domain\SettingsRepository;
  * รหัสตัวเลือกเป็นข้อความ "c{id ผู้ให้บริการ}:{โมเดล}" หรือ "k{id คีย์}:{โมเดล}"
  * — โมเดลของ Ollama มีเครื่องหมาย : ได้ (qwen2.5:14b) จึงตัดแค่ : ตัวแรก
  *
- * ลำดับการลอง: ตัวที่ระบุมากับงาน → ตัวที่ครูตั้งเป็นค่าเริ่มต้น → ตัวหลักของแหล่งที่ครูเลือกไว้ก่อน → แหล่งที่เหลือ
+ * ลำดับการลอง: ตัวที่ระบุมากับงาน → (ถ้าบอกงานมา) โมเดลที่มีบทบาทตรงกับงาน (ModelRoles) → ตัวที่ครูตั้งเป็นค่าเริ่มต้น
+ * → ตัวหลักของแหล่งที่ครูเลือกไว้ก่อน → แหล่งที่เหลือ → โมเดลไม่จำกัดของส่วนกลาง
  * ถ้าตัวที่ต้องการใช้ไม่ได้ ระบบสลับไปตัวถัดไปให้อัตโนมัติ และเก็บสาเหตุของตัวแรกที่ล้มไว้แจ้งเมื่อไม่เหลือทางเลือก
  */
 final class AiRouter
@@ -24,13 +25,14 @@ final class AiRouter
         private readonly AiRepository $ai,
         private readonly SettingsRepository $settings,
         private readonly KeyCipher $cipher,
+        private readonly ModelRoles $roles,
     ) {
     }
 
     /**
      * ตัวเลือก AI ทั้งหมดที่ผู้ใช้คนนี้เลือกใช้ได้ — ของครูก่อน ตามด้วยของส่วนกลาง
      *
-     * @return list<array{id:string,source:string,group:string,label:string,model:string,online:bool,free:bool}>
+     * @return list<array{id:string,source:string,group:string,label:string,model:string,online:bool,free:bool,roles:list<string>}>
      */
     public function options(int $userId): array
     {
@@ -38,8 +40,8 @@ final class AiRouter
 
         if ($this->byokAllowed()) {
             foreach ($this->ai->activeKeysForUser($userId) as $key) {
-                foreach (AiRepository::enabledModels($key) as $model) {
-                    $model = self::keyModel($key, $model);
+                foreach (AiRepository::enabledModels($key) as $raw) {
+                    $model = self::keyModel($key, $raw);
                     $out[] = [
                         'id' => 'k' . $key['id'] . ':' . $model,
                         'source' => 'byok',
@@ -48,6 +50,7 @@ final class AiRouter
                         'model' => $model,
                         'online' => true,
                         'free' => true,   // คีย์ของครูเองไม่นับโควตาส่วนกลางอยู่แล้ว
+                        'roles' => $this->roles->rolesOf('k' . $key['id'], $raw),
                     ];
                 }
             }
@@ -65,6 +68,7 @@ final class AiRouter
                     'model' => $model,
                     'online' => $endpoint['status'] !== 'offline',
                     'free' => $free,
+                    'roles' => $this->roles->rolesOf('c' . $endpoint['id'], $model),
                 ];
             }
         }
@@ -82,14 +86,16 @@ final class AiRouter
      * @param 'fast'|'quality' $quality
      * @param bool $enforceQuota ตรวจโควตาก่อนหรือไม่ — ตั้ง false สำหรับการทดสอบการเชื่อมต่อ
      * @param bool $real ต่อ API จริง (ทุกงานในระบบใช้ true) แทนตัวจำลอง
-     * @param string|null $target ตัวเลือก AI ที่ผู้ใช้เลือกมากับงานนี้ — ว่าง = ใช้ค่าเริ่มต้นของครู
+     * @param string|null $target ตัวเลือก AI ที่ผู้ใช้เลือกมากับงานนี้ — ว่าง = เลือกให้ตามบทบาทของโมเดล/ค่าเริ่มต้นของครู
+     * @param string $task งานที่จะทำ (chat, quiz, lesson_plan, unit_content, …) — ใช้เลือกโมเดลที่มีบทบาทตรงกัน
+     * @param string|null $prefer บังคับแหล่งที่ลองก่อน ('college' | 'byok') และข้ามค่าเริ่มต้นของครู
      */
-    public function route(int $userId, string $quality = 'fast', bool $enforceQuota = true, bool $real = false, ?string $target = null): AiRoute
+    public function route(int $userId, string $quality = 'fast', bool $enforceQuota = true, bool $real = false, ?string $target = null, string $task = '', ?string $prefer = null): AiRoute
     {
         $modeLabel = $quality === 'quality' ? 'โหมดคุณภาพสูง' : 'โหมดเร็ว';
         $failure = null;
 
-        foreach ($this->candidates($userId, $target) as [$source, $row, $model]) {
+        foreach ($this->candidates($userId, $target, ModelRoles::forTask($task), $prefer) as [$source, $row, $model]) {
             $route = $source === 'byok'
                 ? $this->byokRoute($userId, $row, $model, $quality, $modeLabel, $real)
                 : $this->collegeRoute($userId, $row, $model, $enforceQuota, $real, $failure, $modeLabel);
@@ -110,7 +116,7 @@ final class AiRouter
      *
      * @return list<array{0:string,1:array<string,mixed>,2:string}>
      */
-    private function candidates(int $userId, ?string $target): array
+    private function candidates(int $userId, ?string $target, string $role = '', ?string $prefer = null): array
     {
         $list = [];
         $seen = [];
@@ -123,21 +129,49 @@ final class AiRouter
         };
 
         $first = null;
-        foreach ([trim((string) $target), $this->defaultTarget($userId)] as $wanted) {
-            if ($wanted !== '' && ($resolved = $this->resolve($userId, $wanted)) !== null) {
-                $add(...$resolved);
-                $first ??= $resolved[0];
+        $explicit = trim((string) $target);
+        if ($explicit !== '' && ($resolved = $this->resolve($userId, $explicit)) !== null) {
+            $add(...$resolved);
+            $first = $resolved[0];
+        }
+
+        $keys = $this->byokAllowed() ? $this->ai->activeKeysForUser($userId) : [];
+        $endpoints = $this->ai->activeEndpoints();
+        $default = $prefer === null ? $this->defaultTarget($userId) : '';
+        $resolvedDefault = $default !== '' ? $this->resolve($userId, $default) : null;
+        $order = static fn (bool $college): array => $college ? ['college', 'byok'] : ['byok', 'college'];
+        $sourceKey = static fn (string $source, array $row): string => ($source === 'byok' ? 'k' : 'c') . $row['id'];
+
+        // เลือกอัตโนมัติและบอกงานมา: โมเดลที่มีบทบาทตรงกับงานก่อน (ตัวเริ่มต้นของครูก่อนถ้าเหมาะกับงานนี้)
+        if ($role !== '') {
+            if ($resolvedDefault !== null && in_array($role, $this->rolesFor(...$resolvedDefault), true)) {
+                $add(...$resolvedDefault);
+            }
+            $college = ($first ?? $prefer ?? $resolvedDefault[0] ?? $this->settings->userRoutePref($userId)) === 'college';
+            foreach ($order($college) as $source) {
+                foreach ($source === 'byok' ? $keys : $endpoints as $row) {
+                    foreach (AiRepository::enabledModels($row) as $raw) {
+                        if (in_array($role, $this->roles->rolesOf($sourceKey($source, $row), $raw), true)) {
+                            $add($source, $row, $source === 'byok' ? self::keyModel($row, $raw) : $raw);
+                        }
+                    }
+                }
             }
         }
 
-        // ที่เหลือเรียงตามแหล่งที่ครูเลือกไว้ก่อน (หรือแหล่งของตัวที่เลือก) แล้วจึงอีกแหล่ง
-        $preferCollege = ($first ?? $this->settings->userRoutePref($userId)) === 'college';
-        $keys = $this->byokAllowed() ? $this->ai->activeKeysForUser($userId) : [];
-        $endpoints = $this->ai->activeEndpoints();
+        if ($resolvedDefault !== null) {
+            $add(...$resolvedDefault);
+            $first ??= $resolvedDefault[0];
+        }
 
-        foreach ($preferCollege ? ['college', 'byok'] : ['byok', 'college'] as $source) {
+        // ที่เหลือเรียงตามแหล่งที่ครูเลือกไว้ก่อน (หรือแหล่งของตัวที่เลือก) แล้วจึงอีกแหล่ง
+        // ข้ามโมเดลที่ไม่ใช่งานข้อความ (บทบาทว่าง เช่น OCR/เสียง) เมื่อแหล่งนั้นมีตัวอื่นให้ใช้
+        $college = ($prefer ?? $first ?? $this->settings->userRoutePref($userId)) === 'college';
+        foreach ($order($college) as $source) {
             foreach ($source === 'byok' ? $keys : $endpoints as $row) {
-                $model = AiRepository::enabledModels($row)[0];
+                $models = AiRepository::enabledModels($row);
+                $usable = array_values(array_filter($models, fn (string $m): bool => $this->roles->rolesOf($sourceKey($source, $row), $m) !== []));
+                $model = ($usable ?: $models)[0];
                 $add($source, $row, $source === 'byok' ? self::keyModel($row, $model) : $model);
             }
         }
@@ -145,13 +179,35 @@ final class AiRouter
         // ทางสุดท้าย: โมเดลไม่จำกัดของส่วนกลาง — ยังใช้ได้แม้ครูใช้โควตาครบเดือนแล้ว
         foreach ($endpoints as $row) {
             foreach (AiRepository::unlimitedModels($row) as $model) {
-                if (in_array($model, AiRepository::enabledModels($row), true)) {
+                if (in_array($model, AiRepository::enabledModels($row), true)
+                    && ($role === '' || $this->roles->rolesOf('c' . $row['id'], $model) !== [])) {
                     $add('college', $row, $model);
                 }
             }
         }
 
         return $list;
+    }
+
+    /**
+     * บทบาทของตัวเลือกที่แปลงแล้วด้วย resolve() — คีย์ของครูเก็บบทบาทตามชื่อโมเดลที่เปิดไว้
+     *
+     * @param array<string,mixed> $row
+     * @return list<string>
+     */
+    private function rolesFor(string $source, array $row, string $model): array
+    {
+        if ($source === 'college') {
+            return $this->roles->rolesOf('c' . $row['id'], $model);
+        }
+
+        foreach (AiRepository::enabledModels($row) as $raw) {
+            if (self::keyModel($row, $raw) === $model) {
+                return $this->roles->rolesOf('k' . $row['id'], $raw);
+            }
+        }
+
+        return ModelRoles::guess($model);
     }
 
     /**

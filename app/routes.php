@@ -31,6 +31,7 @@ use App\Controllers\UnitController;
 use App\Controllers\UnitOutlineController;
 use App\Controllers\LessonPlanController;
 use App\Controllers\MessageController;
+use App\Controllers\ModelRolesController;
 use App\Controllers\PlanPrintController;
 use App\Controllers\PlanReviewController;
 use App\Controllers\QuizWizardController;
@@ -98,6 +99,10 @@ return static function (App $app): void {
             ->add(new RoleMiddleware(Roles::TEACHING));
         $group->post('/ai/chat/create-unit', [AiChatController::class, 'createUnit'])
             ->add(new RoleMiddleware(Roles::TEACHING));
+
+        // ตัวเลือกโมเดล (ครูและผู้ดูแล): ให้ AI จัดบทบาทของแต่ละโมเดล — ส่วนกลางก่อน หมดโควตาแล้วใช้ตัวอื่น
+        $group->post('/ai/model-roles/suggest', [ModelRolesController::class, 'suggest'])
+            ->add(new RoleMiddleware(Roles::STAFF));
 
         // แท็บเครื่องมือในหน้าต่างผู้ช่วย: รายชื่อนักเรียนของรายวิชาให้วงล้อสุ่มชื่อ
         $group->get('/tools/roster', [ClassToolsController::class, 'roster'])

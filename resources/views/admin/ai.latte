@@ -146,7 +146,7 @@
                     </div>
                     <div class="model-chips">
                         {foreach $e['models'] as $m}
-                            <span n:class="chip, $iterator->first ? chip-ok : chip-muted" title="{$m}">{$e['aliases'][$m] ?? $m}{if $iterator->first} · หลัก{/if}{if in_array($m, $e['unlimited'], true)} · ∞ ไม่จำกัด{/if}</span>
+                            <span n:class="chip, $iterator->first ? chip-ok : chip-muted" title="{$m}{if $e['roles'][$m]['note']} · {$e['roles'][$m]['note']}{/if}">{$e['aliases'][$m] ?? $m}{if $iterator->first} · หลัก{/if}{if in_array($m, $e['unlimited'], true)} · ∞ ไม่จำกัด{/if} <span class="role-tag">· {\App\AI\ModelRoles::shortLabel($e['roles'][$m]['roles'])}</span></span>
                         {else}
                             <span class="chip chip-muted">ให้ปลายทางเลือกโมเดลเอง</span>
                         {/foreach}
@@ -232,7 +232,7 @@
                     <button type="button" class="btn btn-sm" id="epLoadBtn" title="ดึงรายชื่อโมเดลจากปลายทาง">↻ ดึงรายชื่อ</button>
                 </label>
                 <div class="hint" id="epModelHint" style="margin-bottom:8px">กด ↻ หรือ “ทดสอบการเชื่อมต่อ” เพื่อดึงรายชื่อโมเดลจากปลายทาง · กดป้าย “นับโควตา” ของโมเดลที่ใช้ฟรีให้เป็น “∞ ไม่จำกัด” แล้วครูจะใช้โมเดลนั้นได้โดยไม่นับโควตา</div>
-                <div id="epModels" data-models="{json_encode($endpoint['models'])}" data-unlimited="{json_encode($endpoint['unlimited'])}" data-aliases="{json_encode((object) $endpoint['aliases'])}"></div>
+                <div id="epModels" data-models="{json_encode($endpoint['models'])}" data-unlimited="{json_encode($endpoint['unlimited'])}" data-aliases="{json_encode((object) $endpoint['aliases'])}" data-roles="{json_encode((object) $endpoint['roles'])}"></div>
             </div>
 
             <div id="epTestResult"></div>
@@ -361,7 +361,12 @@ function rvcToggleAiFeature(courseId, feature, btn) {
         unlimitedName: 'unlimited[]',
         unlimited: JSON.parse(modelsBox.dataset.unlimited || '[]'),
         aliasName: 'alias',
-        aliases: JSON.parse(modelsBox.dataset.aliases || '{}')
+        aliases: JSON.parse(modelsBox.dataset.aliases || '{}'),
+        rolesName: 'roles_json',
+        roles: JSON.parse(modelsBox.dataset.roles || '{}'),
+        suggestUrl: base + '/ai/model-roles/suggest',
+        csrf: card.querySelector('input[name=_token]').value,
+        provider: function () { return document.getElementById('epName').value + ' (' + kind.value + ')'; }
     });
 
     /* บริการภายนอกมีที่อยู่ตายตัว ผู้ดูแลกรอกแค่รหัสเชื่อมต่อ */

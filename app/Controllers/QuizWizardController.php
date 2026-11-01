@@ -126,7 +126,7 @@ final class QuizWizardController
         };
 
         try {
-            $route = $this->router->route((int) $user['id'], $quality, real: true, target: $params['ai']);
+            $route = $this->router->route((int) $user['id'], $quality, real: true, target: $params['ai'], task: 'quiz');
         } catch (AiUnavailableException $e) {
             $send('error', ['reason' => $e->reason, 'message' => $e->getMessage()]);
 
@@ -263,7 +263,7 @@ final class QuizWizardController
         $params = $genPayload['params'] ?? [];
 
         try {
-            $route = $this->router->route((int) $user['id'], $this->settings->userQualityPref((int) $user['id']), real: true, target: (string) ($params['ai'] ?? ''));
+            $route = $this->router->route((int) $user['id'], $this->settings->userQualityPref((int) $user['id']), real: true, target: (string) ($params['ai'] ?? ''), task: 'quiz');
         } catch (AiUnavailableException $e) {
             return $this->json($response, ['error' => $e->getMessage()], 503);
         }
@@ -486,7 +486,7 @@ final class QuizWizardController
     private function tryRoute(int $userId, string $target = ''): array
     {
         try {
-            $route = $this->router->route($userId, $this->settings->userQualityPref($userId), real: true, target: $target);
+            $route = $this->router->route($userId, $this->settings->userQualityPref($userId), real: true, target: $target, task: 'quiz');
 
             return ['chip' => $route->chip, 'wait' => $route->wait, 'error' => null];
         } catch (AiUnavailableException $e) {

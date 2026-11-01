@@ -81,18 +81,24 @@ final class Drafter
      * @param array<string,mixed> $spec ข้อมูลงานที่ Prompt::userText() จะแปลงเป็นคำสั่งภาษาไทย
      * @return list<array<string,mixed>> อ็อบเจกต์ที่โมเดลร่างมา (ตัดบรรทัดปิดท้าย done ออกให้แล้ว)
      *
+     * @param string|null $prefer ลองแหล่งนี้ก่อน ('college') โดยตรวจโควตา — หมดโควตาแล้วสลับไป AI ตัวอื่นที่ใช้ได้ และตัดโควตาเมื่อใช้ของส่วนกลาง
      * @throws AiUnavailableException เมื่อเรียกบริการไม่ได้ รหัสหมดอายุ หรือโควตาเต็ม
      */
-    public function objects(int $userId, string $system, array $spec, int $limit, string $target = ''): array
+    public function objects(int $userId, string $system, array $spec, int $limit, string $target = '', ?string $prefer = null): array
     {
         $quality = $this->settings->userQualityPref($userId);
         set_time_limit(0);
 
         // AI ที่ครูเลือกในฟอร์ม ('' = ค่าเริ่มต้นของครู) — จำไว้ให้ฟอร์มถัดไปเลือกตัวเดิมให้
         $target = trim($target);
-        $_SESSION['ai_pick'] = $target;
+        if ($prefer === null) {
+            $_SESSION['ai_pick'] = $target;
+        }
 
-        $route = $this->router->route($userId, $quality, false, real: true, target: $target);
+        $route = $this->router->route($userId, $quality, $prefer !== null, real: true, target: $target, task: (string) ($spec['task'] ?? ''), prefer: $prefer);
+        if ($prefer !== null && $route->countsQuota) {
+            $this->ai->consumeQuota($userId, sprintf('%04d-%02d', $this->settings->int('academic_year', (int) date('Y')), (int) date('n')), $this->settings->int('ai_monthly_quota', 60));
+        }
         // โมเดลแบบคิดก่อนตอบ (qwen3 / …think) บางครั้งวนคิดจนหมดเวลาโดยไม่ตอบ JSON สักบรรทัด
         // ทดสอบกับ Pathumma qwen3-think: ล้ม 2 ใน 3 รอบ (~170 วินาที) → ใส่ /no_think แล้วผ่าน 3/3 (~25 วินาที)
         if (preg_match('/qwen3|think/i', $route->model) === 1) {

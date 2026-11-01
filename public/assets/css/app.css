@@ -1893,6 +1893,22 @@ a.brand-mark { text-decoration: none; }
 .mp-free:hover { border-color: var(--brandLine); color: var(--brand); }
 .mp-free.is-on { color: var(--ok); background: var(--okSoft); border-color: transparent; }
 
+/* บทบาทของโมเดล (model-picker.js rolesName) */
+.mp-row.has-roles { flex-wrap: wrap; }
+.mp-roles { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-left: 26px; cursor: default; }
+.mp-role {
+    cursor: pointer; padding: 2px 9px; border-radius: 999px;
+    font: 600 11px/1.5 var(--sans); color: var(--ink3); background: var(--surface); border: 1px dashed var(--line);
+}
+.mp-role:hover { border-color: var(--brandLine); color: var(--brand); }
+.mp-role.is-on { color: var(--brand); background: var(--surface); border: 1px solid var(--brandLine); }
+.mp-role-note { flex: 1 1 160px; min-width: 0; font-size: 11.5px; color: var(--ink3); }
+.mp-rolebar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mp-suggest-msg { font-size: 12.5px; padding: 8px 12px; border-radius: 10px; background: var(--surface2); }
+.mp-suggest-msg.is-ok { color: var(--ink2); }
+.mp-suggest-msg.is-err { color: var(--danger, #b42318); }
+.model-chips .chip .role-tag { font-weight: 500; opacity: .75; }
+
 /* รายการผู้ให้บริการ AI ของส่วนกลาง (หน้าผู้ดูแล) */
 .provider-list { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
 .provider-item { margin-bottom: 0; }

@@ -7,7 +7,7 @@
     <div class="ai-picker">
         <label class="ai-picker-label" for="{$id}">AI ที่ใช้ทำงานนี้</label>
         <select class="input" id="{$id}" name="ai">
-            <option value="">อัตโนมัติ · ตามค่าเริ่มต้นของฉัน</option>
+            <option value="">อัตโนมัติ · โมเดลที่เหมาะกับงานนี้</option>
             {var $group = null}
             {foreach $options as $o}
                 {if $o['group'] !== $group}
@@ -19,6 +19,6 @@
             {/foreach}
             {if $group !== null}</optgroup>{/if}
         </select>
-        <div class="hint">ถ้าตัวที่เลือกใช้ไม่ได้ ระบบจะสลับไปตัวอื่นให้อัตโนมัติ</div>
+        <div class="hint">อัตโนมัติ = ใช้โมเดลที่ตั้งบทบาทตรงกับงานนี้ก่อน · ถ้าตัวที่เลือกใช้ไม่ได้ ระบบจะสลับไปตัวอื่นให้</div>
     </div>
 {/if}

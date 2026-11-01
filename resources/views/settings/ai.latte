@@ -56,14 +56,14 @@
                             </div>
                             <div class="model-chips">
                                 {foreach $k['models'] as $m}
-                                    <span n:class="chip, $iterator->first ? chip-ok : chip-muted" title="{$m}">{$m}{if $iterator->first} · หลัก{/if}</span>
+                                    <span n:class="chip, $iterator->first ? chip-ok : chip-muted" title="{$m}{if $k['roles'][$m]['note']} · {$k['roles'][$m]['note']}{/if}">{$m}{if $iterator->first} · หลัก{/if} <span class="role-tag">· {\App\AI\ModelRoles::shortLabel($k['roles'][$m]['roles'])}</span></span>
                                 {else}
                                     <span class="chip chip-muted">โมเดลเริ่มต้นของผู้ให้บริการ</span>
                                 {/foreach}
                             </div>
                             <div class="key-btns">
                                 <button type="button" class="btn btn-sm" data-edit-models="{$k['id']}"
-                                        data-models="{json_encode($k['models'])}" data-name="{$k['display_name']}">เลือกโมเดล</button>
+                                        data-models="{json_encode($k['models'])}" data-roles="{json_encode((object) $k['roles'])}" data-name="{$k['display_name']}">เลือกโมเดลและบทบาท</button>
                                 <button type="button" class="btn btn-sm" data-edit-key="{$k['id']}"
                                         data-nickname="{$k['nickname']}" data-provider="{$k['provider']}" data-provider-name="{$k['provider_name']}"
                                         data-base-url="{$k['base_url']}" data-last4="{$k['key_last4']}">แก้ไข</button>
@@ -208,7 +208,7 @@
     <div class="modal-panel">
         <div class="modal-head">
             <div class="grow">
-                <div class="modal-title">เลือกโมเดลที่เปิดใช้</div>
+                <div class="modal-title">เลือกโมเดลและบทบาท</div>
                 <div class="hint" id="modelsModalName"></div>
             </div>
             <button type="button" class="icon-btn" data-close-models>✕</button>
@@ -221,7 +221,7 @@
         <div class="modal-foot">
             <button type="button" class="btn" data-close-models>ยกเลิก</button>
             <div class="grow"></div>
-            <button type="submit" form="modelsForm" class="btn btn-primary">บันทึกโมเดล</button>
+            <button type="submit" form="modelsForm" class="btn btn-primary">บันทึก</button>
         </div>
     </div>
 </div>
@@ -337,7 +337,11 @@
                 var field = document.getElementById('wizModelsField');
                 field.hidden = !d.ok;
                 if (d.ok) {
-                    var picker = RvcModelPicker(document.getElementById('wizModels'), { name: 'models[]' });
+                    var picker = RvcModelPicker(document.getElementById('wizModels'), {
+                        name: 'models[]', rolesName: 'roles_json',
+                        suggestUrl: base + '/ai/model-roles/suggest', csrf: csrf,
+                        provider: names[document.getElementById('wizProvider').value]
+                    });
                     picker.setModels(d.models || []);
                     picker.suggest(d.model);
                 }
@@ -361,7 +365,11 @@
             loading.textContent = 'กำลังดึงรายชื่อโมเดลจากผู้ให้บริการ…';
             var picker = RvcModelPicker(document.getElementById('modelsPicker'), {
                 name: 'models[]',
-                selected: JSON.parse(btn.dataset.models || '[]')
+                selected: JSON.parse(btn.dataset.models || '[]'),
+                rolesName: 'roles_json',
+                roles: JSON.parse(btn.dataset.roles || '{}'),
+                suggestUrl: base + '/ai/model-roles/suggest', csrf: csrf,
+                provider: btn.dataset.name
             });
             modelsModal.hidden = false;
             document.body.style.overflow = 'hidden';

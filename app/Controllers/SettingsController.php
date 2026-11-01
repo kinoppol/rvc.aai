@@ -8,6 +8,7 @@ use App\AI\AiRouter;
 use App\AI\AiUnavailableException;
 use App\AI\GoogleAiProvider;
 use App\AI\KeyCipher;
+use App\AI\ModelRoles;
 use App\AI\OpenAiCompatibleProvider;
 use App\Auth\Auth;
 use App\Domain\AiRepository;
@@ -41,6 +42,7 @@ final class SettingsController
         private readonly KeyCipher $cipher,
         private readonly Auth $auth,
         private readonly AiRouter $router,
+        private readonly ModelRoles $modelRoles,
     ) {
     }
 
@@ -55,11 +57,12 @@ final class SettingsController
         $key = $this->ai->activeKeyForUser($uid);
 
         // คีย์ของครูทั้งหมด พร้อมโมเดลที่เปิดใช้ของแต่ละคีย์
-        $keys = array_map(static fn (array $k): array => $k + [
+        $keys = array_map(fn (array $k): array => $k + [
             'provider_name' => self::PROVIDERS[$k['provider']] ?? $k['provider'],
             'display_name' => AiRouter::keyName($k),
             'nickname' => self::nickname($k),
             'models' => array_values(array_filter(AiRepository::enabledModels($k))),
+            'roles' => $this->modelRoles->forModels('k' . $k['id'], array_values(array_filter(AiRepository::enabledModels($k)))),
             'verified_ago' => $k['verified_at'] ? Thai::ago($k['verified_at']) : null,
         ], $this->ai->activeKeysForUser($uid));
 
@@ -120,7 +123,7 @@ final class SettingsController
         $chosen = array_values((array) ($data['models'] ?? []));
         $models = AiRepository::modelFields($chosen !== [] ? $chosen : [(string) ($probe['model'] ?? '')]);
 
-        $this->ai->saveKey((int) $user['id'], $models + [
+        $keyId = $this->ai->saveKey((int) $user['id'], $models + [
             'provider' => $provider,
             'label' => self::cleanLabel((string) ($data['label'] ?? '')) ?: self::PROVIDERS[$provider],
             'base_url' => $baseUrl,
@@ -130,6 +133,7 @@ final class SettingsController
             'verified_at' => date('Y-m-d H:i:s'),
         ]);
 
+        $this->modelRoles->savePosted('k' . $keyId, (string) ($data['roles_json'] ?? ''), AiRepository::enabledModels($models));
         $this->auth->log('ai.key.connect', $provider);
         Flash::success('เชื่อม AI ของฉันแล้ว · ' . self::PROVIDERS[$provider]);
 
@@ -217,9 +221,11 @@ final class SettingsController
             return $this->redirect($response, '/settings/ai');
         }
 
-        $this->ai->updateKey((int) $user['id'], (int) $key['id'], AiRepository::modelFields(array_values((array) ($data['models'] ?? []))));
+        $models = AiRepository::modelFields(array_values((array) ($data['models'] ?? [])));
+        $this->ai->updateKey((int) $user['id'], (int) $key['id'], $models);
+        $this->modelRoles->savePosted('k' . $key['id'], (string) ($data['roles_json'] ?? ''), AiRepository::enabledModels($models));
         $this->auth->log('ai.key.models', 'key#' . $key['id']);
-        Flash::success('บันทึกโมเดลที่เปิดใช้แล้ว');
+        Flash::success('บันทึกโมเดลและบทบาทแล้ว');
 
         return $this->redirect($response, '/settings/ai');
     }

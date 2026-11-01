@@ -34,11 +34,50 @@ final class Prompt
             'assignment' => self::assignment($spec),
             'unit_content' => self::unitContent($spec),
             'course_outcomes' => self::courseOutcomes($spec),
+            'model_roles' => self::modelRoles($spec),
             default => $userPrompt,
         };
 
         // ปิดโหมดคิดของโมเดลตระกูล qwen3 (สวิตช์ /no_think ท้ายข้อความ) — ดูเหตุผลที่ Drafter::objects()
         return empty($spec['no_think']) ? $text : $text . "\n\n/no_think";
+    }
+
+    /**
+     * จัดบทบาทให้โมเดลของผู้ให้บริการรายหนึ่ง — แต่ละโมเดลเหมาะกับงานสอนด้านไหน
+     *
+     * @param array<string,mixed> $spec
+     */
+    private static function modelRoles(array $spec): string
+    {
+        $models = implode("\n", array_map(static fn ($m): string => '- ' . $m, (array) ($spec['models'] ?? [])));
+        $roles = implode("\n", array_map(
+            static fn (string $k, array $v): string => "- {$k} = {$v[0]}",
+            array_keys(ModelRoles::ROLES),
+            ModelRoles::ROLES
+        ));
+        $provider = trim((string) ($spec['provider'] ?? '')) ?: 'ไม่ระบุ';
+
+        return <<<TXT
+            ช่วยจัดบทบาทให้โมเดล AI ต่อไปนี้ (ผู้ให้บริการ: {$provider}) สำหรับใช้ในระบบจัดการเรียนการสอนของวิทยาลัยเทคนิค ครูใช้ภาษาไทย
+
+            โมเดล:
+            {$models}
+
+            บทบาทที่เลือกได้ (ใส่ได้หลายบทบาท):
+            {$roles}
+
+            หลักการพิจารณาจากชื่อและความรู้ของคุณเกี่ยวกับโมเดล:
+            - โมเดลที่ไม่ใช่โมเดลข้อความ เช่น OCR อ่านภาพ, TTS/เสียง, embedding, rerank, สร้างภาพ, guard → roles เป็น [] (ไม่ใช้กับงานสอน)
+            - โมเดลใหญ่หรือแบบคิดก่อนตอบ (reasoning, pro, 70B ขึ้นไป) เหมาะกับ plan และ quiz ที่ต้องการความถูกต้องและงานยาว
+            - โมเดลเล็ก/เร็ว (flash, mini, lite, ขนาดไม่เกิน 14B) เหมาะกับ chat และ content
+            - โมเดลที่ภาษาไทยอ่อนไม่ควรได้ plan
+            - โมเดลข้อความทั่วไปควรได้อย่างน้อยหนึ่งบทบาท
+
+            ข้อกำหนดของคำตอบ — สำคัญมาก ห้ามผิดรูปแบบ:
+            1. ตอบเป็น NDJSON เท่านั้น หนึ่งโมเดลต่อหนึ่งบรรทัด ครบทุกโมเดล ห้ามครอบด้วย ``` ห้ามมีคำอธิบายนอก JSON
+            2. แต่ละบรรทัดใช้รูปแบบ {"model":"ชื่อโมเดลตรงตามรายการ","roles":["chat","content"],"note":"เหมาะกับงานอะไร ภาษาไทยไม่เกิน 1 ประโยค"}
+            3. บรรทัดสุดท้ายคือ {"done":true}
+            TXT;
     }
 
     /**
