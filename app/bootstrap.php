@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\AI\AiRouter;
 use App\AI\KeyCipher;
+use App\AI\ModelRoles;
 use App\AI\QuizGenerator;
 use App\Auth\Auth;
 use App\Domain\AiRepository;
@@ -60,7 +61,7 @@ $builder->addDefinitions([
 
     AiRepository::class => static fn (Db $db): AiRepository => new AiRepository($db),
     KeyCipher::class => static fn (Config $config): KeyCipher => new KeyCipher((string) $config->get('app.key', '')),
-    AiRouter::class => static fn (AiRepository $ai, SettingsRepository $s, KeyCipher $c): AiRouter => new AiRouter($ai, $s, $c),
+    AiRouter::class => static fn (AiRepository $ai, SettingsRepository $s, KeyCipher $c): AiRouter => new AiRouter($ai, $s, $c, new ModelRoles($s)),
     QuizGenerator::class => static fn (): QuizGenerator => new QuizGenerator(),
 
     LoggerInterface::class => static function (): LoggerInterface {
