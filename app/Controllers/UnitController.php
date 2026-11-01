@@ -79,6 +79,11 @@ final class UnitController
             'isExam' => $kind !== 'lesson',
             'kinds' => UnitRepository::KINDS,
             'sections' => $sections,
+            // สถานะข้อความของ PDF แต่ละไฟล์ (พร้อมให้ AI ใช้ / รอ OCR / กำลังอ่าน / อ่านไม่ได้)
+            'pdfStatus' => array_column(array_map(
+                fn (array $s): array => ['id' => (int) $s['id']] + $this->knowledge->prepare($s),
+                array_values(array_filter($sections, static fn (array $s): bool => $s['type'] === 'pdf'))
+            ), null, 'id'),
             'pretests' => array_values(array_filter($quizzes, static fn (array $q): bool => $q['kind'] === 'pretest')),
             'posttests' => array_values(array_filter($quizzes, static fn (array $q): bool => $q['kind'] !== 'pretest')),
             'assignments' => $unit ? $this->assignments->forUnit($unitId) : [],
@@ -405,12 +410,63 @@ final class UnitController
 
             // อ่านข้อความใน PDF ครั้งเดียวตอนนี้ เก็บเป็น .md ให้ผู้ช่วย AI ใช้ออกข้อสอบได้ทันทีโดยไม่ต้องอ่านไฟล์ซ้ำ
             $ready = $this->knowledge->prepare(['id' => $sectionId, 'unit_id' => $unitId] + $sectionData);
-            $ready['ok']
-                ? Flash::success(sprintf('เพิ่มเอกสาร PDF แล้ว · เตรียมข้อความ %s ตัวอักษรให้ผู้ช่วย AI ใช้ออกข้อสอบแล้ว', number_format($ready['chars'])))
-                : Flash::warning('เพิ่มเอกสาร PDF แล้ว แต่ผู้ช่วย AI อ่านข้อความในไฟล์นี้ไม่ได้ (' . $ready['message'] . ') · ถ้าต้องการให้ใช้ออกข้อสอบ ให้เพิ่มเนื้อหาสำคัญเป็นส่วนข้อความ');
+            // ไฟล์สแกนไม่ OCR ในคำขอนี้ (ช้า) — หน้าแก้ไขหน่วยจะสั่งอ่านต่อเองแล้วแสดงสถานะที่แถวของไฟล์
+            match (true) {
+                $ready['ok'] => Flash::success(sprintf('เพิ่มเอกสาร PDF แล้ว · เตรียมข้อความ %s ตัวอักษรให้ผู้ช่วย AI ใช้ออกข้อสอบแล้ว', number_format($ready['chars']))),
+                $ready['state'] === 'pending' => Flash::success('เพิ่มเอกสาร PDF แล้ว · ไฟล์นี้เป็นภาพสแกน ระบบกำลังให้ AI อ่านข้อความ (OCR) ดูความคืบหน้าได้ที่แถวของไฟล์'),
+                default => Flash::warning('เพิ่มเอกสาร PDF แล้ว แต่ผู้ช่วย AI อ่านข้อความในไฟล์นี้ไม่ได้ (' . $ready['message'] . ') · ถ้าต้องการให้ใช้ออกข้อสอบ ให้เพิ่มเนื้อหาสำคัญเป็นส่วนข้อความ'),
+            };
         }
 
         return $this->redirectToUnit($response, $courseId, $unitId);
+    }
+
+    /** สถานะการเตรียมข้อความของ PDF หนึ่งไฟล์ (JSON) — หน้าแก้ไขหน่วยถามซ้ำระหว่าง OCR เพื่อแสดงหน้าที่อ่านถึง */
+    public function textStatus(Request $request, Response $response, array $args): Response
+    {
+        [, $unit] = $this->ownedUnit($request, $args);
+        $section = $this->units->findSection((int) $args['sectionId']);
+        if ($section === null || (int) $section['unit_id'] !== (int) $unit['id']) {
+            return $this->json($response, ['ok' => false, 'error' => 'ไม่พบส่วนเนื้อหานี้'], 404);
+        }
+
+        return $this->json($response, $this->knowledge->prepare($section));
+    }
+
+    /**
+     * ให้ AI อ่าน PDF สแกน (OCR) — หน้าแก้ไขหน่วยเรียกเองเมื่อมีไฟล์รอคิว หรือครูกด "ลองอีกครั้ง" (retry=1)
+     * ใช้เวลาหลายนาทีได้ จึงปล่อยล็อกเซสชันก่อน และอ่านต่อจนจบแม้ครูปิดหน้าไปแล้ว
+     */
+    public function readScan(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [, $unit] = $this->ownedUnit($request, $args);
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            return $this->json($response, ['ok' => false, 'error' => 'เซสชันหมดอายุ กรุณารีเฟรชหน้าแล้วลองใหม่'], 419);
+        }
+        $section = $this->units->findSection((int) $args['sectionId']);
+        if ($section === null || (int) $section['unit_id'] !== (int) $unit['id']) {
+            return $this->json($response, ['ok' => false, 'error' => 'ไม่พบส่วนเนื้อหานี้'], 404);
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+        $result = $this->knowledge->ocr($section, (int) $user['id'], !empty($data['retry']));
+        if ($result['state'] === 'failed') {
+            $this->logger->warning('OCR ของ PDF ในหน่วยการเรียนไม่สำเร็จ: ' . $result['message'], ['section' => (int) $section['id']]);
+        }
+
+        return $this->json($response, $result);
+    }
+
+    /** @param array<string,mixed> $body */
+    private function json(Response $response, array $body, int $status = 200): Response
+    {
+        $response->getBody()->write((string) json_encode($body, JSON_UNESCAPED_UNICODE));
+
+        return $response->withHeader('Content-Type', 'application/json; charset=utf-8')->withStatus($status);
     }
 
     /** ลบส่วนเนื้อหา */

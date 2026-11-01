@@ -91,7 +91,7 @@ final class PdfText
 
         $readable = preg_match_all('~[\p{L}\p{N}]~u', $text);
         if ($readable < 40) {
-            throw new RuntimeException(
+            throw new ScannedPdfException(
                 'อ่านข้อความจาก PDF นี้ไม่ได้ (อาจเป็นไฟล์สแกนเป็นรูป) '
                 . 'กรุณาบันทึกเป็น .docx หรือ .txt แล้วแนบใหม่'
             );
@@ -153,27 +153,215 @@ final class PdfText
 
         $i = $this->offsets[$num];
         $value = $this->parse($this->raw, $i);
-        $data = null;
+        $raw = $this->streamAt($value, $i);
 
+        return $this->cache[$num] = [$value, $raw === null ? null : $this->decode($raw, $value)];
+    }
+
+    /** ไบต์ของสตรีมที่ยังไม่คลาย ต่อจากค่าดิกชันนารีที่ตำแหน่ง $i (null = อ็อบเจ็กต์นี้ไม่มีสตรีม) */
+    private function streamAt(mixed $value, int $i): ?string
+    {
         $this->skipWs($this->raw, $i);
-        if (($value[0] ?? null) === 'D' && substr($this->raw, $i, 6) === 'stream') {
-            $i += 6;
-            if (($this->raw[$i] ?? '') === "\r") {
-                $i++;
-            }
-            if (($this->raw[$i] ?? '') === "\n") {
-                $i++;
-            }
-            $len = $this->get($value, 'Length');
-            $len = is_int($len) || is_float($len) ? (int) $len : -1;
-            if ($len < 0 || !preg_match('~^\s*endstream~', substr($this->raw, $i + $len, 20))) {
-                $end = strpos($this->raw, 'endstream', $i);
-                $len = $end === false ? 0 : $end - $i;
-            }
-            $data = $this->decode(substr($this->raw, $i, $len), $value);
+        if (($value[0] ?? null) !== 'D' || substr($this->raw, $i, 6) !== 'stream') {
+            return null;
+        }
+        $i += 6;
+        if (($this->raw[$i] ?? '') === "\r") {
+            $i++;
+        }
+        if (($this->raw[$i] ?? '') === "\n") {
+            $i++;
+        }
+        $len = $this->get($value, 'Length');
+        $len = is_int($len) || is_float($len) ? (int) $len : -1;
+        if ($len < 0 || !preg_match('~^\s*endstream~', substr($this->raw, $i + $len, 20))) {
+            $end = strpos($this->raw, 'endstream', $i);
+            $len = $end === false ? 0 : $end - $i;
         }
 
-        return $this->cache[$num] = [$value, $data];
+        return substr($this->raw, $i, $len);
+    }
+
+    /* ---------- รูปภาพในหน้า (สำหรับ OCR เมื่อเซิร์ฟเวอร์ไม่มีโปรแกรมแปลงหน้า PDF เป็นภาพ) ---------- */
+
+    /** จำนวนหน้าทั้งหมด */
+    public static function pageCount(string $raw): int
+    {
+        $pdf = new self($raw);
+        $pdf->index();
+
+        return count($pdf->pages());
+    }
+
+    /**
+     * ดึงรูปที่ฝังอยู่ในแต่ละหน้าออกมาตรง ๆ — ไฟล์สแกนเกือบทั้งหมดคือรูปหนึ่งรูป (หรือหลายแถบ) ต่อหน้า
+     * JPEG (DCTDecode) ส่งต่อได้เลย · รูปแบบ Flate (เทา/RGB/จานสี) ห่อเป็น PNG เองโดยไม่ต้องใช้ GD
+     * CCITT / JBIG2 / JPEG2000 อ่านเองไม่ได้ — หน้านั้นจะไม่มีรูป ต้องใช้ pdftoppm หรือ Ghostscript แทน
+     * รูปเล็ก ๆ (โลโก้ ลายน้ำ) ที่เล็กกว่า 10% ของรูปใหญ่สุดในหน้าถูกข้าม
+     *
+     * @return list<list<array{mime:string,data:string}>> หน้าละรายการรูป เรียงตามลำดับหน้า
+     */
+    public static function pageImages(string $raw, int $maxPages): array
+    {
+        $pdf = new self($raw);
+        $pdf->index();
+
+        $out = [];
+        foreach (array_slice($pdf->pages(), 0, $maxPages) as [$page, $resources]) {
+            $found = [];
+            $pdf->collectImages($resources, $pdf->contents($page), $found, 0);
+            $largest = max(array_merge([0], array_column($found, 'area')));
+            $images = [];
+            foreach ($found as $img) {
+                if ($img['area'] * 10 >= $largest) {
+                    $images[] = ['mime' => $img['mime'], 'data' => $img['data']];
+                }
+            }
+            $out[] = $images;
+        }
+
+        return $out;
+    }
+
+    /**
+     * เฉพาะรูปที่หน้านี้วาดจริง (คำสั่ง /ชื่อ Do ในเนื้อหาหน้า) — หลายไฟล์ใส่รูปของทุกหน้าไว้ใน /Resources ที่ใช้ร่วมกัน
+     *
+     * @param list<array{mime:string,data:string,area:int}> $found
+     */
+    private function collectImages(mixed $resources, string $content, array &$found, int $depth): void
+    {
+        $xobjects = $this->get($resources, 'XObject');
+        if (($xobjects[0] ?? null) !== 'D' || $depth > 3 || !preg_match_all('~/([^\s/\[\]()<>{}%]+)\s+Do\b~', $content, $m)) {
+            return;
+        }
+
+        foreach (array_unique($m[1]) as $name) {
+            $ref = $xobjects[1][$name] ?? null;
+            if (($ref[0] ?? null) !== 'R' || !isset($this->offsets[$ref[1]])) {
+                continue;
+            }
+            $i = $this->offsets[$ref[1]];
+            $dict = $this->parse($this->raw, $i);
+            $subtype = $this->get($dict, 'Subtype');
+
+            if ($this->isName($subtype, 'Form')) {
+                $this->collectImages($this->get($dict, 'Resources') ?? $resources, (string) ($this->object($ref[1])[1] ?? ''), $found, $depth + 1);
+            } elseif ($this->isName($subtype, 'Image')) {
+                $bytes = $this->streamAt($dict, $i);
+                $image = $bytes === null ? null : $this->imageFile($dict, $bytes);
+                if ($image !== null) {
+                    $found[] = $image + ['area' => (int) $this->get($dict, 'Width') * (int) $this->get($dict, 'Height')];
+                }
+            }
+        }
+    }
+
+    /** @return array{mime:string,data:string}|null */
+    private function imageFile(mixed $dict, string $bytes): ?array
+    {
+        $filters = $this->get($dict, 'Filter');
+        $list = match ($filters[0] ?? null) {
+            'N' => [$filters[1]],
+            'A' => array_map(fn ($f) => $this->resolve($f)[1] ?? '', $filters[1]),
+            default => [],
+        };
+        $last = end($list) ?: '';
+
+        // ชั้น Flate ที่ห่อ JPEG ไว้อีกที (พบน้อย) — คลายก่อน
+        if (in_array($last, ['DCTDecode', 'DCT'], true)) {
+            if (count($list) > 1) {
+                $bytes = $this->decode($bytes, ['D', ['Filter' => ['A', array_map(static fn ($n) => ['N', $n], array_slice($list, 0, -1))]]]);
+            }
+
+            return $bytes === null || $bytes === '' ? null : ['mime' => 'image/jpeg', 'data' => $bytes];
+        }
+        if ($list !== [] && !in_array($last, ['FlateDecode', 'Fl'], true)) {
+            return null;   // CCITTFax, JBIG2, JPX ฯลฯ
+        }
+
+        $w = (int) $this->get($dict, 'Width');
+        $h = (int) $this->get($dict, 'Height');
+        $bpc = (int) ($this->get($dict, 'BitsPerComponent') ?? 8);
+        if ($this->get($dict, 'ImageMask') !== null) {
+            $bpc = 1;
+        }
+        if ($w < 1 || $h < 1 || !in_array($bpc, [1, 2, 4, 8], true)) {
+            return null;
+        }
+
+        // ชนิดสี → ชนิดสีของ PNG (0 = เทา, 2 = RGB, 3 = จานสี)
+        $cs = $this->get($dict, 'ColorSpace');
+        $palette = null;
+        if (($cs[0] ?? null) === 'A' && $this->isName($this->resolve($cs[1][0] ?? null), 'ICCBased')) {
+            $n = (int) $this->get($this->resolve($cs[1][1] ?? null), 'N');
+            $cs = ['N', $n === 3 ? 'DeviceRGB' : ($n === 1 ? 'DeviceGray' : 'DeviceCMYK')];
+        }
+        if (($cs[0] ?? null) === 'A' && $this->isName($this->resolve($cs[1][0] ?? null), 'Indexed')) {
+            $base = $this->resolve($cs[1][1] ?? null);
+            // ตารางสีเป็นสตริงในตัว หรืออ้างไปยังสตรีม (ต้องอ่านข้อมูลสตรีม ไม่ใช่ดิกชันนารีของมัน)
+            $ref = $cs[1][3] ?? null;
+            $lookup = $this->resolve($ref);
+            if (($ref[0] ?? null) === 'R') {
+                $lookup = ['S', (string) ($this->object($ref[1])[1] ?? '')];
+            }
+            if (!$this->isName($base, 'DeviceRGB') || ($lookup[0] ?? null) !== 'S' || $lookup[1] === '') {
+                return null;
+            }
+            $palette = substr($lookup[1], 0, 768);
+            [$type, $channels] = [3, 1];
+        } elseif ($this->isName($cs, 'DeviceGray') || $cs === null) {
+            [$type, $channels] = [0, 1];
+        } elseif ($this->isName($cs, 'DeviceRGB')) {
+            [$type, $channels] = [2, 3];
+        } else {
+            return null;   // CMYK / Lab — พบน้อยในไฟล์สแกน
+        }
+
+        $parms = $this->get($dict, 'DecodeParms');
+        if (($parms[0] ?? null) === 'A') {
+            $parms = $this->resolve(end($parms[1]) ?: null);
+        }
+        $predictor = (int) ($this->get($parms, 'Predictor') ?? 1);
+        $rowBytes = (int) ceil($w * $channels * $bpc / 8);
+
+        if ($list === []) {
+            $pixels = $bytes;
+        } else {
+            $pixels = @gzuncompress($bytes);
+            if ($pixels === false) {
+                $pixels = @zlib_decode($bytes);
+            }
+            if ($pixels === false) {
+                return null;
+            }
+        }
+
+        // ตัวทำนายแบบ PNG (10–15) = แต่ละแถวมีไบต์ตัวกรองนำหน้าอยู่แล้ว ใช้เป็นข้อมูล IDAT ได้ตรง ๆ
+        if ($predictor >= 10) {
+            $filtered = substr($pixels, 0, ($rowBytes + 1) * $h);
+        } else {
+            $filtered = '';
+            for ($y = 0; $y < $h; $y++) {
+                $filtered .= "\0" . str_pad(substr($pixels, $y * $rowBytes, $rowBytes), $rowBytes, "\0");
+            }
+        }
+        // ImageMask/เทา 1 บิต ที่ประกาศ /Decode [1 0] = กลับขาวดำ
+        $decode = $this->get($dict, 'Decode');
+        if ($type === 0 && $bpc === 1 && ($decode[0] ?? null) === 'A' && (int) ($decode[1][0] ?? 0) === 1 && $predictor < 10) {
+            $filtered = '';
+            for ($y = 0; $y < $h; $y++) {
+                $filtered .= "\0" . (~str_pad(substr($pixels, $y * $rowBytes, $rowBytes), $rowBytes, "\0"));
+            }
+        }
+
+        $chunk = static fn (string $tag, string $data): string => pack('N', strlen($data)) . $tag . $data . pack('N', crc32($tag . $data));
+        $png = "\x89PNG\r\n\x1a\n"
+            . $chunk('IHDR', pack('NNCCCCC', $w, $h, $bpc, $type, 0, 0, 0))
+            . ($palette !== null ? $chunk('PLTE', $palette) : '')
+            . $chunk('IDAT', (string) gzcompress($filtered, 6))
+            . $chunk('IEND', '');
+
+        return ['mime' => 'image/png', 'data' => $png];
     }
 
     /** คลายสตรีมตาม /Filter — รองรับ Flate และ ASCIIHex ซึ่งครอบคลุมข้อความเกือบทุกไฟล์ */

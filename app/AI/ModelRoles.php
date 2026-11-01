@@ -24,10 +24,21 @@ final class ModelRoles
         'quiz' => ['ออกข้อสอบ', 'ข้อสอบ'],
         'plan' => ['แผนการสอน', 'แผน'],
         'content' => ['ร่างหน่วย เนื้อหา ใบงาน', 'เนื้อหา'],
+        // ไม่ใช่งานข้อความ: อ่านหน้าเอกสารสแกน/รูปให้เป็นข้อความ (UnitKnowledge) — โมเดลที่มีแค่บทบาทนี้ไม่ถูกเลือกไปทำงานข้อความ
+        'ocr' => ['อ่านเอกสารสแกน/รูปภาพ (OCR)', 'OCR'],
     ];
 
-    /** โมเดลที่ไม่ใช่งานข้อความ (อ่านภาพ เสียง ฝังเวกเตอร์ สร้างภาพ ตรวจเนื้อหา) */
-    private const NOT_TEXT = '/ocr|tts|whisper|speech|audio|transcri|embed|rerank|image|imagen|dall-?e|diffusion|flux|guard|moderation/i';
+    /** บทบาทที่เป็นงานข้อความ (ทุกบทบาทยกเว้น ocr) */
+    public const TEXT_ROLES = ['chat', 'quiz', 'plan', 'content'];
+
+    /** โมเดลเฉพาะทาง OCR — อ่านภาพได้อย่างเดียว */
+    private const OCR_ONLY = '/ocr/i';
+
+    /** โมเดลข้อความที่รับภาพได้ด้วย (multimodal) — ได้บทบาท ocr เพิ่ม */
+    private const VISION = '/vision|vl\b|-vl|llava|pixtral|gemini|gpt-4o|gpt-4\.1|gpt-5|claude|gemma-?3|internvl|minicpm-v|llama-?4/i';
+
+    /** โมเดลที่ไม่ใช่งานข้อความและอ่านภาพไม่ได้ (เสียง ฝังเวกเตอร์ สร้างภาพ ตรวจเนื้อหา) */
+    private const NOT_TEXT = '/tts|whisper|speech|audio|transcri|embed|rerank|image|imagen|dall-?e|diffusion|flux|guard|moderation/i';
 
     public function __construct(private readonly SettingsRepository $settings)
     {
@@ -41,6 +52,7 @@ final class ModelRoles
             'quiz' => 'quiz',
             'lesson_plan', 'plan' => 'plan',
             'unit_outline', 'unit_content', 'assignment', 'course_outcomes', 'model_roles', 'content' => 'content',
+            'ocr' => 'ocr',
             default => '',
         };
     }
@@ -52,11 +64,31 @@ final class ModelRoles
      */
     public static function guess(string $model): array
     {
+        if ($model !== '' && preg_match(self::OCR_ONLY, $model) === 1) {
+            return ['ocr'];
+        }
         if ($model !== '' && preg_match(self::NOT_TEXT, $model) === 1) {
             return [];
         }
 
-        return array_keys(self::ROLES);
+        return preg_match(self::VISION, $model) === 1 ? array_keys(self::ROLES) : self::TEXT_ROLES;
+    }
+
+    /** มีบทบาทงานข้อความอย่างน้อยหนึ่งบทบาท (ไม่นับ ocr) — ใช้เป็นโมเดลหลักของงานข้อความได้ */
+    public static function isText(array $roles): bool
+    {
+        return array_intersect($roles, self::TEXT_ROLES) !== [];
+    }
+
+    /**
+     * โมเดลนี้ใช้กับบทบาท $role ได้ไหม — สำหรับ ocr นับโมเดลชื่อ "ocr" ที่ถูกบันทึกบทบาทว่างไว้ก่อนมีบทบาทนี้ด้วย
+     *
+     * @param list<string> $roles
+     */
+    public static function matches(string $role, array $roles, string $model): bool
+    {
+        return in_array($role, $roles, true)
+            || ($role === 'ocr' && $roles === [] && preg_match(self::OCR_ONLY, $model) === 1);
     }
 
     /** @return array<string,array{roles:list<string>,note:string}> */
@@ -114,6 +146,9 @@ final class ModelRoles
         }
         if (count($roles) === count(self::ROLES)) {
             return 'ทุกงาน';
+        }
+        if (array_diff(self::TEXT_ROLES, $roles) === []) {
+            return 'ทุกงานข้อความ';
         }
 
         return implode(' · ', array_map(static fn (string $r): string => self::ROLES[$r][1], $roles));

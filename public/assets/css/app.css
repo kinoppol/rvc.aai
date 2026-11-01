@@ -2761,3 +2761,7 @@ html.is-presenting { overflow: hidden; }
     .dm-compose { padding: 12px 76px 12px 14px; }
     .dm-thread-head { padding: 12px 14px; }
 }
+
+/* สถานะข้อความของ PDF ในหน้าแก้ไขหน่วย (พร้อมให้ AI ใช้ / รอ OCR / กำลังอ่าน) — unit-ocr.js */
+.pdf-text-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 6px; }
+.pdf-text-status .hint:empty { display: none; }

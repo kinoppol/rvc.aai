@@ -9,7 +9,7 @@ use SensitiveParameter;
 /**
  * Google AI Studio (Gemini) — สตรีมคำตอบจริงผ่าน streamGenerateContent
  */
-final class GoogleAiProvider implements AiProvider
+final class GoogleAiProvider implements AiProvider, VisionProvider
 {
     /** ชื่อเล่นที่ Google ชี้ไปยังรุ่น flash ล่าสุดเสมอ — เลี่ยงปัญหารุ่นเก่าถูกปิด */
     public const DEFAULT_MODEL = 'gemini-flash-latest';
@@ -46,6 +46,28 @@ final class GoogleAiProvider implements AiProvider
             ],
         ];
 
+        return $this->chunks($url, $body);
+    }
+
+    public function readImages(string $instruction, array $images): iterable
+    {
+        $parts = [['text' => $instruction]];
+        foreach ($images as $img) {
+            $parts[] = ['inline_data' => ['mime_type' => $img['mime'], 'data' => base64_encode($img['data'])]];
+        }
+
+        return $this->chunks(
+            sprintf('%s/models/%s:streamGenerateContent?alt=sse', self::BASE, rawurlencode($this->model)),
+            ['contents' => [['role' => 'user', 'parts' => $parts]], 'generationConfig' => ['temperature' => 0]]
+        );
+    }
+
+    /**
+     * @param array<string,mixed> $body
+     * @return iterable<string>
+     */
+    private function chunks(string $url, array $body): iterable
+    {
         foreach ($this->http->lines($url, ['x-goog-api-key' => $this->apiKey], $body) as $line) {
             if (!str_starts_with($line, 'data:')) {
                 continue;

@@ -89,6 +89,7 @@ $builder->addDefinitions([
             (int) @filemtime(Paths::root() . '/public/assets/js/submissions-review.js'),
             (int) @filemtime(Paths::root() . '/public/assets/css/landing.css'),
             (int) @filemtime(Paths::root() . '/public/assets/js/model-picker.js'),
+            (int) @filemtime(Paths::root() . '/public/assets/js/unit-ocr.js'),
             1
         ),
         'user' => null,

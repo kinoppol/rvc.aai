@@ -176,6 +176,8 @@ return static function (App $app): void {
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections', [UnitController::class, 'addSection']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections/{sectionId:[0-9]+}', [UnitController::class, 'updateSection']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections/{sectionId:[0-9]+}/delete', [UnitController::class, 'deleteSection']);
+            $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections/{sectionId:[0-9]+}/text', [UnitController::class, 'textStatus']);
+            $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections/{sectionId:[0-9]+}/ocr', [UnitController::class, 'readScan']);
 
             $t->get('/{courseId:[0-9]+}/quizzes/create', [QuizWizardController::class, 'create']);
             $t->get('/{courseId:[0-9]+}/quizzes/workspace', [QuizWizardController::class, 'workspace']);

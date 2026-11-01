@@ -7,7 +7,7 @@
  * ส่ง unlimitedName: 'unlimited[]' (หน้าผู้ดูแล) เพื่อให้ติ๊ก "ใช้ได้ไม่จำกัด" เป็นรายโมเดล
  * (โมเดลฟรีที่ไม่ควรนับโควตาของครู) — ค่าเดิมส่งมาทาง unlimited: [...]
  * ส่ง aliasName: 'alias' (หน้าผู้ดูแล) เพื่อตั้งชื่อเล่นสั้น ๆ ให้ครูจำง่าย — ส่งไปเป็น alias_model[] คู่กับ alias_name[]
- * ส่ง rolesName: 'roles_json' เพื่อกำหนดบทบาทของแต่ละโมเดล (แชต / ข้อสอบ / แผน / เนื้อหา) — ส่งไปเป็น JSON ช่องเดียว
+ * ส่ง rolesName: 'roles_json' เพื่อกำหนดบทบาทของแต่ละโมเดล (แชต / ข้อสอบ / แผน / เนื้อหา / OCR) — ส่งไปเป็น JSON ช่องเดียว
  * ค่าเดิมทาง roles: {model: {roles, note}} · ใส่ suggestUrl + csrf (+ provider) เพื่อเปิดปุ่ม "ให้ AI จัดบทบาทให้"
  * รายชื่อจากผู้ให้บริการบางรายยาวหลายร้อยตัว จึงมีช่องค้นหาและแสดงทีละไม่เกิน 150 ตัว
  */
@@ -20,13 +20,20 @@
         ['chat', 'แชต', 'แชตผู้ช่วย ถาม–ตอบ'],
         ['quiz', 'ข้อสอบ', 'ออกข้อสอบ'],
         ['plan', 'แผน', 'แผนการสอน'],
-        ['content', 'เนื้อหา', 'ร่างหน่วย เนื้อหา ใบงาน']
+        ['content', 'เนื้อหา', 'ร่างหน่วย เนื้อหา ใบงาน'],
+        ['ocr', 'OCR', 'อ่านเอกสารสแกน/รูปภาพ (OCR)']
     ];
+    var TEXT_ROLES = ['chat', 'quiz', 'plan', 'content'];
+    /* ตรงกับ ModelRoles::OCR_ONLY / VISION */
+    var OCR_ONLY = /ocr/i;
+    var VISION = /vision|vl\b|-vl|llava|pixtral|gemini|gpt-4o|gpt-4\.1|gpt-5|claude|gemma-?3|internvl|minicpm-v|llama-?4/i;
     /* ตรงกับ ModelRoles::guess() — โมเดลที่ไม่ใช่งานข้อความไม่ได้บทบาท */
-    var NOT_TEXT = /ocr|tts|whisper|speech|audio|transcri|embed|rerank|image|imagen|dall-?e|diffusion|flux|guard|moderation/i;
+    var NOT_TEXT = /tts|whisper|speech|audio|transcri|embed|rerank|image|imagen|dall-?e|diffusion|flux|guard|moderation/i;
 
     function guessRoles(m) {
-        return NOT_TEXT.test(m) ? [] : ROLES.map(function (r) { return r[0]; });
+        if (OCR_ONLY.test(m)) { return ['ocr']; }
+        if (NOT_TEXT.test(m)) { return []; }
+        return VISION.test(m) ? TEXT_ROLES.concat(['ocr']) : TEXT_ROLES.slice();
     }
 
     window.RvcModelPicker = function (box, opts) {
@@ -229,7 +236,7 @@
             });
             var note = document.createElement('span');
             note.className = 'mp-role-note';
-            note.textContent = info.note || (info.roles.length ? '' : 'ไม่ใช้กับงานสอน (เช่น OCR, เสียง)');
+            note.textContent = info.note || (info.roles.length ? '' : 'ไม่ใช้กับงานสอน (เช่น เสียง, embedding)');
             line.appendChild(note);
             line.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); });
             return line;

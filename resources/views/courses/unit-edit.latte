@@ -106,6 +106,23 @@
                                 {$s['type'] === 'video' ? ($s['video_url']|truncate:60) : ($s['file_name'] ?? $s['file_path'])}
                             </div>
                         {/if}
+                        {* ข้อความของ PDF สำหรับผู้ช่วย AI — ไฟล์สแกนให้ unit-ocr.js สั่งอ่านด้วย AI (OCR) แล้วอัปเดตป้ายนี้ *}
+                        {if $s['type'] === 'pdf' && isset($pdfStatus[$s['id']])}
+                            {var $ps = $pdfStatus[$s['id']]}
+                            <div class="pdf-text-status" data-ocr-section
+                                 data-state="{$ps['state']}"
+                                 data-status-url="{$base}/courses/{$course['id']}/units/{$unit['id']}/sections/{$s['id']}/text"
+                                 data-ocr-url="{$base}/courses/{$course['id']}/units/{$unit['id']}/sections/{$s['id']}/ocr">
+                                <span n:class="chip, $ps['state'] === 'ready' ? chip-ok : ($ps['state'] === 'failed' ? chip-err : chip-warn)" data-ocr-chip>
+                                    {if $ps['state'] === 'ready'}AI ใช้ได้ · {$ps['chars']|number} ตัวอักษร
+                                    {elseif $ps['state'] === 'running'}กำลังให้ AI อ่านไฟล์สแกน…{if $ps['pages']} หน้า {$ps['page']}/{$ps['pages']}{/if}
+                                    {elseif $ps['state'] === 'pending'}ไฟล์สแกน · รอ AI อ่าน (OCR)
+                                    {else}AI อ่านไฟล์นี้ไม่ได้{/if}
+                                </span>
+                                <span class="hint" data-ocr-msg>{if $ps['state'] === 'failed'}{$ps['message']}{/if}</span>
+                                <button type="button" class="btn btn-sm" data-ocr-retry n:attr="hidden: $ps['state'] !== 'failed'">ลองให้ AI อ่านอีกครั้ง</button>
+                            </div>
+                        {/if}
                     </div>
                     <a class="icon-act" href="{$viewUrl}" target="_blank" rel="noopener" data-tip="เปิดดูเนื้อหา" aria-label="เปิดดู {$s['title']}">
                         <span class="msi" aria-hidden="true">visibility</span>
@@ -536,4 +553,5 @@
     });
 })();
 </script>
+{if $pdfStatus}<script src="{$base}/assets/js/unit-ocr.js?v={$assetVer}" defer></script>{/if}
 {/block}

@@ -10,7 +10,7 @@ use SensitiveParameter;
  * บริการที่ใช้หน้าตา API แบบ OpenAI (OpenRouter, vLLM, LM Studio, ฯลฯ)
  * สตรีมจริงผ่าน /chat/completions แบบ stream: true
  */
-final class OpenAiCompatibleProvider implements AiProvider
+final class OpenAiCompatibleProvider implements AiProvider, VisionProvider
 {
     public const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
     // ThaiLLM (thaillm.or.th) — ครูวางแค่รหัส ระบบใส่ที่อยู่ให้เอง
@@ -53,6 +53,30 @@ final class OpenAiCompatibleProvider implements AiProvider
             ],
         ];
 
+        return $this->chunks($body);
+    }
+
+    public function readImages(string $instruction, array $images): iterable
+    {
+        $content = [['type' => 'text', 'text' => $instruction]];
+        foreach ($images as $img) {
+            $content[] = ['type' => 'image_url', 'image_url' => ['url' => 'data:' . $img['mime'] . ';base64,' . base64_encode($img['data'])]];
+        }
+
+        return $this->chunks([
+            'model' => $this->model,
+            'stream' => true,
+            'temperature' => 0,
+            'messages' => [['role' => 'user', 'content' => $content]],
+        ]);
+    }
+
+    /**
+     * @param array<string,mixed> $body
+     * @return iterable<string>
+     */
+    private function chunks(array $body): iterable
+    {
         foreach ($this->http->lines($this->url('/chat/completions'), $this->headers(), $body) as $line) {
             if (!str_starts_with($line, 'data:')) {
                 continue;

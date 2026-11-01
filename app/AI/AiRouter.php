@@ -105,6 +105,13 @@ final class AiRouter
             }
         }
 
+        if ($task === 'ocr') {
+            throw $failure ?? new AiUnavailableException(
+                'no_model',
+                'ยังไม่มีโมเดลที่อ่านภาพได้ (OCR) — ให้ผู้ดูแลหรือครูเปิดโมเดลที่มีบทบาท OCR หรือโมเดลที่รับภาพได้ เช่น Gemini ในหน้าตั้งค่า AI'
+            );
+        }
+
         throw $failure ?? new AiUnavailableException(
             'college_offline',
             'ตอนนี้เครื่อง AI ของส่วนกลางปิดอยู่ และยังไม่ได้เชื่อม AI ของครู'
@@ -144,19 +151,24 @@ final class AiRouter
 
         // เลือกอัตโนมัติและบอกงานมา: โมเดลที่มีบทบาทตรงกับงานก่อน (ตัวเริ่มต้นของครูก่อนถ้าเหมาะกับงานนี้)
         if ($role !== '') {
-            if ($resolvedDefault !== null && in_array($role, $this->rolesFor(...$resolvedDefault), true)) {
+            if ($resolvedDefault !== null && ModelRoles::matches($role, $this->rolesFor(...$resolvedDefault), $resolvedDefault[2])) {
                 $add(...$resolvedDefault);
             }
             $college = ($first ?? $prefer ?? $resolvedDefault[0] ?? $this->settings->userRoutePref($userId)) === 'college';
             foreach ($order($college) as $source) {
                 foreach ($source === 'byok' ? $keys : $endpoints as $row) {
                     foreach (AiRepository::enabledModels($row) as $raw) {
-                        if (in_array($role, $this->roles->rolesOf($sourceKey($source, $row), $raw), true)) {
+                        if (ModelRoles::matches($role, $this->roles->rolesOf($sourceKey($source, $row), $raw), $raw)) {
                             $add($source, $row, $source === 'byok' ? self::keyModel($row, $raw) : $raw);
                         }
                     }
                 }
             }
+        }
+
+        // อ่านภาพ (OCR) ใช้ได้เฉพาะโมเดลที่รับภาพ — ไม่ถอยไปใช้โมเดลข้อความทั่วไป
+        if ($role === 'ocr') {
+            return $list;
         }
 
         if ($resolvedDefault !== null) {
@@ -170,7 +182,7 @@ final class AiRouter
         foreach ($order($college) as $source) {
             foreach ($source === 'byok' ? $keys : $endpoints as $row) {
                 $models = AiRepository::enabledModels($row);
-                $usable = array_values(array_filter($models, fn (string $m): bool => $this->roles->rolesOf($sourceKey($source, $row), $m) !== []));
+                $usable = array_values(array_filter($models, fn (string $m): bool => ModelRoles::isText($this->roles->rolesOf($sourceKey($source, $row), $m))));
                 $model = ($usable ?: $models)[0];
                 $add($source, $row, $source === 'byok' ? self::keyModel($row, $model) : $model);
             }
@@ -180,7 +192,7 @@ final class AiRouter
         foreach ($endpoints as $row) {
             foreach (AiRepository::unlimitedModels($row) as $model) {
                 if (in_array($model, AiRepository::enabledModels($row), true)
-                    && ($role === '' || $this->roles->rolesOf('c' . $row['id'], $model) !== [])) {
+                    && ($role === '' || ModelRoles::isText($this->roles->rolesOf('c' . $row['id'], $model)))) {
                     $add('college', $row, $model);
                 }
             }

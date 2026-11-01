@@ -7,7 +7,7 @@ namespace App\AI;
 /**
  * เครื่อง AI ของส่วนกลาง (Ollama) — สตรีมจริงผ่าน /api/chat แบบ NDJSON
  */
-final class OllamaProvider implements AiProvider
+final class OllamaProvider implements AiProvider, VisionProvider
 {
     public function __construct(
         private readonly string $baseUrl,
@@ -58,6 +58,29 @@ final class OllamaProvider implements AiProvider
             ],
         ];
 
+        return $this->chunks($body);
+    }
+
+    public function readImages(string $instruction, array $images): iterable
+    {
+        return $this->chunks([
+            'model' => $this->model,
+            'stream' => true,
+            'options' => ['temperature' => 0, 'num_ctx' => 8192],
+            'messages' => [[
+                'role' => 'user',
+                'content' => $instruction,
+                'images' => array_map(static fn (array $img): string => base64_encode($img['data']), $images),
+            ]],
+        ]);
+    }
+
+    /**
+     * @param array<string,mixed> $body
+     * @return iterable<string>
+     */
+    private function chunks(array $body): iterable
+    {
         foreach ($this->http->lines(rtrim($this->baseUrl, '/') . '/api/chat', [], $body) as $line) {
             if (trim($line) === '') {
                 continue;
