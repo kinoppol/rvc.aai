@@ -43,7 +43,7 @@ final class AiRouter
                     $out[] = [
                         'id' => 'k' . $key['id'] . ':' . $model,
                         'source' => 'byok',
-                        'group' => 'AI ของฉัน · ' . self::providerName((string) $key['provider']),
+                        'group' => 'AI ของฉัน · ' . self::keyName($key),
                         'label' => $model !== '' ? $model : 'โมเดลเริ่มต้น',
                         'model' => $model,
                         'online' => true,
@@ -204,7 +204,7 @@ final class AiRouter
         return new AiRoute(
             provider: $provider,
             source: 'byok',
-            chip: 'AI ของฉัน · ' . ($model !== '' ? $model : self::providerName((string) $key['provider'])) . ' · ' . $modeLabel,
+            chip: 'AI ของฉัน · ' . ($model !== '' ? $model : self::keyName($key)) . ' · ' . $modeLabel,
             wait: 'ประมาณ 8 วินาที · ไม่ใช้โควตาของส่วนกลาง',
             countsQuota: false,
             model: $model !== '' ? $model : (string) $key['provider'],
@@ -311,7 +311,7 @@ final class AiRouter
 
     private function byokProvider(array $key, string $model, bool $real): AiProvider
     {
-        $name = self::providerName((string) $key['provider']);
+        $name = self::keyName($key);
 
         if (!$real) {
             return new SimulatedProvider('AI ของฉัน · ' . $name, true, 300);
@@ -332,8 +332,17 @@ final class AiRouter
                 $name
             ),
             'thaillm' => new OpenAiCompatibleProvider($apiKey, OpenAiCompatibleProvider::THAILLM_BASE, $model, $name),
+            'tokenme' => new OpenAiCompatibleProvider($apiKey, OpenAiCompatibleProvider::TOKENME_BASE, $model, $name),
             default => new OpenAiCompatibleProvider($apiKey, (string) ($key['base_url'] ?? ''), $model, $name),
         };
+    }
+
+    /** ชื่อที่แสดงของบริการที่ครูเชื่อมไว้: ชื่อเล่นที่ครูตั้ง ไม่เช่นนั้นใช้ชื่อผู้ให้บริการ */
+    public static function keyName(array $key): string
+    {
+        $label = trim((string) ($key['label'] ?? ''));
+
+        return $label !== '' ? $label : self::providerName((string) ($key['provider'] ?? ''));
     }
 
     public static function providerName(string $provider): string
@@ -342,6 +351,7 @@ final class AiRouter
             'google' => 'Google AI Studio',
             'openrouter' => 'OpenRouter',
             'thaillm' => 'ThaiLLM',
+            'tokenme' => '9ARM (tokenme.limited)',
             default => 'บริการของฉัน',
         };
     }

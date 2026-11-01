@@ -50,7 +50,8 @@
                     {foreach $keys as $k}
                         <div class="key-item">
                             <div class="key-head">
-                                <strong>{$k['provider_name']}</strong>
+                                <strong>{$k['display_name']}</strong>
+                                {if $k['nickname'] !== ''}<span class="chip chip-muted">{$k['provider_name']}</span>{/if}
                                 <span class="hint">รหัสลงท้าย <span class="mono">…{$k['key_last4']}</span>{if $k['verified_ago']} · ทดสอบล่าสุด{$k['verified_ago']}{/if}</span>
                             </div>
                             <div class="model-chips">
@@ -62,10 +63,13 @@
                             </div>
                             <div class="key-btns">
                                 <button type="button" class="btn btn-sm" data-edit-models="{$k['id']}"
-                                        data-models="{json_encode($k['models'])}" data-name="{$k['provider_name']}">เลือกโมเดล</button>
+                                        data-models="{json_encode($k['models'])}" data-name="{$k['display_name']}">เลือกโมเดล</button>
+                                <button type="button" class="btn btn-sm" data-edit-key="{$k['id']}"
+                                        data-nickname="{$k['nickname']}" data-provider="{$k['provider']}" data-provider-name="{$k['provider_name']}"
+                                        data-base-url="{$k['base_url']}" data-last4="{$k['key_last4']}">แก้ไข</button>
                                 <form method="post" action="{$base}/settings/ai/disconnect"
-                                      data-confirm-title="ยกเลิกการเชื่อม {$k['provider_name']}" data-confirm-ok="ยกเลิกการเชื่อม" data-confirm-danger
-                                      data-confirm="ยกเลิกการเชื่อม {$k['provider_name']} · รหัสที่บันทึกไว้จะถูกลบ และงานจะใช้ AI ตัวอื่นแทน">
+                                      data-confirm-title="ยกเลิกการเชื่อม {$k['display_name']}" data-confirm-ok="ยกเลิกการเชื่อม" data-confirm-danger
+                                      data-confirm="ยกเลิกการเชื่อม {$k['display_name']} · รหัสที่บันทึกไว้จะถูกลบ และงานจะใช้ AI ตัวอื่นแทน">
                                     <input type="hidden" name="_token" value="{$csrf}">
                                     <input type="hidden" name="key_id" value="{$k['id']}">
                                     <button type="submit" class="btn btn-sm btn-ghost-danger">ยกเลิกการเชื่อม</button>
@@ -146,10 +150,10 @@
                 <div class="prov-list">
                     {foreach $providers as $pv => $name}
                         <button type="button" data-prov="{$pv}" n:class="prov-row, $iterator->first ? is-on">
-                            <span class="prov-mark mono">{$pv === 'google' ? 'GA' : ($pv === 'openrouter' ? 'OR' : ($pv === 'thaillm' ? 'TH' : '···'))}</span>
+                            <span class="prov-mark mono">{$pv === 'google' ? 'GA' : ($pv === 'openrouter' ? 'OR' : ($pv === 'thaillm' ? 'TH' : ($pv === 'tokenme' ? '9A' : '···')))}</span>
                             <span class="grow">
                                 <span class="prov-name">{$name}</span>
-                                <span class="prov-hint">{$pv === 'google' ? 'ขอรหัสฟรีได้ด้วยบัญชี Google' : ($pv === 'openrouter' ? 'เลือกได้หลายผู้ให้บริการในบัญชีเดียว' : ($pv === 'thaillm' ? 'โมเดลภาษาไทย thaillm.or.th · วางแค่รหัส ไม่ต้องกรอกที่อยู่' : 'สำหรับครูที่มีระบบของตัวเองอยู่แล้ว'))}</span>
+                                <span class="prov-hint">{$pv === 'google' ? 'ขอรหัสฟรีได้ด้วยบัญชี Google' : ($pv === 'openrouter' ? 'เลือกได้หลายผู้ให้บริการในบัญชีเดียว' : ($pv === 'thaillm' ? 'โมเดลภาษาไทย thaillm.or.th · วางแค่รหัส ไม่ต้องกรอกที่อยู่' : ($pv === 'tokenme' ? 'บริการของ 9ARM · tokenme.limited · วางแค่รหัส ไม่ต้องกรอกที่อยู่' : 'สำหรับครูที่มีระบบของตัวเองอยู่แล้ว')))}</span>
                             </span>
                             <span class="prov-tick">✓</span>
                         </button>
@@ -178,6 +182,11 @@
                         <input class="input mono" type="password" id="wizKey" name="key" style="flex:1" autocomplete="off">
                         <button type="button" class="btn btn-ai" id="wizTestBtn">ทดสอบการเชื่อมต่อ</button>
                     </div>
+                </div>
+                <div class="field" style="margin-top:14px">
+                    <label for="wizLabel">ชื่อเล่น (ไม่บังคับ)</label>
+                    <input class="input" id="wizLabel" name="label" maxlength="60" placeholder="เช่น Gemini ของฉัน, เซิร์ฟเวอร์ที่บ้าน">
+                    <div class="hint">ตั้งไว้ให้จำง่าย จะแสดงแทนชื่อผู้ให้บริการในรายการเลือก AI</div>
                 </div>
                 <div id="wizTestResult"></div>
                 <div class="field" id="wizModelsField" style="margin-top:14px" hidden>
@@ -216,6 +225,40 @@
         </div>
     </div>
 </div>
+
+<div class="modal-backdrop" id="keyEditModal" hidden>
+    <div class="modal-panel">
+        <div class="modal-head">
+            <div class="grow">
+                <div class="modal-title">แก้ไขการเชื่อมต่อ</div>
+                <div class="hint" id="keyEditProvider"></div>
+            </div>
+            <button type="button" class="icon-btn" data-close-key-edit>✕</button>
+        </div>
+        <form method="post" class="modal-body" id="keyEditForm">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <div class="field">
+                <label for="keyEditLabel">ชื่อเล่น</label>
+                <input class="input" id="keyEditLabel" name="label" maxlength="60" placeholder="เว้นว่าง = ใช้ชื่อผู้ให้บริการ">
+                <div class="hint">แสดงแทนชื่อผู้ให้บริการในรายการเลือก AI ทุกหน้า</div>
+            </div>
+            <div class="field" id="keyEditBaseField" hidden>
+                <label for="keyEditBase">ที่อยู่ของบริการ</label>
+                <input class="input mono" id="keyEditBase" name="base_url" placeholder="https://…">
+            </div>
+            <div class="field">
+                <label for="keyEditKey">รหัสเชื่อมต่อใหม่</label>
+                <input class="input mono" type="password" id="keyEditKey" name="key" autocomplete="off">
+                <div class="hint" id="keyEditKeyHint"></div>
+            </div>
+        </form>
+        <div class="modal-foot">
+            <button type="button" class="btn" data-close-key-edit>ยกเลิก</button>
+            <div class="grow"></div>
+            <button type="submit" form="keyEditForm" class="btn btn-primary">บันทึก</button>
+        </div>
+    </div>
+</div>
 {/if}
 
 <script src="{$base}/assets/js/model-picker.js?v={$assetVer}"></script>
@@ -225,7 +268,7 @@
     var modal = document.getElementById('wizardModal');
     if (!modal) return;
     var step = 1, tested = false, csrf = document.getElementById('wizardForm')._token.value;
-    var names = { google: 'Google AI Studio', openrouter: 'OpenRouter', thaillm: 'ThaiLLM', openai_compatible: 'บริการที่กรอกที่อยู่เอง' };
+    var names = { google: 'Google AI Studio', openrouter: 'OpenRouter', thaillm: 'ThaiLLM', tokenme: '9ARM (tokenme.limited)', openai_compatible: 'บริการที่กรอกที่อยู่เอง' };
 
     function show(s) {
         step = s; tested = false;
@@ -251,7 +294,10 @@
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
         if (!modal.hidden) close();
-        if (!document.getElementById('modelsModal').hidden) { document.getElementById('modelsModal').hidden = true; document.body.style.overflow = ''; }
+        ['modelsModal', 'keyEditModal'].forEach(function (id) {
+            var m = document.getElementById(id);
+            if (!m.hidden) { m.hidden = true; document.body.style.overflow = ''; }
+        });
     });
 
     modal.querySelectorAll('.prov-row').forEach(function (row) {
@@ -333,6 +379,31 @@
                         : 'ดึงรายชื่อโมเดลไม่ได้ · ' + d.message;
                 }
             }).catch(function () { loading.textContent = 'ดึงรายชื่อโมเดลไม่สำเร็จ · พิมพ์ชื่อโมเดลเองได้'; });
+        });
+    });
+
+    /* แก้ไขบริการที่เชื่อมไว้: ชื่อเล่น ที่อยู่ และรหัสใหม่ (เว้นว่าง = ใช้รหัสเดิม) */
+    var keyModal = document.getElementById('keyEditModal');
+    var keyForm = document.getElementById('keyEditForm');
+    function closeKeyEdit() { keyModal.hidden = true; document.body.style.overflow = ''; }
+    keyModal.querySelectorAll('[data-close-key-edit]').forEach(function (b) { b.addEventListener('click', closeKeyEdit); });
+    keyModal.addEventListener('click', function (e) { if (e.target === keyModal) closeKeyEdit(); });
+
+    root.querySelectorAll('[data-edit-key]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var d = btn.dataset, custom = d.provider === 'openai_compatible';
+            keyForm.action = base + '/settings/ai/keys/' + d.editKey + '/edit';
+            document.getElementById('keyEditProvider').textContent = d.providerName;
+            document.getElementById('keyEditLabel').value = d.nickname || '';
+            document.getElementById('keyEditLabel').placeholder = 'เว้นว่าง = ใช้ชื่อ ' + d.providerName;
+            document.getElementById('keyEditBaseField').hidden = !custom;
+            document.getElementById('keyEditBase').value = d.baseUrl || '';
+            document.getElementById('keyEditBase').required = custom;
+            document.getElementById('keyEditKey').value = '';
+            document.getElementById('keyEditKeyHint').textContent = 'เว้นว่างไว้ = ใช้รหัสเดิม (ลงท้าย …' + d.last4 + ') · เปลี่ยนรหัสหรือที่อยู่ ระบบจะทดสอบกับผู้ให้บริการก่อนบันทึก';
+            keyModal.hidden = false;
+            document.body.style.overflow = 'hidden';
+            document.getElementById('keyEditLabel').focus();
         });
     });
 

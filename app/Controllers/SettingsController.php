@@ -30,6 +30,7 @@ final class SettingsController
         'google' => 'Google AI Studio',
         'openrouter' => 'OpenRouter',
         'thaillm' => 'ThaiLLM',
+        'tokenme' => '9ARM (tokenme.limited)',
         'openai_compatible' => 'บริการอื่นที่กรอกที่อยู่เองได้',
     ];
 
@@ -56,6 +57,8 @@ final class SettingsController
         // คีย์ของครูทั้งหมด พร้อมโมเดลที่เปิดใช้ของแต่ละคีย์
         $keys = array_map(static fn (array $k): array => $k + [
             'provider_name' => self::PROVIDERS[$k['provider']] ?? $k['provider'],
+            'display_name' => AiRouter::keyName($k),
+            'nickname' => self::nickname($k),
             'models' => array_values(array_filter(AiRepository::enabledModels($k))),
             'verified_ago' => $k['verified_at'] ? Thai::ago($k['verified_at']) : null,
         ], $this->ai->activeKeysForUser($uid));
@@ -119,7 +122,7 @@ final class SettingsController
 
         $this->ai->saveKey((int) $user['id'], $models + [
             'provider' => $provider,
-            'label' => self::PROVIDERS[$provider],
+            'label' => self::cleanLabel((string) ($data['label'] ?? '')) ?: self::PROVIDERS[$provider],
             'base_url' => $baseUrl,
             'key_encrypted' => $this->cipher->encrypt($key),
             'key_last4' => $this->cipher->last4($key),
@@ -244,6 +247,71 @@ final class SettingsController
         return $this->json($response, $this->probeKey((string) $key['provider'], $secret, $key['base_url'] ?: null));
     }
 
+    /**
+     * แก้ไขบริการที่เชื่อมไว้: ชื่อเล่น, ที่อยู่ (เฉพาะบริการที่กรอกเอง) และรหัสใหม่ (เว้นว่าง = ใช้รหัสเดิม)
+     * เปลี่ยนรหัสหรือที่อยู่เมื่อไรจะทดสอบกับผู้ให้บริการก่อน ไม่ผ่านจะไม่บันทึกอะไรเลย
+     */
+    public function keyEdit(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ');
+
+            return $this->redirect($response, '/settings/ai');
+        }
+
+        $key = $this->ai->keyForUser((int) $user['id'], (int) $args['id']);
+        if ($key === null) {
+            Flash::error('ไม่พบการเชื่อมต่อนี้');
+
+            return $this->redirect($response, '/settings/ai');
+        }
+
+        $provider = (string) $key['provider'];
+        $label = self::cleanLabel((string) ($data['label'] ?? ''));
+        $fields = ['label' => $label !== '' ? $label : (self::PROVIDERS[$provider] ?? $provider)];
+
+        $baseUrl = $key['base_url'] ?: null;
+        if ($provider === 'openai_compatible') {
+            $baseUrl = trim((string) ($data['base_url'] ?? '')) ?: null;
+            if ($baseUrl === null) {
+                Flash::error('กรุณากรอกที่อยู่ของบริการ');
+
+                return $this->redirect($response, '/settings/ai');
+            }
+        }
+
+        $newKey = trim((string) ($data['key'] ?? ''));
+        if ($newKey !== '' || $baseUrl !== ($key['base_url'] ?: null)) {
+            try {
+                $secret = $newKey !== '' ? $newKey : $this->cipher->decrypt((string) $key['key_encrypted']);
+            } catch (\RuntimeException) {
+                Flash::error('อ่านรหัสที่เก็บไว้ไม่ได้ กรุณาวางรหัสใหม่');
+
+                return $this->redirect($response, '/settings/ai');
+            }
+
+            $probe = $this->probeKey($provider, $secret, $baseUrl);
+            if (!$probe['ok']) {
+                Flash::error('ยังไม่ได้บันทึก · ' . $probe['message']);
+
+                return $this->redirect($response, '/settings/ai');
+            }
+
+            $fields += ['base_url' => $baseUrl, 'verified_at' => date('Y-m-d H:i:s')];
+            if ($newKey !== '') {
+                $fields += ['key_encrypted' => $this->cipher->encrypt($newKey), 'key_last4' => $this->cipher->last4($newKey)];
+            }
+        }
+
+        $this->ai->updateKey((int) $user['id'], (int) $key['id'], $fields);
+        $this->auth->log('ai.key.edit', 'key#' . $key['id'], ['new_key' => $newKey !== '']);
+        Flash::success('บันทึกการเชื่อมต่อ ' . AiRouter::keyName($fields + $key) . ' แล้ว');
+
+        return $this->redirect($response, '/settings/ai');
+    }
+
     /** AI ที่ใช้เป็นค่าเริ่มต้นของครู ('' = ให้ระบบเลือกตามลำดับ) */
     public function defaultAi(Request $request, Response $response): Response
     {
@@ -314,11 +382,28 @@ final class SettingsController
         }
     }
 
-    /** ผู้ให้บริการที่รู้ที่อยู่อยู่แล้ว (ThaiLLM) ไม่ต้องให้ครูกรอกเอง */
+    /** ชื่อเล่นที่ครูตั้ง — ว่างถ้ายังใช้ชื่อผู้ให้บริการอยู่ */
+    private static function nickname(array $key): string
+    {
+        $label = trim((string) ($key['label'] ?? ''));
+
+        return $label === (self::PROVIDERS[$key['provider']] ?? $key['provider']) ? '' : $label;
+    }
+
+    /** ชื่อเล่นบรรทัดเดียว ยาวไม่เกิน 60 ตัวอักษร */
+    private static function cleanLabel(string $label): string
+    {
+        return mb_substr(trim((string) preg_replace('/\s+/u', ' ', $label)), 0, 60);
+    }
+
+    /** ผู้ให้บริการที่รู้ที่อยู่อยู่แล้ว (ThaiLLM, 9ARM) ไม่ต้องให้ครูกรอกเอง */
     private static function baseUrlFor(string $provider, array $data): ?string
     {
         if ($provider === 'thaillm') {
             return OpenAiCompatibleProvider::THAILLM_BASE;
+        }
+        if ($provider === 'tokenme') {
+            return OpenAiCompatibleProvider::TOKENME_BASE;
         }
 
         return trim((string) ($data['base_url'] ?? '')) ?: null;

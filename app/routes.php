@@ -268,6 +268,7 @@ return static function (App $app): void {
             $s->post('/ai/default', [SettingsController::class, 'defaultAi']);
             $s->post('/ai/keys/{id:[0-9]+}/models', [SettingsController::class, 'keyModels']);
             $s->post('/ai/keys/{id:[0-9]+}/probe', [SettingsController::class, 'keyProbe']);
+            $s->post('/ai/keys/{id:[0-9]+}/edit', [SettingsController::class, 'keyEdit']);
         })->add(new RoleMiddleware(Roles::TEACHING));
 
         // งานกำกับดูแล — ผู้ดูแลระบบและผู้ดูแลครูเข้าได้เท่ากัน
