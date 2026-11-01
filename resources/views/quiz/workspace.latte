@@ -56,6 +56,12 @@
         if (d.knowledge) { document.getElementById('genHint').textContent = d.knowledge; }
     });
 
+    /* เนื้อหายาว → ออกข้อสอบหลายรอบ (รอบละก้อนเนื้อหา) */
+    es.addEventListener('round', function (e) {
+        var d = JSON.parse(e.data);
+        headline.textContent = 'รอบที่ ' + d.no + ' จาก ' + d.of + ' · กำลังเขียนข้อ ' + (got + 1) + ' จาก ' + total;
+    });
+
     es.addEventListener('question', function (e) {
         var q = JSON.parse(e.data);
         got++;

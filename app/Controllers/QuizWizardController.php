@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\AI\AiRouter;
 use App\AI\AiUnavailableException;
+use App\AI\ModelBudget;
 use App\AI\QuizGenerator;
 use App\AI\UnitKnowledge;
 use App\Auth\Auth;
@@ -38,8 +39,11 @@ final class QuizWizardController
         'กลาง' => 'ความเข้าใจและการนำไปใช้ในงานจริง',
         'ยาก' => 'วิเคราะห์อาการเสียและแก้ปัญหา',
     ];
-    /** เนื้อหาหน่วยที่ส่งให้ผู้ช่วยเป็นฐานความรู้ (ตัวอักษร) — พอสำหรับหลายหน่วยโดยไม่ล้นหน้าต่างของโมเดลเล็ก */
-    private const SOURCE_CHARS = 14000;
+    /**
+     * เนื้อหายาวเกินที่โมเดลรับไหวในรอบเดียว (ModelBudget::chars) → แบ่งออกข้อสอบเป็นหลายรอบ ประมาณไม่เกินจำนวนนี้ (และไม่เกินจำนวนข้อ)
+     * รวมแล้วส่งเนื้อหาได้ราว chars × รอบ × 0.85 ตัวอักษร (เผื่อที่ว่างตอนจัดหัวข้อลงแต่ละรอบ)
+     */
+    private const MAX_ROUNDS = 6;
 
     public function __construct(
         private readonly View $view,
@@ -138,13 +142,17 @@ final class QuizWizardController
         }
 
         // ฐานความรู้จากเนื้อหาจริงของหน่วย — PDF ถูกอ่านไว้ล่วงหน้าตอนอัปโหลด จึงไม่ช้า
-        $known = $this->knowledge->forUnits($params['unitIds'], self::SOURCE_CHARS);
+        // ยาวเกินที่โมเดลรับไหวในรอบเดียว → แบ่งเป็นหลายรอบ (โมเดลใหญ่ได้รอบละมากกว่า จึงใช้รอบน้อยกว่า)
+        $budget = ModelBudget::chars($route);
+        $known = $this->knowledge->forUnits($params['unitIds'], (int) ($budget * min($params['count'], self::MAX_ROUNDS) * 0.85));
+        $rounds = ModelBudget::rounds(ModelBudget::split($known['text'], $budget), $params['count'], $budget)
+            ?: [['', $params['count']]];
 
         $send('meta', [
             'chip' => $route->chip,
             'total' => $params['count'],
             'source' => $route->source,
-            'knowledge' => self::knowledgeNote($known),
+            'knowledge' => self::knowledgeNote($known, count($rounds), $budget),
         ]);
 
         $jobId = $this->ai->createJob([
@@ -160,31 +168,42 @@ final class QuizWizardController
         $collected = [];
         $started = hrtime(true);
 
-        try {
-            foreach ($this->generator->stream($route, [
-                'course_code' => $course['code'],
-                'course_name' => $course['name'],
-                'lesson_titles' => $params['unitTitles'],
-                'count' => $params['count'],
-                'types' => $params['types'],
-                'level' => $params['level'],
-                'source' => $known['text'],
-            ], $quality) as $ev) {
-                if ($ev['event'] === 'question') {
-                    $collected[] = $ev['data'];
-                    $send('question', $ev['data']);
-                } elseif ($ev['event'] === 'error') {
-                    $send('error', ['reason' => 'generate_failed', 'message' => $ev['message']]);
-                    $this->ai->updateJob($jobId, ['status' => 'failed', 'error' => $ev['message'], 'finished_at' => date('Y-m-d H:i:s')]);
+        foreach ($rounds as $i => [$chunk, $want]) {
+            if (count($rounds) > 1) {
+                $send('round', ['no' => $i + 1, 'of' => count($rounds), 'count' => $want]);
+            }
+
+            $got = 0;
+            try {
+                foreach ($this->generator->stream($route, [
+                    'course_code' => $course['code'],
+                    'course_name' => $course['name'],
+                    'lesson_titles' => $params['unitTitles'],
+                    'count' => $want,
+                    'types' => $params['types'],
+                    'level' => $params['level'],
+                    'source' => $chunk,
+                    // ข้อที่ได้จากรอบก่อน ๆ — กันถามซ้ำเมื่อเนื้อหาสองก้อนคาบเกี่ยวกัน
+                    'avoid' => self::avoidList($collected),
+                ], $quality) as $ev) {
+                    if ($ev['event'] === 'question' && $got < $want) {
+                        $got++;
+                        $ev['data']['no'] = count($collected) + 1;
+                        $collected[] = $ev['data'];
+                        $send('question', $ev['data']);
+                    } elseif ($ev['event'] === 'error') {
+                        throw new \RuntimeException($ev['message']);
+                    }
+                }
+            } catch (Throwable $e) {
+                // รอบแรกล้มและยังไม่ได้สักข้อ = แจ้งครูเลย · รอบหลังล้ม = เก็บข้อที่ได้ไว้แล้วลองรอบถัดไป
+                if ($collected === []) {
+                    $send('error', ['reason' => 'generate_failed', 'message' => $e instanceof \RuntimeException ? $e->getMessage() : 'ระบบขัดข้องระหว่างร่างข้อสอบ']);
+                    $this->ai->updateJob($jobId, ['status' => 'failed', 'error' => $e->getMessage(), 'finished_at' => date('Y-m-d H:i:s')]);
 
                     return $response;
                 }
             }
-        } catch (Throwable $e) {
-            $send('error', ['reason' => 'generate_failed', 'message' => 'ระบบขัดข้องระหว่างร่างข้อสอบ']);
-            $this->ai->updateJob($jobId, ['status' => 'failed', 'error' => $e->getMessage(), 'finished_at' => date('Y-m-d H:i:s')]);
-
-            return $response;
         }
 
         if ($collected === []) {
@@ -285,11 +304,11 @@ final class QuizWizardController
             'count' => 3,
             'types' => [$question['type'] === 'short_answer' ? 'อัตนัย' : 'ปรนัย'],
             'level' => $params['level'] ?? 'กลาง',
-            // ร่างที่สร้างก่อนมี unitIds ใช้หน่วยของแบบทดสอบแทน
-            'source' => $this->knowledge->forUnits(
+            // ร่างที่สร้างก่อนมี unitIds ใช้หน่วยของแบบทดสอบแทน · เนื้อหายาวใช้ก้อนที่ใกล้กับข้อเดิมที่สุด
+            'source' => self::closestChunk(ModelBudget::split($this->knowledge->forUnits(
                 array_map('intval', (array) ($params['unitIds'] ?? (empty($params['unit_id']) ? [] : [$params['unit_id']]))),
-                self::SOURCE_CHARS
-            )['text'],
+                ModelBudget::chars($route) * self::MAX_ROUNDS
+            )['text'], ModelBudget::chars($route)), (string) $question['question']),
             'avoid' => (string) $question['question'],
         ]) as $ev) {
             if ($ev['event'] === 'question') {
@@ -490,8 +509,51 @@ final class QuizWizardController
         return $scope;
     }
 
+    /** โจทย์ของข้อที่ได้แล้ว (ตัดสั้น) สำหรับบอกโมเดลไม่ให้ถามซ้ำ */
+    private static function avoidList(array $collected): string
+    {
+        $stems = array_map(
+            static fn (array $q): string => '- ' . mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) $q['question'])), 0, 120),
+            array_slice($collected, -20)
+        );
+
+        return implode("\n", $stems);
+    }
+
+    /**
+     * ก้อนเนื้อหาที่ตรงกับโจทย์เดิมมากที่สุด (นับคำ 3 ตัวอักษรที่พบร่วมกัน) — ใช้ร่างข้อใหม่แทนข้อเดิมในเรื่องเดียวกัน
+     *
+     * @param list<string> $chunks
+     */
+    private static function closestChunk(array $chunks, string $question): string
+    {
+        if (count($chunks) <= 1) {
+            return $chunks[0] ?? '';
+        }
+
+        $q = (string) preg_replace('/\s+/u', '', $question);
+        $grams = [];
+        for ($i = 0, $n = mb_strlen($q) - 2; $i < $n; $i++) {
+            $grams[mb_substr($q, $i, 3)] = true;
+        }
+
+        $best = 0;
+        $bestScore = -1;
+        foreach ($chunks as $i => $chunk) {
+            $score = 0;
+            foreach (array_keys($grams) as $g) {
+                $score += str_contains($chunk, $g) ? 1 : 0;
+            }
+            if ($score > $bestScore) {
+                [$best, $bestScore] = [$i, $score];
+            }
+        }
+
+        return $chunks[$best];
+    }
+
     /** ข้อความบอกครูว่าผู้ช่วยใช้เนื้อหาอะไรเป็นฐานความรู้ */
-    private static function knowledgeNote(array $known): string
+    private static function knowledgeNote(array $known, int $rounds = 1, int $budget = 0): string
     {
         if ($known['text'] === '') {
             return 'หน่วยนี้ยังไม่มีเนื้อหาให้อ่าน · ผู้ช่วยออกข้อสอบจากชื่อหน่วยอย่างเดียว เพิ่มเนื้อหาในหน่วยก่อนจะได้ข้อสอบที่ตรงกว่า';
@@ -504,8 +566,14 @@ final class QuizWizardController
         if ($known['pdf_failed'] !== []) {
             $note .= ' · อ่าน PDF ไม่ได้: ' . implode(', ', array_slice($known['pdf_failed'], 0, 3));
         }
+        if (($known['pdf_pending'] ?? []) !== []) {
+            $note .= ' · PDF สแกนที่ยังรอ AI อ่าน (OCR) ยังไม่ได้ใช้: ' . implode(', ', array_slice($known['pdf_pending'], 0, 3));
+        }
         if ($known['videos'] > 0) {
             $note .= ' · วีดิโอใช้แค่ชื่อเรื่อง';
+        }
+        if ($rounds > 1) {
+            $note .= sprintf(' · แบ่งออกข้อสอบ %d รอบ (รอบละไม่เกิน %s ตัวอักษร ตามขนาดโมเดล)', $rounds, number_format($budget));
         }
         if ($known['trimmed']) {
             $note .= ' · เนื้อหายาวเกิน ตัดบางส่วนออก';
