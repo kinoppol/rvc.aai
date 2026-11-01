@@ -301,14 +301,21 @@ final class AiRepository
         return $this->db->int('SELECT COUNT(*) FROM {ai_jobs} WHERE status IN (\'queued\',\'running\')');
     }
 
-    public function logUsage(int $userId, ?int $jobId, string $source, string $model, bool $ok): void
+    /** $task = ประเภทงาน (chat / quiz / plan / ocr / task ของ Drafter) ใช้แยกในหน้าสถิติ */
+    public function logUsage(int $userId, ?int $jobId, string $source, string $model, bool $ok, ?string $task = null): void
     {
-        $this->db->insert('ai_usage_logs', [
+        $row = [
             'user_id' => $userId,
             'job_id' => $jobId,
             'source' => $source,
             'model' => $model,
             'succeeded' => $ok ? 1 : 0,
-        ]);
+        ];
+        try {
+            $this->db->insert('ai_usage_logs', $row + ['task' => $task !== null ? substr($task, 0, 32) : null]);
+        } catch (\PDOException) {
+            // ยังไม่ได้รัน migration 000131 (ไม่มีคอลัมน์ task) — บันทึกแบบเดิมไปก่อน
+            $this->db->insert('ai_usage_logs', $row);
+        }
     }
 }

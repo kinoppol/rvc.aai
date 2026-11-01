@@ -12,6 +12,7 @@ use App\AI\ModelRoles;
 use App\AI\OpenAiCompatibleProvider;
 use App\Auth\Auth;
 use App\Domain\AiRepository;
+use App\Domain\AiStatsRepository;
 use App\Domain\CourseRepository;
 use App\Domain\SettingsRepository;
 use App\Support\Csrf;
@@ -29,7 +30,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 final class AiController
 {
     private const CAPS = [40, 60, 80, 0]; // 0 = ไม่จำกัด
-    private const TABS = ['overview', 'settings', 'quota', 'courses'];
+    private const TABS = ['overview', 'usage', 'settings', 'quota', 'courses'];
 
     public function __construct(
         private readonly View $view,
@@ -40,6 +41,7 @@ final class AiController
         private readonly KeyCipher $cipher,
         private readonly CourseRepository $courses,
         private readonly ModelRoles $modelRoles,
+        private readonly AiStatsRepository $stats,
     ) {
     }
 
@@ -81,7 +83,88 @@ final class AiController
                 'checked_ago' => $e['last_checked_at'] ? Thai::ago($e['last_checked_at']) : null,
             ], $this->ai->endpoints()),
             'editing' => $this->editingEndpoint($request),
+            'stats' => $tab === 'usage' ? $this->usageStats($request) : null,
         ]);
+    }
+
+    /**
+     * แท็บสถิติการใช้งาน: แนวโน้มรายวัน/สัปดาห์ งานที่ใช้ โมเดล ช่วงเวลา และรายครูเทียบกับช่วงก่อนหน้าที่ยาวเท่ากัน
+     *
+     * @return array<string,mixed>
+     */
+    private function usageStats(Request $request): array
+    {
+        $days = (int) ($request->getQueryParams()['days'] ?? 30);
+        if (!isset(AiStatsRepository::PERIODS[$days])) {
+            $days = 30;
+        }
+        $from = date('Y-m-d 00:00:00', strtotime('-' . ($days - 1) . ' days'));
+        $prevFrom = date('Y-m-d 00:00:00', strtotime('-' . (2 * $days - 1) . ' days'));
+
+        $sum = $this->stats->summary($from);
+        $prev = $this->stats->summary($prevFrom, $from);
+        $teachers = $this->stats->teachers($from, $prevFrom);
+        $tasks = $this->stats->byTask($from);
+        $heat = $this->stats->heat($from);
+        $trend = $this->stats->trend($days);
+
+        $staff = array_values(array_filter($teachers, static fn (array $t): bool => in_array($t['role'], ['teacher', 'supervisor'], true)));
+        $active = count(array_filter($staff, static fn (array $t): bool => $t['n'] > 0));
+        $never = array_values(array_filter($staff, static fn (array $t): bool => $t['ever'] === 0));
+        $dropped = array_values(array_filter($staff, static fn (array $t): bool => $t['prev'] >= 5 && $t['n'] <= $t['prev'] / 2));
+        $withKey = count(array_filter($staff, static fn (array $t): bool => $t['has_key']));
+
+        // ข้อสังเกตที่ให้ผู้ดูแลอ่านแล้วตัดสินใจได้ทันที
+        $notes = [];
+        if ($staff !== []) {
+            $notes[] = 'ครูใช้ AI ในช่วงนี้ ' . $active . ' จาก ' . count($staff) . ' คน (' . round($active / count($staff) * 100) . '%)'
+                . ($never !== [] ? ' · ยังไม่เคยใช้เลย ' . count($never) . ' คน — อาจจัดอบรมหรือให้ครูที่ใช้คล่องช่วยแนะนำ' : '');
+        }
+        if ($prev['total'] > 0) {
+            $pct = (int) round(($sum['total'] - $prev['total']) / $prev['total'] * 100);
+            $notes[] = 'ใช้ ' . number_format($sum['total']) . ' ครั้ง ' . ($pct >= 0 ? 'เพิ่มขึ้น ' : 'ลดลง ') . abs($pct) . '% จากช่วงก่อนหน้า (' . number_format($prev['total']) . ' ครั้ง)';
+        }
+        if ($sum['total'] > 0) {
+            $notes[] = 'ใช้คีย์ของครูเอง ' . round($sum['byok'] / $sum['total'] * 100) . '% ของการใช้ทั้งหมด · มีครูเชื่อมคีย์ของตัวเองแล้ว ' . $withKey . ' คน';
+            $fail = $sum['total'] - $sum['ok'];
+            if ($fail / $sum['total'] >= 0.1) {
+                $notes[] = 'ไม่สำเร็จ ' . round($fail / $sum['total'] * 100) . '% (' . number_format($fail) . ' ครั้ง) — ดูสาเหตุที่หน้า "ข้อขัดข้อง" หรือทดสอบเครื่อง AI ในแท็บการตั้งค่า';
+            }
+        }
+        if ($tasks !== [] && $tasks[0]['task'] !== '') {
+            $notes[] = 'งานที่ใช้ AI มากที่สุดคือ ' . $tasks[0]['label'] . ' (' . number_format($tasks[0]['n']) . ' ครั้ง)';
+        }
+        if ($heat['max'] > 0) {
+            $byHour = array_fill(0, 24, 0);
+            foreach ($heat['cells'] as $row) {
+                foreach ($row as $h => $n) {
+                    $byHour[$h] += $n;
+                }
+            }
+            $peak = (int) array_search(max($byHour), $byHour, true);
+            $notes[] = 'ช่วงที่ใช้มากที่สุดคือ ' . sprintf('%02d:00–%02d:00', $peak, ($peak + 1) % 24) . ' น. — ถ้าเครื่องส่วนกลางช้าในช่วงนี้ อาจต้องเพิ่มเครื่องหรือแนะนำให้ครูใช้คีย์ของตัวเอง';
+        }
+        if ($dropped !== []) {
+            $notes[] = 'ครูที่ใช้ลดลงตั้งแต่ครึ่งหนึ่ง: ' . implode(', ', array_map(static fn (array $t): string => $t['name'], array_slice($dropped, 0, 8)))
+                . (count($dropped) > 8 ? ' …' : '') . ' — อาจติดปัญหาโควตาหรือการใช้งาน';
+        }
+
+        return [
+            'days' => $days,
+            'periods' => AiStatsRepository::PERIODS,
+            'summary' => $sum,
+            'prev' => $prev,
+            'staffCount' => count($staff),
+            'activeTeachers' => $active,
+            'withKey' => $withKey,
+            'trend' => $trend,
+            'trendMax' => max(1, ...array_map(static fn (array $b): int => $b['total'], $trend ?: [['total' => 1]])),
+            'tasks' => $tasks,
+            'models' => $this->stats->byModel($from),
+            'heat' => $heat,
+            'teachers' => $teachers,
+            'notes' => $notes,
+        ];
     }
 
     /**

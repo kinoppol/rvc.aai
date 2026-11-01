@@ -59,7 +59,7 @@ final class ScanReader
                 } catch (AiUnavailableException $e) {
                     // หน้าแรกล้ม = โมเดลนี้ใช้ไม่ได้ทั้งไฟล์ (ไม่รับภาพ รหัสผิด) — หยุดเลย ไม่ต้องลองทุกหน้า
                     if ($out === [] && $failed === 0) {
-                        $this->ai->logUsage($userId, null, $route->source, $route->model, false);
+                        $this->ai->logUsage($userId, null, $route->source, $route->model, false, 'ocr');
 
                         throw $e;
                     }
@@ -76,7 +76,7 @@ final class ScanReader
             }
         }
 
-        $this->ai->logUsage($userId, null, $route->source, $route->model, $failed < $total);
+        $this->ai->logUsage($userId, null, $route->source, $route->model, $failed < $total, 'ocr');
 
         return [
             'text' => implode("\n\n", $out),

@@ -1,0 +1,189 @@
+{*
+    แท็บ "สถิติการใช้งาน" ของ /admin/ai — ข้อมูลจาก AiController::usageStats() (AiStatsRepository)
+    กราฟทั้งหมดเป็น HTML/CSS ล้วน · ค่าใน style ต้องเป็นจำนวนเต็ม (Latte ใส่ backslash หน้าจุดทศนิยม ทำให้ CSS พัง) · สีน้ำเงินเข้ม = AI ของส่วนกลาง, สีอ่อน = คีย์ของครูเอง (ชุดเดียวกับกราฟในแท็บภาพรวม)
+*}
+{var $s = $stats}
+{var $sum = $s['summary']}
+{var $pct = fn($a, $b) => $b > 0 ? (int) round(($a - $b) / $b * 100) : null}
+
+<div class="us-head">
+    <div class="hint">ข้อมูลตั้งแต่ {date('j/n/', strtotime('-' . ($s['days'] - 1) . ' days')) . (date('Y', strtotime('-' . ($s['days'] - 1) . ' days')) + 543)} ถึงวันนี้ · เทียบกับช่วงก่อนหน้าที่ยาวเท่ากัน</div>
+    <nav class="us-periods" aria-label="ช่วงเวลา">
+        {foreach $s['periods'] as $d => $label}
+            <a href="{$base}/admin/ai?tab=usage&days={$d}" n:class="btn, btn-sm, $d === $s['days'] ? btn-primary" aria-current="{$d === $s['days'] ? 'true' : null}">{$label}</a>
+        {/foreach}
+    </nav>
+</div>
+
+<div class="metric-grid us-metrics">
+    {var $c = $pct($sum['total'], $s['prev']['total'])}
+    <div class="metric metric-indigo">
+        <div class="metric-top"><div class="metric-icon"><span class="msi">smart_toy</span></div>
+            {if $c !== null}<span n:class="metric-note, $c < 0 ? us-down"><span class="msi">{$c < 0 ? 'trending_down' : 'trending_up'}</span>{$c > 0 ? '+' : ''}{$c}%</span>{/if}
+        </div>
+        <div class="metric-label">เรียกใช้ AI</div>
+        <div class="metric-value">{number_format($sum['total'])}</div>
+        <div class="hint">ช่วงก่อนหน้า {number_format($s['prev']['total'])} ครั้ง</div>
+    </div>
+    <div class="metric metric-emerald">
+        <div class="metric-top"><div class="metric-icon"><span class="msi">group</span></div></div>
+        <div class="metric-label">ครูที่ใช้ในช่วงนี้</div>
+        <div class="metric-value">{$s['activeTeachers']}<small class="us-of"> / {$s['staffCount']}</small></div>
+        <div class="bar"><span style="width: {$s['staffCount'] ? round($s['activeTeachers'] / $s['staffCount'] * 100) : 0}%"></span></div>
+    </div>
+    <div class="metric metric-amber">
+        <div class="metric-top"><div class="metric-icon"><span class="msi">key</span></div></div>
+        <div class="metric-label">ใช้คีย์ของครูเอง</div>
+        <div class="metric-value">{$sum['total'] ? round($sum['byok'] / $sum['total'] * 100) : 0}%</div>
+        <div class="hint">ครูเชื่อมคีย์แล้ว {$s['withKey']} คน</div>
+    </div>
+    <div class="metric metric-rose">
+        <div class="metric-top"><div class="metric-icon"><span class="msi">task_alt</span></div></div>
+        <div class="metric-label">สำเร็จ</div>
+        <div class="metric-value">{$sum['total'] ? round($sum['ok'] / $sum['total'] * 100) : 0}%</div>
+        <div class="hint">ไม่สำเร็จ {number_format($sum['total'] - $sum['ok'])} ครั้ง</div>
+    </div>
+</div>
+
+{if $s['notes']}
+    <div class="card us-notes">
+        <strong><span class="msi" aria-hidden="true">info</span> ข้อสังเกต</strong>
+        <ul>{foreach $s['notes'] as $n}<li>{$n}</li>{/foreach}</ul>
+    </div>
+{/if}
+
+<div class="card us-card">
+    <div class="admin-gpu-head"><strong>แนวโน้มการใช้งาน{$s['days'] > 31 ? ' (รายสัปดาห์)' : ' (รายวัน)'}</strong><span class="grow"></span><span class="mono hint">สูงสุด {number_format($s['trendMax'])} ครั้ง</span></div>
+    {if $sum['total'] === 0}
+        <p class="hint">ยังไม่มีการใช้ AI ในช่วงนี้</p>
+    {else}
+        {var $every = (int) max(1, ceil(count($s['trend']) / 10))}
+        <div class="us-trend" role="img" aria-label="กราฟจำนวนครั้งที่ใช้ AI ในแต่ละช่วง">
+            {foreach $s['trend'] as $i => $b}
+                <div class="us-col" title="{$b['tip']}: ส่วนกลาง {$b['college']} · คีย์ของครู {$b['byok']} · รวม {$b['total']} ครั้ง">
+                    <div class="us-bars">
+                        <div class="chart-bar chart-bar-own" style="height: {(int) round($b['byok'] / $s['trendMax'] * 100)}%"></div>
+                        <div class="chart-bar chart-bar-college" style="height: {(int) round($b['college'] / $s['trendMax'] * 100)}%"></div>
+                    </div>
+                    <div class="us-x">{$i % $every === 0 ? $b['label'] : ''}</div>
+                </div>
+            {/foreach}
+        </div>
+        <div class="chart-legend">
+            <span><i style="background:var(--brand)"></i>AI ของส่วนกลาง</span>
+            <span><i style="background:var(--brandLine)"></i>คีย์ของครูเอง</span>
+            <span class="hint">ชี้ที่แท่งเพื่อดูตัวเลข</span>
+        </div>
+    {/if}
+</div>
+
+<div class="admin-grid us-grid">
+    <div class="card us-card">
+        <strong>ใช้ทำงานอะไร</strong>
+        {var $taskMax = $s['tasks'] ? max(array_column($s['tasks'], 'n')) : 1}
+        {foreach $s['tasks'] as $t}
+            <div class="us-hbar" title="{$t['label']}: {$t['n']} ครั้ง · สำเร็จ {$t['ok']}">
+                <div class="us-hbar-label">{$t['label']}</div>
+                <div class="us-hbar-track"><span style="width: {(int) round($t['n'] / $taskMax * 100)}%"></span></div>
+                <div class="us-hbar-n mono">{number_format($t['n'])}</div>
+            </div>
+        {else}
+            <p class="hint">ยังไม่มีข้อมูล</p>
+        {/foreach}
+        {if array_filter($s['tasks'], fn($t) => $t['task'] === '')}
+            <p class="hint us-foot">"ไม่ระบุ" = การใช้ก่อนที่ระบบเริ่มบันทึกประเภทงาน</p>
+        {/if}
+    </div>
+    <div class="card us-card">
+        <strong>โมเดลที่ใช้มากที่สุด</strong>
+        {var $modelMax = $s['models'] ? max(array_column($s['models'], 'n')) : 1}
+        {foreach $s['models'] as $m}
+            <div class="us-hbar" title="{$m['model']}: {$m['n']} ครั้ง · สำเร็จ {$m['ok']}">
+                <div class="us-hbar-label"><span class="mono">{$m['model']}</span> <span class="hint">{$m['source'] === 'college' ? 'ส่วนกลาง' : 'คีย์ครู'}</span></div>
+                <div class="us-hbar-track"><span n:class="$m['source'] === 'byok' ? us-own" style="width: {(int) round($m['n'] / $modelMax * 100)}%"></span></div>
+                <div class="us-hbar-n mono">{number_format($m['n'])}</div>
+            </div>
+        {else}
+            <p class="hint">ยังไม่มีข้อมูล</p>
+        {/foreach}
+    </div>
+</div>
+
+<div class="card us-card">
+    <strong>ช่วงเวลาที่ใช้</strong> <span class="hint">· ยิ่งเข้มยิ่งใช้มาก</span>
+    {if $s['heat']['max'] > 0}
+        <div class="us-heat-wrap">
+            <table class="us-heat">
+                <thead><tr><th></th>{for $h = 0; $h < 24; $h++}<th>{$h % 3 === 0 ? $h : ''}</th>{/for}</tr></thead>
+                <tbody>
+                {foreach ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'] as $wd => $wdLabel}
+                    <tr>
+                        <th>{$wdLabel}</th>
+                        {foreach $s['heat']['cells'][$wd] as $h => $n}
+                            <td title="วัน{$wdLabel} {sprintf('%02d:00', $h)} น. · {$n} ครั้ง"><i style="opacity: {$n > 0 ? (int) round(15 + 85 * $n / $s['heat']['max']) : 0}%"></i></td>
+                        {/foreach}
+                    </tr>
+                {/foreach}
+                </tbody>
+            </table>
+        </div>
+    {else}
+        <p class="hint">ยังไม่มีข้อมูล</p>
+    {/if}
+</div>
+
+<div class="card flush us-card">
+    <div class="us-table-head">
+        <strong>การใช้งานรายครู</strong>
+        <input type="search" class="input" id="usFilter" placeholder="ค้นชื่อครูหรือสาขา" aria-label="ค้นชื่อครู">
+    </div>
+    <div class="table-scroll">
+        <table class="data" id="usTable">
+            <thead><tr>
+                <th>ครู</th><th class="num">ช่วงนี้</th><th class="num">แนวโน้ม</th><th class="num">ส่วนกลาง</th><th class="num">คีย์ของครู</th>
+                <th>ใช้ทำอะไรมากสุด</th><th>ใช้ล่าสุด</th>
+            </tr></thead>
+            <tbody>
+            {foreach $s['teachers'] as $t}
+                <tr data-q="{mb_strtolower($t['name'] . ' ' . $t['username'] . ' ' . $t['subject'])}">
+                    <td>
+                        <div>{$t['name']} {if $t['has_key']}<span class="chip chip-ok" title="เชื่อมคีย์ AI ของตัวเองแล้ว">มีคีย์</span>{/if}</div>
+                        {if $t['subject']}<div class="hint">{$t['subject']}</div>{/if}
+                    </td>
+                    <td class="num mono">{number_format($t['n'])}</td>
+                    <td class="num">
+                        {if $t['change'] === null}
+                            {if $t['n'] > 0}<span class="chip chip-ok">เริ่มใช้</span>{else}<span class="hint">–</span>{/if}
+                        {elseif $t['change'] >= 0}
+                            <span class="us-up mono">▲ {$t['change']}%</span>
+                        {else}
+                            <span class="us-down mono">▼ {abs($t['change'])}%</span>
+                        {/if}
+                    </td>
+                    <td class="num mono">{$t['college']}</td>
+                    <td class="num mono" style="color:var(--ink3)">{$t['byok']}</td>
+                    <td>{$t['top_task'] ?? '–'}</td>
+                    <td>
+                        {if $t['last_at']}<span title="{$t['last_at']}">{\App\Support\Thai::ago($t['last_at'])}</span>
+                        {else}<span class="chip chip-warn">ยังไม่เคยใช้</span>{/if}
+                    </td>
+                </tr>
+            {/foreach}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script n:syntax="off">
+    /* กรองตารางรายครูตามชื่อ / ชื่อผู้ใช้ / สาขา */
+    (function () {
+        var box = document.getElementById('usFilter');
+        if (!box) { return; }
+        box.addEventListener('input', function () {
+            var q = box.value.trim().toLowerCase();
+            document.querySelectorAll('#usTable tbody tr').forEach(function (tr) {
+                tr.hidden = q !== '' && tr.dataset.q.indexOf(q) === -1;
+            });
+        });
+    })();
+</script>

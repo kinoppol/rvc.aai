@@ -137,7 +137,7 @@ final class Drafter
             }
         }
 
-        $this->ai->logUsage($userId, null, $route->source, $route->model, $items !== []);
+        $this->ai->logUsage($userId, null, $route->source, $route->model, $items !== [], (string) ($spec['task'] ?? ''));
 
         return $items;
     }

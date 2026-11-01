@@ -10,6 +10,7 @@
 
     <div class="tabs">
         <a href="{$base}/admin/ai?tab=overview" n:class="tab, $tab === 'overview' ? is-active"><span class="msi">dashboard</span>ภาพรวม</a>
+        <a href="{$base}/admin/ai?tab=usage" n:class="tab, $tab === 'usage' ? is-active"><span class="msi">trending_up</span>สถิติการใช้งาน</a>
         <a href="{$base}/admin/ai?tab=settings" n:class="tab, $tab === 'settings' ? is-active"><span class="msi">settings</span>การตั้งค่า</a>
         <a href="{$base}/admin/ai?tab=quota" n:class="tab, $tab === 'quota' ? is-active"><span class="msi">data_usage</span>จำกัดการใช้งาน</a>
         <a href="{$base}/admin/ai?tab=courses" n:class="tab, $tab === 'courses' ? is-active"><span class="msi">auto_awesome</span>ฟังก์ชัน AI รายวิชา</a>
@@ -112,6 +113,9 @@
             </table>
         </div>
     </div>
+
+    {elseif $tab === 'usage'}
+    {include '_ai-usage.latte'}
 
     {elseif $tab === 'settings'}
     {* รายการผู้ให้บริการ AI ของส่วนกลาง — มีได้หลายราย แต่ละรายเปิดได้หลายโมเดล ครูเลือกใช้ตัวไหนก็ได้ *}

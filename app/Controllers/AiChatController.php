@@ -216,18 +216,18 @@ final class AiChatController
             }
         } catch (AiUnavailableException $e) {
             // ข้อผิดพลาดจากบริการจริง (รหัสหมดอายุ โควตาผู้ให้บริการ ฯลฯ) — บอกสาเหตุตามจริง
-            $this->ai->logUsage((int) $user['id'], null, $route->source, $route->model, false);
+            $this->ai->logUsage((int) $user['id'], null, $route->source, $route->model, false, 'chat');
             $send('error', ['reason' => $e->reason, 'message' => $e->getMessage()]);
 
             return $response;
         } catch (Throwable $e) {
-            $this->ai->logUsage((int) $user['id'], null, $route->source, $route->model, false);
+            $this->ai->logUsage((int) $user['id'], null, $route->source, $route->model, false, 'chat');
             $send('error', ['reason' => 'generate_failed', 'message' => 'ตอบกลับไม่สำเร็จ กรุณาลองใหม่']);
 
             return $response;
         }
 
-        $this->ai->logUsage((int) $user['id'], null, $route->source, $route->model, $chars > 0);
+        $this->ai->logUsage((int) $user['id'], null, $route->source, $route->model, $chars > 0, 'chat');
         $this->auth->log('ai.chat.test', null, ['source' => $route->source, 'quality' => $quality, 'chars' => $chars]);
 
         $send('done', ['chars' => $chars]);

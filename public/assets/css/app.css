@@ -2814,3 +2814,37 @@ html.is-presenting { overflow: hidden; }
 .byok-steps { margin: 16px 0 0; padding-left: 22px; line-height: 1.8; color: var(--ink2); }
 .byok-safe { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; }
 .byok-safe .msi { font-size: 18px; flex: none; }
+
+/* สถิติการใช้งาน AI (admin/_ai-usage.latte) */
+.us-head { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.us-periods { display: flex; flex-wrap: wrap; gap: 6px; }
+.us-metrics { margin-top: 16px; }
+.us-of { font-size: 16px; color: var(--ink3); font-weight: 700; }
+.metric-note.us-down, .us-down { color: var(--err); }
+.us-up { color: var(--ok); }
+.us-notes { margin-top: 18px; }
+.us-notes ul { margin: 8px 0 0; padding-left: 20px; color: var(--ink2); font-size: 13.5px; line-height: 1.7; }
+.us-notes .msi { font-size: 18px; vertical-align: -3px; color: var(--brand); }
+.us-card { margin-top: 18px; }
+.us-grid { margin-top: 0; }
+.us-trend { margin-top: 16px; display: flex; align-items: flex-end; gap: 2px; height: 180px; }
+.us-col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; gap: 6px; }
+.us-col:hover .chart-bar { filter: brightness(1.12); }
+.us-bars { height: 158px; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; }
+.us-x { height: 16px; font-size: 11px; color: var(--ink3); white-space: nowrap; overflow: visible; }
+.us-hbar { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 2fr) auto; gap: 10px; align-items: center; margin-top: 12px; font-size: 13px; }
+.us-hbar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.us-hbar-track { height: 10px; border-radius: 4px; background: var(--surface2); overflow: hidden; }
+.us-hbar-track > span { display: block; height: 100%; background: var(--brand); border-radius: 0 4px 4px 0; }
+.us-hbar-track > span.us-own { background: var(--brandLine); }
+.us-hbar-n { min-width: 40px; text-align: right; color: var(--ink2); }
+.us-foot { margin: 12px 0 0; }
+.us-heat-wrap { overflow-x: auto; margin-top: 12px; }
+.us-heat { border-collapse: separate; border-spacing: 2px; font-size: 11px; color: var(--ink3); }
+.us-heat th { font-weight: 600; padding: 0 4px; text-align: center; }
+.us-heat tbody th { text-align: right; }
+.us-heat td { width: 22px; height: 20px; padding: 0; border-radius: 4px; background: var(--surface2); position: relative; }
+.us-heat td i { position: absolute; inset: 0; border-radius: 4px; background: var(--brand); }
+.us-table-head { padding: 16px 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.us-table-head .input { width: 240px; max-width: 100%; }
+@media (max-width: 860px) { .us-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

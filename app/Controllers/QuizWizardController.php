@@ -239,7 +239,7 @@ final class QuizWizardController
         if ($route->countsQuota) {
             $this->ai->consumeQuota((int) $user['id'], $this->period(), $this->settings->int('ai_monthly_quota', 60));
         }
-        $this->ai->logUsage((int) $user['id'], $jobId, $route->source, $route->model, true);
+        $this->ai->logUsage((int) $user['id'], $jobId, $route->source, $route->model, true, 'quiz');
         $this->auth->log('ai.quiz.generate', 'quiz#' . $quizId, ['count' => count($collected), 'source' => $route->source]);
 
         $send('done', [
@@ -279,7 +279,7 @@ final class QuizWizardController
     /** หยุดงานที่ครูยกเลิก: ไม่บันทึกร่าง ไม่ตัดโควตา แต่ยังเก็บบันทึกการเรียกโมเดลไว้ */
     private function stopCancelled(Response $response, callable $send, int $userId, int $jobId, AiRoute $route, int $got): Response
     {
-        $this->ai->logUsage($userId, $jobId, $route->source, $route->model, false);
+        $this->ai->logUsage($userId, $jobId, $route->source, $route->model, false, 'quiz');
         $this->auth->log('ai.quiz.cancel', 'job#' . $jobId, ['got' => $got, 'source' => $route->source]);
         $send('cancelled', ['got' => $got]);
 
@@ -470,7 +470,7 @@ final class QuizWizardController
         }
 
         $this->quizzes->replaceQuestion((int) $question['id'], $fresh);
-        $this->ai->logUsage((int) $user['id'], null, $route->source, $route->model, true);
+        $this->ai->logUsage((int) $user['id'], null, $route->source, $route->model, true, 'quiz');
 
         return $this->json($response, ['question' => $this->quizzes->getQuestion((int) $question['id'])]);
     }

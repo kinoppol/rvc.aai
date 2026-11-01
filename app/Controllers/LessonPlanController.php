@@ -154,7 +154,7 @@ final class LessonPlanController
         if ($route->countsQuota) {
             $this->ai->consumeQuota((int) $user['id'], $this->period(), $this->settings->int('ai_monthly_quota', 60));
         }
-        $this->ai->logUsage((int) $user['id'], $jobId, $route->source, $route->model, true);
+        $this->ai->logUsage((int) $user['id'], $jobId, $route->source, $route->model, true, 'plan');
         $this->auth->log('ai.lesson_plan.generate', 'plan#' . $planId);
 
         $send('done', ['editUrl' => Url::to("/courses/{$course['id']}/lesson-plan/$planId")]);
