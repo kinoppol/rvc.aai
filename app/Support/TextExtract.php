@@ -76,6 +76,29 @@ final class TextExtract
         return self::tidy($text, $ext);
     }
 
+    /**
+     * อ่านข้อความจากไฟล์ที่เก็บไว้แล้ว (เช่น PDF ของส่วนเนื้อหาในหน่วย) — ใช้เตรียมฐานความรู้ให้ผู้ช่วย AI
+     *
+     * @throws RuntimeException เมื่ออ่านข้อความไม่ออก (ไฟล์สแกน เข้ารหัส หรือเสีย)
+     */
+    public static function fromFile(string $path, int $maxChars = self::MAX_CHARS): string
+    {
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $raw = @file_get_contents($path);
+        if ($raw === false || !array_key_exists($ext, self::ALLOWED)) {
+            throw new RuntimeException('เปิดไฟล์ไม่ได้');
+        }
+
+        $text = match ($ext) {
+            'docx' => self::fromDocx($raw),
+            'pdf' => PdfText::extract($raw),
+            'html', 'htm' => self::fromHtml($raw),
+            default => $raw,
+        };
+
+        return self::tidy($text, $ext, $maxChars);
+    }
+
     /** .docx คือไฟล์ zip — ข้อความอยู่ใน word/document.xml */
     private static function fromDocx(string $raw): string
     {
@@ -117,7 +140,7 @@ final class TextExtract
     }
 
     /** จัดข้อความให้สะอาด ตัดความยาว และตรวจว่าอ่านได้จริง */
-    private static function tidy(string $text, string $ext): string
+    private static function tidy(string $text, string $ext, int $maxChars = self::MAX_CHARS): string
     {
         if (!mb_check_encoding($text, 'UTF-8')) {
             // ไฟล์ไทยรุ่นเก่า (TIS-620 / Windows-874) — mbstring ไม่รู้จักรหัสไทย จึงแปลงเอง
@@ -139,8 +162,8 @@ final class TextExtract
             throw new RuntimeException('ไม่พบข้อความในไฟล์ .' . $ext . ' นี้');
         }
 
-        if (mb_strlen($text) > self::MAX_CHARS) {
-            $text = mb_substr($text, 0, self::MAX_CHARS) . "\n\n[ตัดเนื้อหาส่วนที่เกินออก]";
+        if (mb_strlen($text) > $maxChars) {
+            $text = mb_substr($text, 0, $maxChars) . "\n\n[ตัดเนื้อหาส่วนที่เกินออก]";
         }
 
         return $text;

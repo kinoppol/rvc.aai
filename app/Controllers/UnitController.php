@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\AI\AiUnavailableException;
 use App\AI\Drafter;
+use App\AI\UnitKnowledge;
 use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
 use App\Domain\QuizRepository;
@@ -41,6 +42,7 @@ final class UnitController
         private readonly QuizRepository $quizzes,
         private readonly Drafter $drafter,
         private readonly LoggerInterface $logger,
+        private readonly UnitKnowledge $knowledge,
     ) {
     }
 
@@ -399,8 +401,13 @@ final class UnitController
 
             $sectionData['file_path'] = 'units/' . $unitId . '/' . $stored;
             $sectionData['file_name'] = mb_substr((string) $file->getClientFilename(), 0, 255);
-            $this->units->createSection($sectionData);
-            Flash::success('เพิ่มเอกสาร PDF แล้ว');
+            $sectionId = $this->units->createSection($sectionData);
+
+            // อ่านข้อความใน PDF ครั้งเดียวตอนนี้ เก็บเป็น .md ให้ผู้ช่วย AI ใช้ออกข้อสอบได้ทันทีโดยไม่ต้องอ่านไฟล์ซ้ำ
+            $ready = $this->knowledge->prepare(['id' => $sectionId, 'unit_id' => $unitId] + $sectionData);
+            $ready['ok']
+                ? Flash::success(sprintf('เพิ่มเอกสาร PDF แล้ว · เตรียมข้อความ %s ตัวอักษรให้ผู้ช่วย AI ใช้ออกข้อสอบแล้ว', number_format($ready['chars'])))
+                : Flash::warning('เพิ่มเอกสาร PDF แล้ว แต่ผู้ช่วย AI อ่านข้อความในไฟล์นี้ไม่ได้ (' . $ready['message'] . ') · ถ้าต้องการให้ใช้ออกข้อสอบ ให้เพิ่มเนื้อหาสำคัญเป็นส่วนข้อความ');
         }
 
         return $this->redirectToUnit($response, $courseId, $unitId);
@@ -425,6 +432,7 @@ final class UnitController
         $section = $this->units->findSection($sectionId);
         if ($section !== null && (int) $section['unit_id'] === $unitId) {
             $this->units->deleteSection($sectionId);
+            $this->knowledge->forget($section);
             Flash::success('ลบส่วนเนื้อหาแล้ว');
         }
 

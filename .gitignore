@@ -4,6 +4,7 @@
 /storage/logs/*
 /storage/cache/*
 /storage/uploads/*
+/storage/ai-context/*
 /storage/install.lock
 !/storage/**/.gitkeep
 .DS_Store

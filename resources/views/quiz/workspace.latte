@@ -53,6 +53,7 @@
         total = d.total || 0;
         document.getElementById('genChip').textContent = d.chip;
         headline.textContent = 'กำลังเขียนข้อ 1 จาก ' + total;
+        if (d.knowledge) { document.getElementById('genHint').textContent = d.knowledge; }
     });
 
     es.addEventListener('question', function (e) {

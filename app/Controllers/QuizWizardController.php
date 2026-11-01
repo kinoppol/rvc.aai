@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\AI\AiRouter;
 use App\AI\AiUnavailableException;
 use App\AI\QuizGenerator;
+use App\AI\UnitKnowledge;
 use App\Auth\Auth;
 use App\Domain\AiRepository;
 use App\Domain\CourseRepository;
@@ -37,6 +38,8 @@ final class QuizWizardController
         'กลาง' => 'ความเข้าใจและการนำไปใช้ในงานจริง',
         'ยาก' => 'วิเคราะห์อาการเสียและแก้ปัญหา',
     ];
+    /** เนื้อหาหน่วยที่ส่งให้ผู้ช่วยเป็นฐานความรู้ (ตัวอักษร) — พอสำหรับหลายหน่วยโดยไม่ล้นหน้าต่างของโมเดลเล็ก */
+    private const SOURCE_CHARS = 14000;
 
     public function __construct(
         private readonly View $view,
@@ -49,6 +52,7 @@ final class QuizWizardController
         private readonly QuizGenerator $generator,
         private readonly SettingsRepository $settings,
         private readonly Auth $auth,
+        private readonly UnitKnowledge $knowledge,
     ) {
     }
 
@@ -133,10 +137,14 @@ final class QuizWizardController
             return $response;
         }
 
+        // ฐานความรู้จากเนื้อหาจริงของหน่วย — PDF ถูกอ่านไว้ล่วงหน้าตอนอัปโหลด จึงไม่ช้า
+        $known = $this->knowledge->forUnits($params['unitIds'], self::SOURCE_CHARS);
+
         $send('meta', [
             'chip' => $route->chip,
             'total' => $params['count'],
             'source' => $route->source,
+            'knowledge' => self::knowledgeNote($known),
         ]);
 
         $jobId = $this->ai->createJob([
@@ -160,6 +168,7 @@ final class QuizWizardController
                 'count' => $params['count'],
                 'types' => $params['types'],
                 'level' => $params['level'],
+                'source' => $known['text'],
             ], $quality) as $ev) {
                 if ($ev['event'] === 'question') {
                     $collected[] = $ev['data'];
@@ -276,6 +285,12 @@ final class QuizWizardController
             'count' => 3,
             'types' => [$question['type'] === 'short_answer' ? 'อัตนัย' : 'ปรนัย'],
             'level' => $params['level'] ?? 'กลาง',
+            // ร่างที่สร้างก่อนมี unitIds ใช้หน่วยของแบบทดสอบแทน
+            'source' => $this->knowledge->forUnits(
+                array_map('intval', (array) ($params['unitIds'] ?? (empty($params['unit_id']) ? [] : [$params['unit_id']]))),
+                self::SOURCE_CHARS
+            )['text'],
+            'avoid' => (string) $question['question'],
         ]) as $ev) {
             if ($ev['event'] === 'question') {
                 $fresh = $ev['data'];
@@ -398,7 +413,7 @@ final class QuizWizardController
             'title' => $title,
             'summary' => sprintf('%d ข้อ · %s', count($questions), implode(', ', $params['types'])),
             'ai_mode' => $source === 'byok' ? 'โหมดเร็ว' : null,
-            'params' => ['unitTitles' => $params['unitTitles'], 'unit_id' => $params['unit_id'], 'kind' => $params['kind'], 'types' => $params['types'], 'count' => $params['count'], 'level' => $params['level'], 'ai' => $params['ai']],
+            'params' => ['unitTitles' => $params['unitTitles'], 'unitIds' => $params['unitIds'], 'unit_id' => $params['unit_id'], 'kind' => $params['kind'], 'types' => $params['types'], 'count' => $params['count'], 'level' => $params['level'], 'ai' => $params['ai']],
         ]);
         $this->reviews->linkTarget($genId, 'quiz', $quizId);
 
@@ -413,16 +428,20 @@ final class QuizWizardController
         $kind = in_array($q['kind'] ?? '', ['pretest', 'posttest'], true) ? $q['kind'] : 'posttest';
 
         $unitTitles = [];
+        $unitIds = [];
         $examLabel = null;
         if ($unitId !== null) {
             $unit = $this->units->find($unitId);
             if ($unit !== null && (int) $unit['course_id'] === (int) $course['id']) {
                 $unitTitles = [$unit['title']];
+                $unitIds = [(int) $unit['id']];
                 if (UnitRepository::isExam($unit)) {
                     // หน่วยสอบ: ออกข้อสอบครอบคลุมหน่วยการเรียนก่อนหน้า (กลางภาค = หน่วยที่อยู่ก่อนหน้า, ปลายภาค = ทุกหน่วย)
                     $examLabel = UnitRepository::KINDS[$unit['kind']];
                     $kind = 'posttest';
-                    $unitTitles = $this->examScope($course, $unit);
+                    $scope = $this->examScope($course, $unit);
+                    $unitTitles = array_column($scope, 'title') ?: [$course['name']];
+                    $unitIds = array_map('intval', array_column($scope, 'id'));
                 }
             } else {
                 $unitId = null;
@@ -443,6 +462,7 @@ final class QuizWizardController
             'kind' => $kind,
             'exam' => $examLabel,
             'unitTitles' => $unitTitles,
+            'unitIds' => $unitIds,
             'count' => $count,
             'types' => $types ?: ['ปรนัย'],
             'level' => $level,
@@ -451,10 +471,10 @@ final class QuizWizardController
         ];
     }
 
-    /** @return list<string> ชื่อหน่วยการเรียนที่หน่วยสอบนี้ครอบคลุม */
+    /** @return list<array<string,mixed>> หน่วยการเรียนที่หน่วยสอบนี้ครอบคลุม */
     private function examScope(array $course, array $examUnit): array
     {
-        $titles = [];
+        $scope = [];
         foreach ($this->units->forCourse((int) $course['id']) as $u) {
             if ((int) $u['id'] === (int) $examUnit['id']) {
                 if ($examUnit['kind'] === 'midterm') {
@@ -463,11 +483,35 @@ final class QuizWizardController
                 continue;
             }
             if (!UnitRepository::isExam($u)) {
-                $titles[] = $u['title'];
+                $scope[] = $u;
             }
         }
 
-        return $titles ?: [$course['name']];
+        return $scope;
+    }
+
+    /** ข้อความบอกครูว่าผู้ช่วยใช้เนื้อหาอะไรเป็นฐานความรู้ */
+    private static function knowledgeNote(array $known): string
+    {
+        if ($known['text'] === '') {
+            return 'หน่วยนี้ยังไม่มีเนื้อหาให้อ่าน · ผู้ช่วยออกข้อสอบจากชื่อหน่วยอย่างเดียว เพิ่มเนื้อหาในหน่วยก่อนจะได้ข้อสอบที่ตรงกว่า';
+        }
+
+        $note = sprintf('ออกจากเนื้อหาจริงของ %d หน่วย · %s ตัวอักษร', $known['units'], number_format(mb_strlen($known['text'])));
+        if ($known['pdf_ok'] > 0) {
+            $note .= sprintf(' · รวม PDF %d ไฟล์', $known['pdf_ok']);
+        }
+        if ($known['pdf_failed'] !== []) {
+            $note .= ' · อ่าน PDF ไม่ได้: ' . implode(', ', array_slice($known['pdf_failed'], 0, 3));
+        }
+        if ($known['videos'] > 0) {
+            $note .= ' · วีดิโอใช้แค่ชื่อเรื่อง';
+        }
+        if ($known['trimmed']) {
+            $note .= ' · เนื้อหายาวเกิน ตัดบางส่วนออก';
+        }
+
+        return $note;
     }
 
     private function unitRange(array $titles): string

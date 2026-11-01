@@ -35,9 +35,13 @@ final class QuizGenerator
             'count' => $params['count'],
             'types' => $types,
             'level' => $params['level'],
+            // เนื้อหาที่สอนจริงของหน่วย (UnitKnowledge) — ออกข้อสอบจากตรงนี้เท่านั้น
+            'source' => (string) ($params['source'] ?? ''),
+            'avoid' => (string) ($params['avoid'] ?? ''),
         ], JSON_UNESCAPED_UNICODE);
 
         $system = 'คุณเป็นผู้ช่วยครูอาชีวศึกษา ออกข้อสอบภาษาไทยที่ถูกต้องตามหลักวิชาชีพ '
+            . (($params['source'] ?? '') !== '' ? 'โดยใช้เฉพาะเนื้อหาที่ครูสอนซึ่งแนบมาให้ ห้ามออกเกินเนื้อหานั้น ' : '')
             . 'ตอบกลับเป็น NDJSON หนึ่งข้อต่อหนึ่งบรรทัด';
 
         $count = 0;
