@@ -12,3 +12,4 @@ Thumbs.db
 
 # แม่แบบดีไซน์ (อ้างอิงเท่านั้น ไม่นำขึ้น git)
 /resources/design/
+/storage/quarantine/

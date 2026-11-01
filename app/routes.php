@@ -10,6 +10,7 @@ use App\Controllers\Admin\DemoController;
 use App\Controllers\Admin\CoursesController as AdminCoursesController;
 use App\Controllers\Admin\GeneralController;
 use App\Controllers\Admin\LogsController;
+use App\Controllers\Admin\SecurityController;
 use App\Controllers\Admin\MigrationController;
 use App\Controllers\Admin\RmsController;
 use App\Controllers\Admin\UsersController as AdminUsersController;
@@ -320,6 +321,10 @@ return static function (App $app): void {
 
             $admin->get('/logs', [LogsController::class, 'index'])->setName('admin.logs');
             $admin->get('/logs/download', [LogsController::class, 'download']);
+
+            $admin->get('/security', [SecurityController::class, 'index'])->setName('admin.security');
+            $admin->post('/security/scan', [SecurityController::class, 'scan']);
+            $admin->post('/security/quarantine', [SecurityController::class, 'quarantine']);
 
             // โอนข้อมูลบุคลากร กลุ่มเรียน และนักเรียนจากระบบ RMS ของวิทยาลัย
             $admin->get('/rms', [RmsController::class, 'index'])->setName('admin.rms');

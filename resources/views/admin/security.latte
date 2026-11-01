@@ -1,0 +1,94 @@
+{layout '../layout.latte'}
+
+{block title}ตรวจความปลอดภัย{/block}
+
+{* ผลจาก App\Security\SecurityScanner (ผลล่าสุดเก็บใน storage/cache/security-scan.json) — กดตรวจใหม่ได้ทุกเมื่อ *}
+{block content}
+{include '../_partials/system-tabs.latte'}
+<style>
+    .sec-sum { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 18px; }
+    .sec-item + .sec-item { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .sec-item h3 { margin: 0 0 4px; font-size: 15px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .sec-item p { margin: 0; color: var(--ink2); font-size: 13.5px; }
+    .sec-path { font-size: 12.5px; word-break: break-all; }
+    .sec-snip { margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--surface2); font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+    .sec-pass li { margin: 4px 0; }
+</style>
+
+<div class="page-head">
+    <div>
+        <h1>ตรวจความปลอดภัย</h1>
+        <div class="sub">
+            หาไฟล์ webshell หรือไฟล์ PHP ที่ถูกฝากเข้ามา (เช่นผ่านช่องอัปโหลด) เทียบไฟล์กับโค้ดที่ deploy
+            ตรวจค่าตั้งของเซิร์ฟเวอร์ บัญชีที่รหัสผ่านอ่อน และสิ่งที่คนนอกเปิดได้จากเว็บ · ตรวจอย่างเดียว ไม่แก้ไฟล์ใด ๆ
+        </div>
+    </div>
+    <div class="actions">
+        <form method="post" action="{$base}/admin/security/scan" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='กำลังตรวจ… (อาจใช้เวลาเป็นนาที)'">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <button type="submit" class="btn btn-primary"><span class="msi" aria-hidden="true">shield</span>{$scan ? 'ตรวจอีกครั้ง' : 'เริ่มตรวจ'}</button>
+        </form>
+    </div>
+</div>
+
+{if !$scan}
+    <div class="empty">
+        <h3>ยังไม่เคยตรวจ</h3>
+        <p>กด "เริ่มตรวจ" ระบบจะไล่ดูทุกไฟล์ของโปรเจกต์ ใช้เวลาตั้งแต่ไม่กี่วินาทีถึงประมาณหนึ่งนาที</p>
+    </div>
+{else}
+    <div class="hint">
+        ตรวจล่าสุด {$scan['ran_at']} · {number_format($scan['files'])} ไฟล์ · {$scan['seconds']} วินาที
+        {if !$scan['git']} · <strong>เทียบกับ git ไม่ได้</strong>{/if}
+    </div>
+    <div class="sec-sum">
+        {foreach $severities as $key => $label}
+            <span n:class="chip, $key === 'high' ? chip-err, $key === 'medium' ? chip-warn, $key === 'low' ? chip-warn">{$label} {$scan['counts'][$key] ?? 0}</span>
+        {/foreach}
+    </div>
+
+    {foreach $groups as $g => $gLabel}
+        {var $items = array_values(array_filter($scan['findings'], fn($f) => $f['group'] === $g))}
+        {continueIf !$items}
+        <div class="card" style="margin-bottom:16px">
+            <h2 style="margin:0 0 12px;font-size:17px">{$gLabel}</h2>
+            {foreach $items as $f}
+                <div class="sec-item">
+                    <h3>
+                        <span n:class="chip, $f['severity'] === 'high' ? chip-err, in_array($f['severity'], ['medium', 'low'], true) ? chip-warn">{$severities[$f['severity']]}</span>
+                        {$f['title']}
+                    </h3>
+                    {if $f['path']}<div class="sec-path mono">{$f['path']}{if $f['line']}:{$f['line']}{/if}</div>{/if}
+                    <p>{$f['detail']}</p>
+                    {if $f['snippet']}<pre class="sec-snip mono">{$f['snippet']}</pre>{/if}
+                    {if $f['quarantine'] && $f['path']}
+                        <form method="post" action="{$base}/admin/security/quarantine" style="margin-top:8px"
+                              onsubmit="return confirm('ย้ายไฟล์นี้ไปกักไว้ที่ storage/quarantine ?\nไฟล์จะไม่ถูกลบ ย้ายคืนเองได้ภายหลัง')">
+                            <input type="hidden" name="_token" value="{$csrf}">
+                            <input type="hidden" name="path" value="{$f['path']}">
+                            <button type="submit" class="btn btn-sm">กักไฟล์นี้</button>
+                        </form>
+                    {/if}
+                </div>
+            {/foreach}
+        </div>
+    {/foreach}
+
+    {if $scan['truncated']}<div class="hint">แสดงได้สูงสุด 300 รายการ แก้รายการข้างบนแล้วตรวจใหม่เพื่อดูที่เหลือ</div>{/if}
+
+    {if $scan['passed']}
+        <div class="card">
+            <h2 style="margin:0 0 8px;font-size:17px">ผ่าน</h2>
+            <ul class="sec-pass">
+                {foreach $scan['passed'] as $p}<li><span class="msi" aria-hidden="true">check</span> {$p}</li>{/foreach}
+            </ul>
+        </div>
+    {/if}
+
+    {if !empty($scan['quarantined'])}
+        <div class="hint" style="margin-top:12px">
+            กักไว้แล้ว: {foreach $scan['quarantined'] as $q}<span class="mono">{$q['path']}</span> → <span class="mono">{$q['to']}</span>{sep}, {/sep}{/foreach}
+        </div>
+    {/if}
+{/if}
+{/block}

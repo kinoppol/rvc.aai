@@ -44,7 +44,8 @@ final class Database
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::ATTR_STRINGIFY_FETCHES => false,
-            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci, sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'",
+            // time_zone ให้ NOW() / CURRENT_TIMESTAMP ตรงกับเวลาฝั่ง PHP (date()) ไม่ว่าเซิร์ฟเวอร์ฐานข้อมูลจะตั้งเป็นเขตไหน
+            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci, sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION', time_zone='" . (new \DateTimeImmutable())->format('P') . "'",
         ]);
     }
 

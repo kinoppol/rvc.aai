@@ -37,7 +37,9 @@ require_once Paths::vendorAutoload();
 
 $config = Config::load();
 
-date_default_timezone_set((string) $config->get('app.timezone', 'Asia/Bangkok'));
+// เขตเวลาเริ่มต้น = กรุงเทพฯ (+07:00) · ค่าใน config ที่ว่างหรือสะกดผิดก็กลับมาใช้กรุงเทพฯ
+$timezone = (string) $config->get('app.timezone', '');
+date_default_timezone_set(in_array($timezone, timezone_identifiers_list(), true) ? $timezone : 'Asia/Bangkok');
 
 $builder = new ContainerBuilder();
 $builder->addDefinitions([
