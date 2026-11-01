@@ -6,7 +6,10 @@
 <div class="wizard-page narrow" id="genRoot"
      data-stream="{$base}/courses/{$course['id']}/quizzes/stream?{$query|noescape}"
      data-create="{$base}/courses/{$course['id']}/quizzes/create"
-     data-settings="{$base}/settings/ai">
+     data-jobs="{$base}/courses/{$course['id']}/quizzes/jobs/"
+     data-token="{$csrf}"
+     data-settings="{$base}/settings/ai"
+     data-manual="{$base}/courses/{$course['id']}/quizzes/new">
     <h1>กำลังร่างข้อสอบ</h1>
 
     <div class="card gen-status" id="genStatus">
@@ -42,7 +45,7 @@
     var skeleton = document.getElementById('genSkeleton');
     var bar = document.getElementById('genBar');
     var headline = document.getElementById('genHeadline');
-    var total = 0, got = 0, es;
+    var total = 0, got = 0, es, jobId = 0, cancelWanted = false;
 
     function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
 
@@ -51,6 +54,8 @@
     es.addEventListener('meta', function (e) {
         var d = JSON.parse(e.data);
         total = d.total || 0;
+        jobId = d.jobId || 0;
+        if (cancelWanted) { cancelJob(); return; }
         document.getElementById('genChip').textContent = d.chip;
         headline.textContent = 'กำลังเขียนข้อ 1 จาก ' + total;
         if (d.knowledge) { document.getElementById('genHint').textContent = d.knowledge; }
@@ -98,13 +103,37 @@
         box.className = 'alert alert-error';
         box.innerHTML = '<span>✕</span><div><strong>' + esc(msg) + '</strong><br>' +
             '<a href="' + root.dataset.create + '">กลับไปตั้งค่างานใหม่</a>' +
-            (reason === 'college_offline' || reason === 'quota_exhausted' ? ' · <a href="' + root.dataset.settings + '">เชื่อม AI ของฉัน</a>' : '') +
+            (reason === 'college_offline' || reason === 'quota_exhausted' ? ' · <a href="' + root.dataset.settings + '#byok-guide">วิธีหา API key มาใช้เอง</a> · <a href="' + root.dataset.manual + '">สร้างแบบทดสอบเอง</a>' : '') +
             '</div>';
     });
 
-    document.getElementById('cancelBtn').addEventListener('click', function () {
+    /* ถูกยกเลิก (เช่นจากอีกแท็บ) — เซิร์ฟเวอร์หยุดแล้ว ไม่บันทึกร่าง */
+    es.addEventListener('cancelled', function () {
         es.close();
         window.location = root.dataset.create;
+    });
+
+    /* ปิดหน้าเฉย ๆ = งานทำต่อ · กดยกเลิก = สั่งเซิร์ฟเวอร์หยุดจริง (ไม่บันทึกร่าง ไม่ตัดโควตา)
+       keepalive ให้คำสั่งไปถึงแม้หน้าจะเปลี่ยนไปแล้ว */
+    function cancelJob() {
+        es.close();
+        var body = new URLSearchParams();
+        body.append('_token', root.dataset.token);
+        fetch(root.dataset.jobs + jobId + '/cancel', {
+            method: 'POST', body: body, keepalive: true, credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).catch(function () {}).then(function () {
+            window.location = root.dataset.create;
+        });
+    }
+
+    document.getElementById('cancelBtn').addEventListener('click', function () {
+        this.disabled = true;
+        this.textContent = 'กำลังยกเลิก…';
+        headline.textContent = 'กำลังยกเลิกงาน…';
+        if (jobId) { cancelJob(); return; }
+        /* ยังไม่รู้หมายเลขงาน (ยังเลือกโมเดล/อ่านเนื้อหาอยู่) — รอ meta แล้วค่อยยกเลิก */
+        cancelWanted = true;
     });
 })();
 </script>

@@ -180,8 +180,11 @@ return static function (App $app): void {
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections/{sectionId:[0-9]+}/ocr', [UnitController::class, 'readScan']);
 
             $t->get('/{courseId:[0-9]+}/quizzes/create', [QuizWizardController::class, 'create']);
+            $t->get('/{courseId:[0-9]+}/quizzes/new', [QuizWizardController::class, 'newForm']);
+            $t->post('/{courseId:[0-9]+}/quizzes/new', [QuizWizardController::class, 'createManual']);
             $t->get('/{courseId:[0-9]+}/quizzes/workspace', [QuizWizardController::class, 'workspace']);
             $t->get('/{courseId:[0-9]+}/quizzes/stream', [QuizWizardController::class, 'stream']);
+            $t->post('/{courseId:[0-9]+}/quizzes/jobs/{jobId:[0-9]+}/cancel', [QuizWizardController::class, 'cancel']);
             $t->get('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/review', [QuizWizardController::class, 'review']);
             $t->post('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}', [QuizWizardController::class, 'save']);
             $t->post('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/questions/{qid:[0-9]+}/regenerate', [QuizWizardController::class, 'regenerateOne']);

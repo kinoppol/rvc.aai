@@ -305,7 +305,8 @@ final class AiRouter
         if ($enforceQuota && !$free && $quota['left'] <= 0) {
             $failure ??= new AiUnavailableException(
                 'quota_exhausted',
-                sprintf('ใช้โควตาผู้ช่วย AI ครบ %d ครั้งของเดือนนี้แล้ว', $quota['limit'])
+                // ชวนครูหา API key ของตัวเอง (มีแบบฟรี) — ไม่แนะนำให้ไปขอผู้ดูแลเปิดโมเดลไม่จำกัด
+                sprintf('ใช้โควตา AI ของส่วนกลางครบ %d ครั้งของเดือนนี้แล้ว · หา API key ของตัวเอง (มีแบบฟรี) มาเชื่อมที่หน้า "ผู้ช่วย AI ของฉัน" เพื่อใช้ต่อได้ทันที', $quota['limit'])
             );
 
             return null;

@@ -248,6 +248,148 @@ final class QuizRepository
     }
 
     /** อัปเดตเฉพาะข้อความ (จากการแก้ในหน้าตรวจ) — ไม่แตะจำนวน/ลำดับตัวเลือก */
+    /** ป้ายตัวเลือกตามลำดับ */
+    public const CHOICE_LABELS = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ'];
+
+    /** ชนิดข้อสอบที่ครูเพิ่ม/เปลี่ยนเองได้ในหน้าแก้ไข (ชนิดอื่น เช่น จับคู่ มาจาก AI เท่านั้น คงชนิดเดิมไว้) */
+    public const EDITABLE_TYPES = ['choice', 'short_answer'];
+
+    /**
+     * บันทึกข้อสอบทั้งชุดจากหน้าแก้ไข: ลำดับตามที่ส่งมา · id ว่าง = ข้อใหม่ · ข้อที่ไม่ได้ส่งมา = ถูกลบ
+     * ตัวเลือกเดิมแก้ในที่เดิม (คำตอบของนักเรียนที่เลือกไว้จึงยังผูกอยู่) เพิ่มใหม่ได้ ลบที่ครูเอาออก
+     *
+     * @param list<array<string,mixed>> $items
+     * @return bool เฉลยหรือคะแนนเปลี่ยนหรือไม่ (ต้องคิดคะแนนผู้ที่ทำไปแล้วใหม่)
+     */
+    public function syncQuestions(int $quizId, array $items): bool
+    {
+        return (bool) $this->db->transaction(function (Db $db) use ($quizId, $items): bool {
+            $before = $this->answerKey($quizId);
+            $existing = array_map('intval', array_column(
+                $db->all('SELECT id FROM {quiz_questions} WHERE quiz_id = ?', [$quizId]), 'id'
+            ));
+            $kept = [];
+
+            foreach (array_values($items) as $order => $q) {
+                $qid = (int) ($q['id'] ?? 0);
+                $old = $qid > 0 && in_array($qid, $existing, true)
+                    ? $db->first('SELECT type FROM {quiz_questions} WHERE id = ?', [$qid])
+                    : null;
+                $type = (string) ($q['type'] ?? 'choice');
+                if ($old !== null && !in_array($old['type'], self::EDITABLE_TYPES, true)) {
+                    $type = (string) $old['type'];
+                } elseif (!in_array($type, self::EDITABLE_TYPES, true)) {
+                    $type = 'choice';
+                }
+
+                $fields = [
+                    'type' => $type,
+                    'question' => mb_substr(trim((string) ($q['question'] ?? '')), 0, 5000),
+                    'explanation' => mb_substr(trim((string) ($q['explanation'] ?? '')), 0, 5000) ?: null,
+                    'score' => max(0, min(100, round((float) ($q['score'] ?? 1), 2))),
+                    'sort_order' => $order,
+                ];
+
+                if ($old !== null) {
+                    $db->update('quiz_questions', $fields, ['id' => $qid]);
+                } else {
+                    $qid = $db->insert('quiz_questions', $fields + ['quiz_id' => $quizId, 'source' => 'manual']);
+                }
+                $kept[] = $qid;
+
+                $this->syncChoices($db, $qid, $type, (array) ($q['choices'] ?? []));
+            }
+
+            foreach (array_diff($existing, $kept) as $gone) {
+                $db->run('DELETE FROM {quiz_questions} WHERE id = ? AND quiz_id = ?', [$gone, $quizId]);
+            }
+
+            return $before !== $this->answerKey($quizId);
+        });
+    }
+
+    /** @param list<array<string,mixed>> $choices */
+    private function syncChoices(Db $db, int $questionId, string $type, array $choices): void
+    {
+        $existing = array_column($db->all('SELECT id FROM {quiz_choices} WHERE question_id = ?', [$questionId]), 'id', 'id');
+
+        // อัตนัยไม่มีตัวเลือก · จับคู่แก้ได้แค่ข้อความของตัวเลือกเดิม
+        if ($type === 'short_answer') {
+            $choices = [];
+        }
+
+        $kept = [];
+        $order = 0;
+        foreach ($choices as $c) {
+            $cid = (int) ($c['id'] ?? 0);
+            $content = mb_substr(trim((string) ($c['content'] ?? '')), 0, 2000);
+            if ($content === '' || $order >= count(self::CHOICE_LABELS)) {
+                continue;
+            }
+            $row = ['content' => $content, 'label' => self::CHOICE_LABELS[$order], 'sort_order' => $order];
+            if ($type !== 'matching') {
+                $row['is_correct'] = !empty($c['is_correct']) ? 1 : 0;
+            }
+
+            if ($cid > 0 && isset($existing[$cid])) {
+                $db->update('quiz_choices', $row, ['id' => $cid, 'question_id' => $questionId]);
+                $kept[] = $cid;
+            } elseif ($type !== 'matching') {
+                $kept[] = $db->insert('quiz_choices', $row + ['question_id' => $questionId]);
+            }
+            $order++;
+        }
+
+        // จับคู่: ตัวเลือกที่ไม่ได้ส่งมาไม่ลบ (ครูเพิ่ม/ลบคู่เองไม่ได้)
+        if ($type === 'matching') {
+            return;
+        }
+        foreach (array_diff(array_map('intval', array_keys($existing)), $kept) as $gone) {
+            $db->run('DELETE FROM {quiz_choices} WHERE id = ? AND question_id = ?', [$gone, $questionId]);
+        }
+    }
+
+    /** เฉลย + คะแนนของทั้งชุด ไว้เทียบว่าต้องคิดคะแนนใหม่หรือไม่ */
+    private function answerKey(int $quizId): string
+    {
+        $rows = $this->db->all(
+            'SELECT q.id, q.type, q.score,
+                    (SELECT GROUP_CONCAT(c.id ORDER BY c.id) FROM {quiz_choices} c WHERE c.question_id = q.id AND c.is_correct = 1) AS correct
+             FROM {quiz_questions} q WHERE q.quiz_id = ? ORDER BY q.id',
+            [$quizId]
+        );
+
+        return json_encode($rows) ?: '';
+    }
+
+    /**
+     * ปัญหาที่ต้องแก้ก่อนเผยแพร่ — ข้อความภาษาไทยทีละข้อ (ว่าง = เผยแพร่ได้)
+     *
+     * @return list<string>
+     */
+    public function problems(int $quizId): array
+    {
+        $out = [];
+        foreach ($this->questions($quizId) as $i => $q) {
+            $no = 'ข้อ ' . ($i + 1);
+            if (trim((string) $q['question']) === '') {
+                $out[] = $no . ' ยังไม่มีคำถาม';
+            }
+            if ($q['type'] === 'choice') {
+                $correct = count(array_filter($q['choices'], static fn (array $c): bool => (int) $c['is_correct'] === 1));
+                if (count($q['choices']) < 2) {
+                    $out[] = $no . ' ต้องมีตัวเลือกอย่างน้อย 2 ข้อ';
+                } elseif ($correct === 0) {
+                    $out[] = $no . ' ยังไม่ได้เลือกเฉลย';
+                } elseif ($correct > 1) {
+                    $out[] = $no . ' เลือกเฉลยได้ข้อเดียว';
+                }
+            }
+        }
+
+        return $out;
+    }
+
     public function saveEdits(int $quizId, array $questions): void
     {
         $this->db->transaction(function (Db $db) use ($quizId, $questions): void {
@@ -314,6 +456,15 @@ final class QuizRepository
     public function deleteAllQuestions(int $quizId): void
     {
         $this->db->run('DELETE FROM {quiz_questions} WHERE quiz_id = ?', [$quizId]);
+    }
+
+    /** จำนวนนักเรียนที่ส่งแบบทดสอบชุดนี้แล้ว */
+    public function submittedCount(int $quizId): int
+    {
+        return $this->db->int(
+            'SELECT COUNT(DISTINCT student_id) FROM {quiz_attempts} WHERE quiz_id = ? AND status <> \'in_progress\'',
+            [$quizId]
+        );
     }
 
     public function questionCount(int $quizId): int

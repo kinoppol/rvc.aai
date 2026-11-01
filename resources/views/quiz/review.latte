@@ -1,147 +1,77 @@
 {layout '../layout.latte'}
 
-{block title}ตรวจร่างข้อสอบ{/block}
+{block title}{$manual ? 'แก้ไขแบบทดสอบ' : 'ตรวจร่างข้อสอบ'}{/block}
 
+{* หน้าแก้ไขแบบทดสอบ (ทั้งร่างจาก AI และที่ครูสร้างเอง): เพิ่ม/ลบ/สลับข้อ แก้คำถาม ตัวเลือก เฉลย และคะแนน
+   ข้อสอบทั้งชุดถูกส่งไปในฟอร์มเดียว (payload + sync=1) — ตัวแก้ไขอยู่ใน public/assets/js/quiz-editor.js *}
 {block content}
+{var $published = $quiz['review_status'] === 'published'}
 <div class="wizard-page mid" id="reviewRoot"
-     data-base="{$base}" data-course="{$course['id']}" data-quiz="{$quiz['id']}" data-token="{$csrf}">
+     data-base="{$base}" data-course="{$course['id']}" data-quiz="{$quiz['id']}" data-token="{$csrf}"
+     data-regen="{$aiOn && $attemptCount === 0 ? 1 : 0}"
+     data-editor="{json_encode($editorData, \JSON_UNESCAPED_UNICODE)}">
 
+    <a class="back-link" href="{$base}/courses/{$course['id']}{$quiz['unit_id'] ? '/units/' . $quiz['unit_id'] . '/edit' : '?tab=quizzes'}">← กลับ</a>
     <div class="review-head">
         <div class="grow">
             <h1>{$quiz['title']}</h1>
-            <div class="sub">ร่าง{$createdAgo} · <span id="qCount">{count($questions)}</span> ข้อ · ยังไม่เผยแพร่ให้นักเรียน</div>
+            <div class="sub">
+                {$manual ? 'สร้าง' : 'ร่าง'}{$createdAgo} · <span id="qCount">{count($questions)}</span> ข้อ ·
+                {if $published}เผยแพร่ให้นักเรียนแล้ว{else}ยังไม่เผยแพร่ให้นักเรียน{/if}
+            </div>
         </div>
         <span class="ai-chip">{$aiChip}</span>
     </div>
 
-    <div class="alert alert-warning review-warn">
-        <div class="warn-mark">!</div>
-        <div class="grow">
-            <strong>เนื้อหานี้สร้างโดย AI กรุณาตรวจสอบความถูกต้องก่อนเผยแพร่</strong><br>
-            แก้ข้อความและเฉลยได้ทันทีในหน้านี้ ยังไม่มีนักเรียนคนใดเห็นร่างนี้
-        </div>
-        <span class="tag tag-warn">สถานะ: รอครูตรวจ</span>
-    </div>
-
-    <div class="field" style="margin-top:16px">
-        <label for="quizTitle">ชื่อแบบทดสอบ</label>
-        <input class="input" type="text" id="quizTitle" value="{$quiz['title']}">
-    </div>
-
-    <div id="questionList">
-        {foreach $questions as $q}
-            <div class="q-card" data-qid="{$q['id']}" data-type="{$q['type']}">
-                <div class="q-card-top">
-                    <span class="mono q-no">ข้อ {$iterator->counter}</span>
-                    <span class="tag">{$q['type'] === 'short_answer' ? 'อัตนัย' : ($q['type'] === 'matching' ? 'จับคู่' : 'ปรนัย')}</span>
-                    <div class="grow"></div>
-                    <button type="button" class="btn btn-sm" data-regen>สร้างข้อนี้ใหม่</button>
-                    <button type="button" class="btn btn-sm btn-ghost-danger" data-del>ลบ</button>
-                </div>
-                <div class="q-text" contenteditable="true" data-field="question">{$q['question']}</div>
-                {if $q['choices']}
-                    <div class="q-choices">
-                        {foreach $q['choices'] as $c}
-                            <div n:class="q-choice, $c['is_correct'] ? is-correct" data-cid="{$c['id']}">
-                                <span class="mono q-choice-key">{$c['label']}</span>
-                                <span class="q-choice-text" contenteditable="true" data-field="choice">{$c['content']}</span>
-                                {if $c['is_correct']}<span class="q-choice-badge">เฉลย</span>{/if}
-                            </div>
-                        {/foreach}
-                    </div>
-                {/if}
-                <div class="q-why">
-                    <span class="q-why-label">{$q['type'] === 'short_answer' ? 'แนวคำตอบและเกณฑ์' : 'เหตุผลของเฉลย'}</span>
-                    <span class="q-why-text" contenteditable="true" data-field="explanation">{$q['explanation']}</span>
-                </div>
+    {if !$manual && !$published}
+        <div class="alert alert-warning review-warn">
+            <div class="warn-mark">!</div>
+            <div class="grow">
+                <strong>เนื้อหานี้สร้างโดย AI กรุณาตรวจสอบความถูกต้องก่อนเผยแพร่</strong><br>
+                แก้คำถาม ตัวเลือก เฉลย และคะแนนได้ในหน้านี้ เพิ่มหรือลบข้อได้เอง ยังไม่มีนักเรียนคนใดเห็นร่างนี้
             </div>
-        {/foreach}
+            <span class="tag tag-warn">สถานะ: รอครูตรวจ</span>
+        </div>
+    {/if}
+    {if $attemptCount > 0}
+        <div class="alert alert-info" style="margin-top:12px">
+            <span class="msi" aria-hidden="true">info</span>
+            <div>มีนักเรียนส่งแบบทดสอบนี้แล้ว {$attemptCount} คน — ถ้าเปลี่ยนเฉลยหรือคะแนน ระบบจะคิดคะแนนข้อปรนัยของทุกคนใหม่ให้ตอนบันทึก</div>
+        </div>
+    {/if}
+
+    <div class="qe-meta">
+        <div class="field grow">
+            <label for="quizTitle">ชื่อแบบทดสอบ</label>
+            <input class="input" type="text" id="quizTitle" value="{$quiz['title']}" maxlength="180">
+        </div>
+        <div class="field qe-time">
+            <label for="quizTime">เวลาทำ (นาที)</label>
+            <input class="input" type="number" id="quizTime" min="0" max="600" placeholder="ไม่จำกัด" value="{$quiz['time_limit_minutes']}">
+        </div>
+    </div>
+
+    <div id="questionList"></div>
+
+    <div class="qe-add">
+        <button type="button" class="btn" data-add="choice"><span class="msi" aria-hidden="true">add</span>เพิ่มข้อปรนัย</button>
+        <button type="button" class="btn" data-add="short_answer"><span class="msi" aria-hidden="true">add</span>เพิ่มข้ออัตนัย</button>
+        <span class="hint">ปรนัยตรวจให้อัตโนมัติ · อัตนัยครูให้คะแนนเอง</span>
     </div>
 
     <form method="post" action="{$base}/courses/{$course['id']}/quizzes/{$quiz['id']}" class="review-footer" id="saveForm">
         <input type="hidden" name="_token" value="{$csrf}">
+        <input type="hidden" name="sync" value="1">
         <input type="hidden" name="payload" id="payloadField">
         <input type="hidden" name="title" id="titleField">
-        <div class="grow hint" id="footHint">ตรวจแล้ว {count($questions)} ข้อ</div>
+        <input type="hidden" name="time_limit" id="timeField">
+        <div class="grow hint" id="footHint"></div>
         {if $regenQuery}
-            <a class="btn" href="{$base}/courses/{$course['id']}/quizzes/workspace?{$regenQuery|noescape}">ลองใหม่อีกแบบ</a>
+            <a class="btn" href="{$base}/courses/{$course['id']}/quizzes/workspace?{$regenQuery|noescape}">ให้ AI ร่างใหม่ทั้งชุด</a>
         {/if}
-        <button type="submit" name="action" value="draft" class="btn">เก็บไว้ตรวจภายหลัง</button>
-        <button type="submit" name="action" value="publish" class="btn btn-primary">ยืนยันและบันทึกเป็นแบบทดสอบ</button>
+        <button type="submit" name="action" value="draft" class="btn">{$published ? 'ซ่อนจากนักเรียน (เก็บเป็นร่าง)' : 'เก็บเป็นร่างไว้ก่อน'}</button>
+        <button type="submit" name="action" value="publish" class="btn btn-primary">{$published ? 'บันทึกการแก้ไข' : 'ยืนยันและเผยแพร่'}</button>
     </form>
 </div>
-
-<script>
-(function () {
-    var root = document.getElementById('reviewRoot');
-    var base = root.dataset.base, courseId = root.dataset.course, quizId = root.dataset.quiz, token = root.dataset.token;
-
-    function collect() {
-        return Array.prototype.slice.call(document.querySelectorAll('.q-card')).map(function (card) {
-            return {
-                id: parseInt(card.dataset.qid, 10),
-                question: card.querySelector('[data-field=question]').innerText.trim(),
-                explanation: card.querySelector('[data-field=explanation]').innerText.trim(),
-                choices: Array.prototype.slice.call(card.querySelectorAll('.q-choice')).map(function (ch) {
-                    return { id: parseInt(ch.dataset.cid, 10), content: ch.querySelector('[data-field=choice]').innerText.trim() };
-                })
-            };
-        });
-    }
-    function updateCounts() {
-        var n = document.querySelectorAll('.q-card').length;
-        document.getElementById('qCount').textContent = n;
-        document.getElementById('footHint').textContent = 'ตรวจแล้ว ' + n + ' ข้อ';
-        document.querySelectorAll('.q-no').forEach(function (el, i) { el.textContent = 'ข้อ ' + (i + 1); });
-    }
-
-    document.getElementById('saveForm').addEventListener('submit', function () {
-        document.getElementById('payloadField').value = JSON.stringify(collect());
-        document.getElementById('titleField').value = document.getElementById('quizTitle').value;
-    });
-
-    document.getElementById('questionList').addEventListener('click', function (e) {
-        var card = e.target.closest('.q-card');
-        if (!card) return;
-
-        if (e.target.matches('[data-del]')) {
-            rvcConfirm({
-                title: 'ลบข้อนี้',
-                message: 'ลบข้อนี้ออกจากร่างแบบทดสอบใช่หรือไม่',
-                confirmText: 'ลบข้อนี้',
-                danger: true
-            }).then(function (ok) {
-                if (!ok) return;
-                fetch(base + '/courses/' + courseId + '/quizzes/' + quizId + '/questions/' + card.dataset.qid + '/delete', {
-                    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: '_token=' + encodeURIComponent(token)
-                }).then(function (r) { return r.json(); }).then(function () { card.remove(); updateCounts(); });
-            });
-        }
-
-        if (e.target.matches('[data-regen]')) {
-            var btn = e.target; btn.disabled = true; btn.textContent = 'กำลังร่าง…';
-            fetch(base + '/courses/' + courseId + '/quizzes/' + quizId + '/questions/' + card.dataset.qid + '/regenerate', {
-                method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: '_token=' + encodeURIComponent(token)
-            }).then(function (r) { return r.json(); }).then(function (d) {
-                btn.disabled = false; btn.textContent = 'สร้างข้อนี้ใหม่';
-                if (d.error) { rvcAlert({ title: 'สร้างข้อนี้ใหม่ไม่สำเร็จ', message: d.error, danger: true }); return; }
-                var q = d.question;
-                card.querySelector('[data-field=question]').innerText = q.question;
-                card.querySelector('[data-field=explanation]').innerText = q.explanation;
-                var wrap = card.querySelector('.q-choices');
-                if (wrap && q.choices) {
-                    wrap.innerHTML = q.choices.map(function (c) {
-                        return '<div class="q-choice' + (c.is_correct ? ' is-correct' : '') + '" data-cid="' + c.id + '">' +
-                            '<span class="mono q-choice-key">' + c.label + '</span>' +
-                            '<span class="q-choice-text" contenteditable="true" data-field="choice">' + c.content + '</span>' +
-                            (c.is_correct ? '<span class="q-choice-badge">เฉลย</span>' : '') + '</div>';
-                    }).join('');
-                }
-            });
-        }
-    });
-})();
-</script>
+<script src="{$base}/assets/js/quiz-editor.js?v={$assetVer}"></script>
 {/block}

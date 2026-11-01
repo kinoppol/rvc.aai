@@ -6,8 +6,8 @@
 {define navLink, $target, $dir}
     {var $text = $dir === 'prev' ? 'ก่อนหน้า' : 'ถัดไป'}
     {if $target['kind'] === 'quiz'}
-        {if $preview}
-            <button class="learn-nav-btn" type="button" disabled>
+        {if $preview || $target['locked']}
+            <button class="learn-nav-btn" type="button" disabled title="{$target['lock_note']}">
                 {if $dir === 'prev'}<span class="msi" aria-hidden="true">arrow_back</span>{/if}
                 <span><small>{$text} · {$target['label']}</small>{$target['title']}</span>
                 {if $dir === 'next'}<span class="msi" aria-hidden="true">arrow_forward</span>{/if}

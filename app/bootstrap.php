@@ -90,6 +90,7 @@ $builder->addDefinitions([
             (int) @filemtime(Paths::root() . '/public/assets/css/landing.css'),
             (int) @filemtime(Paths::root() . '/public/assets/js/model-picker.js'),
             (int) @filemtime(Paths::root() . '/public/assets/js/unit-ocr.js'),
+            (int) @filemtime(Paths::root() . '/public/assets/js/quiz-editor.js'),
             1
         ),
         'user' => null,

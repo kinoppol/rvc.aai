@@ -12,8 +12,13 @@
         {if $it['kind'] === 'quiz' && !$preview && $it['quiz']['state'] !== 'ยังไม่ได้ทำ'}
             <span class="path-state path-state-{$it['quiz']['state_kind']}">{$it['quiz']['state']}</span>
         {/if}
+        {if $it['locked'] && !$preview}
+            <span class="path-state path-state-lock">{$it['lock_note']}</span>
+        {/if}
     </span>
-    {if $it['counts']}
+    {if $it['locked'] && !$preview}
+        <span class="path-check is-locked" title="ยังทำไม่ได้"><span class="msi" aria-hidden="true">lock</span></span>
+    {elseif $it['counts']}
         <span n:class="path-check, $it['done'] ? is-done" title="{$it['done'] ? 'ทำแล้ว' : 'ยังไม่ได้ทำ'}"><span class="msi" aria-hidden="true">check</span></span>
     {else}
         <span class="path-check is-optional" title="ส่งกับครูผู้สอน ไม่นับในความคืบหน้า"><span class="msi" aria-hidden="true">arrow_forward</span></span>
@@ -22,6 +27,8 @@
 {if $it['kind'] === 'quiz'}
     {if $preview}
         <div class="path-row is-static" title="ตัวอย่างมุมมองนักเรียน · เริ่มทำแบบทดสอบไม่ได้">{$inner|noescape}</div>
+    {elseif $it['locked']}
+        <div class="path-row is-static is-locked" title="{$it['lock_note']}">{$inner|noescape}</div>
     {else}
         <form class="path-form" method="post" action="{$base}/learn/quizzes/{$it['id']}/start">
             <input type="hidden" name="_token" value="{$csrf}">

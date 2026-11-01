@@ -444,7 +444,10 @@
                 <div class="part-title">{$title}</div>
                 <div class="part-meta">{if $items}{count($items)} ฉบับ · {$hint}{else}ยังไม่ได้สร้าง · {$hint}{/if}</div>
             </div>
-            <a class="btn btn-sm" href="{$quizBase}/create?unit_id={$unit['id']}&kind={$kindKey}">✦ สร้างด้วย AI</a>
+            <a class="btn btn-sm" href="{$quizBase}/new?unit_id={$unit['id']}&kind={$kindKey}">+ สร้างเอง</a>
+            {if $course['ai_quiz_enabled']}
+                <a class="btn btn-sm" href="{$quizBase}/create?unit_id={$unit['id']}&kind={$kindKey}">✦ สร้างด้วย AI</a>
+            {/if}
         </div>
         {foreach $items as $q}
             <div class="part-item">
@@ -458,7 +461,7 @@
                 {if $q['review_status'] === 'published'}<span class="tag tag-ok">เผยแพร่แล้ว</span>
                 {elseif $q['review_status'] === 'pending'}<span class="tag tag-warn">รอตรวจ</span>
                 {else}<span class="tag">ฉบับร่าง</span>{/if}
-                <a class="btn btn-sm" href="{$quizBase}/{$q['id']}/review">เปิดดู</a>
+                <a class="btn btn-sm" href="{$quizBase}/{$q['id']}/review">แก้ไข</a>
             </div>
         {/foreach}
     </div>

@@ -86,6 +86,10 @@
         </div>
     </div>
 
+    {if $byokAllowed}
+        {include '../_partials/byok-guide.latte', open: !$keys || $quota['left'] <= 0}
+    {/if}
+
     {if count($aiOptions) > 1}
     <div class="card" style="margin-top:24px">
         <h2>AI ที่ใช้เป็นค่าเริ่มต้น</h2>

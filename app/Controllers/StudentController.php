@@ -207,6 +207,17 @@ final class StudentController
         }
 
         $active = $this->attempts->inProgress((int) $quiz['id'], (int) $user['id']);
+
+        // แบบทดสอบหลังเรียน: ต้องทำแบบทดสอบก่อนเรียนและส่งใบงานของหน่วยให้ครบก่อน (ที่ทำค้างไว้แล้วทำต่อได้)
+        if ($active === null && $quiz['kind'] === 'posttest' && $quiz['unit_id'] !== null) {
+            $lock = $this->path->postLock((int) $quiz['unit_id'], (int) $user['id']);
+            if ($lock !== '') {
+                Flash::error($lock);
+
+                return $this->redirect($response, "/learn/units/{$quiz['unit_id']}");
+            }
+        }
+
         $attemptId = $active['id'] ?? $this->attempts->start((int) $quiz['id'], (int) $user['id']);
 
         return $this->redirect($response, "/learn/attempts/$attemptId");

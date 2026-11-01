@@ -1,0 +1,57 @@
+{layout '../layout.latte'}
+
+{block title}สร้างแบบทดสอบเอง{/block}
+
+{* สร้างแบบทดสอบโดยไม่ใช้ AI: เลือกหน่วย/ประเภท/ชื่อ แล้วไปเขียนข้อสอบและเฉลยในหน้าแก้ไข *}
+{block content}
+<div class="wizard-page narrow">
+    <a class="back-link" href="{$base}/courses/{$course['id']}?tab=quizzes">← กลับไปที่ {$course['name']}</a>
+    <h1>สร้างแบบทดสอบเอง</h1>
+    <div class="sub">เขียนข้อสอบ ตัวเลือก และเฉลยเองทั้งหมด ไม่ใช้ผู้ช่วย AI และไม่ใช้โควตา · นักเรียนจะเห็นเมื่อครูกดเผยแพร่</div>
+
+    <form class="card" method="post" action="{$base}/courses/{$course['id']}/quizzes/new" style="margin-top:18px">
+        <input type="hidden" name="_token" value="{$csrf}">
+
+        <div class="field">
+            <label for="unitId">หน่วยการเรียน</label>
+            <select class="input" id="unitId" name="unit_id">
+                <option value="0">ไม่ผูกกับหน่วย (แบบทดสอบเพิ่มเติม)</option>
+                {foreach $units as $u}
+                    <option value="{$u['id']}" data-exam="{App\Domain\UnitRepository::isExam($u) ? 1 : 0}" n:attr="selected: $unitId === (int) $u['id']">{$u['title']}</option>
+                {/foreach}
+            </select>
+        </div>
+
+        <div class="field">
+            <label>ประเภท</label>
+            <div class="qe-stack">
+                <label class="check-row"><input type="radio" name="kind" value="pretest" n:attr="checked: $kind === 'pretest'"> แบบทดสอบก่อนเรียน (ไม่คิดคะแนน)</label>
+                <label class="check-row"><input type="radio" name="kind" value="posttest" n:attr="checked: $kind === 'posttest'"> แบบทดสอบหลังเรียน / ข้อสอบ (คิดคะแนน)</label>
+            </div>
+            <div class="hint" id="examHint" hidden>หน่วยสอบมีเฉพาะแบบทดสอบคิดคะแนน</div>
+        </div>
+
+        <div class="field">
+            <label for="quizTitle">ชื่อแบบทดสอบ <span class="hint">(เว้นว่างได้ ระบบตั้งชื่อตามหน่วยให้)</span></label>
+            <input class="input" type="text" id="quizTitle" name="title" maxlength="180">
+        </div>
+
+        <button type="submit" class="btn btn-primary">สร้างแล้วไปเขียนข้อสอบ</button>
+    </form>
+</div>
+
+<script>
+(function () {
+    var sel = document.getElementById('unitId');
+    function sync() {
+        var exam = sel.options[sel.selectedIndex].getAttribute('data-exam') === '1';
+        document.getElementById('examHint').hidden = !exam;
+        var pre = document.querySelector('input[name=kind][value=pretest]');
+        pre.disabled = exam;
+        if (exam) { document.querySelector('input[name=kind][value=posttest]').checked = true; }
+    }
+    sel.addEventListener('change', sync);
+    sync();
+})();
+</script>
+{/block}

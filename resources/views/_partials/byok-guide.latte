@@ -1,0 +1,49 @@
+{*
+    คำแนะนำให้ครูหา API key มาใช้เอง — แสดงในหน้าตั้งค่า AI (#byok-guide) และลิงก์มาจากการ์ดแจ้งเตือนเมื่อโควตาส่วนกลางหมด
+    ตัวแปร: $open (bool) เปิดไว้ตั้งแต่แรกหรือไม่
+*}
+<details class="card byok-guide" id="byok-guide" n:attr="open: $open ?? false">
+    <summary>
+        <span class="msi" aria-hidden="true">school</span>
+        <span class="grow"><strong>หา API key มาใช้เอง</strong> · มีทั้งแบบฟรีและแบบเสียเงิน</span>
+        <span class="msi byok-caret" aria-hidden="true">expand_more</span>
+    </summary>
+
+    <p>
+        โควตา AI ของส่วนกลางมีจำกัด เพราะครูทุกคนใช้ร่วมกัน ครูจึงควรมี AI ของตัวเองไว้ใช้ด้วย
+        การหาและเชื่อม API key เองเป็นทักษะพื้นฐานของครูในยุค AI ทำครั้งเดียวใช้ได้ตลอด
+        ถ้าติดขัด ขอให้เพื่อนครูที่เคยทำแล้วช่วยดูได้
+    </p>
+
+    <div class="byok-grid">
+        <div class="byok-opt">
+            <div class="byok-tag tag tag-ok">ฟรี</div>
+            <h3>Google AI Studio (Gemini)</h3>
+            <p>ใช้บัญชี Google ที่มีอยู่แล้ว สร้างคีย์ได้ในไม่กี่นาที ใช้ฟรีได้ในปริมาณที่จำกัดต่อวัน ซึ่งพอสำหรับครูหนึ่งคน และยังอ่านไฟล์สแกน (OCR) ได้ด้วย</p>
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey ↗</a>
+        </div>
+        <div class="byok-opt">
+            <div class="byok-tag tag tag-ok">ฟรี / เสียเงิน</div>
+            <h3>OpenRouter</h3>
+            <p>คีย์เดียวเลือกได้หลายร้อยโมเดล โมเดลที่ชื่อลงท้ายด้วย <span class="mono">:free</span> ใช้ฟรี ถ้าเติมเงินจะได้โมเดลที่เก่งขึ้นและใช้ได้มากขึ้น</p>
+            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys ↗</a>
+        </div>
+        <div class="byok-opt">
+            <div class="byok-tag tag">เสียเงิน</div>
+            <h3>9ARM (tokenme.limited) และบริการอื่น</h3>
+            <p>บริการในไทยหรือบริการที่ใช้รูปแบบ OpenAI ได้ จ่ายตามที่ใช้จริง ถ้าใช้ทุกวันหรือให้ออกข้อสอบเยอะ ๆ ราคาจะคุ้มกว่า</p>
+        </div>
+    </div>
+
+    <ol class="byok-steps">
+        <li>สมัครหรือเข้าสู่ระบบเว็บของผู้ให้บริการ แล้วสร้าง API key (เป็นรหัสยาว ๆ)</li>
+        <li>กลับมาที่หน้านี้ กด <strong>เชื่อมต่อ AI ของฉัน</strong> เลือกผู้ให้บริการ แล้ววางคีย์</li>
+        <li>กดทดสอบ เลือกโมเดลที่จะใช้ ระบบจะใช้ AI ของครูก่อน และไม่หักโควตาของส่วนกลาง</li>
+    </ol>
+
+    <div class="hint byok-safe">
+        <span class="msi" aria-hidden="true">info</span>
+        เก็บคีย์ไว้เป็นความลับเหมือนรหัสผ่าน อย่าส่งต่อให้ใคร ถ้าเป็นแบบเสียเงินให้ตั้งวงเงินสูงสุดไว้ในเว็บผู้ให้บริการ
+        บริการฟรีบางเจ้าอาจนำข้อมูลไปพัฒนาโมเดล จึงไม่ควรใส่ข้อมูลส่วนตัวของนักเรียนลงไป
+    </div>
+</details>

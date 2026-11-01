@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\AI\AiRoute;
 use App\AI\AiRouter;
 use App\AI\AiUnavailableException;
 use App\AI\ModelBudget;
@@ -11,6 +12,7 @@ use App\AI\QuizGenerator;
 use App\AI\UnitKnowledge;
 use App\Auth\Auth;
 use App\Domain\AiRepository;
+use App\Domain\AttemptRepository;
 use App\Domain\CourseRepository;
 use App\Domain\UnitRepository;
 use App\Domain\QuizRepository;
@@ -57,6 +59,7 @@ final class QuizWizardController
         private readonly SettingsRepository $settings,
         private readonly Auth $auth,
         private readonly UnitKnowledge $knowledge,
+        private readonly AttemptRepository $attempts,
     ) {
     }
 
@@ -148,13 +151,6 @@ final class QuizWizardController
         $rounds = ModelBudget::rounds(ModelBudget::split($known['text'], $budget), $params['count'], $budget)
             ?: [['', $params['count']]];
 
-        $send('meta', [
-            'chip' => $route->chip,
-            'total' => $params['count'],
-            'source' => $route->source,
-            'knowledge' => self::knowledgeNote($known, count($rounds), $budget),
-        ]);
-
         $jobId = $this->ai->createJob([
             'user_id' => (int) $user['id'],
             'course_id' => $course['id'],
@@ -165,10 +161,27 @@ final class QuizWizardController
             'started_at' => date('Y-m-d H:i:s'),
         ]);
 
+        // ปลดล็อก session ระหว่างร่าง (แบบเดียวกับแชต) — ไม่อย่างนั้นหน้าอื่นของครูคนนี้จะค้างจนร่างเสร็จ
+        // หลังจากนี้อ่าน $_SESSION ได้ตามปกติ (Auth::log ใช้) แต่ห้ามเขียนอะไรลง session อีก
+        session_write_close();
+
+        $send('meta', [
+            'chip' => $route->chip,
+            'total' => $params['count'],
+            'source' => $route->source,
+            'knowledge' => self::knowledgeNote($known, count($rounds), $budget),
+            'jobId' => $jobId,   // ปุ่มยกเลิกใช้สั่งหยุดงานนี้ (cancel())
+        ]);
+
         $collected = [];
         $started = hrtime(true);
+        // ครูกดยกเลิก = สถานะงานเป็น cancelled — ตรวจก่อนทุกรอบและทุกข้อ แล้วหยุดโดยไม่บันทึกและไม่ตัดโควตา
+        $cancelled = fn (): bool => ($this->ai->findJob($jobId)['status'] ?? '') === 'cancelled';
 
         foreach ($rounds as $i => [$chunk, $want]) {
+            if ($cancelled()) {
+                return $this->stopCancelled($response, $send, (int) $user['id'], $jobId, $route, count($collected));
+            }
             if (count($rounds) > 1) {
                 $send('round', ['no' => $i + 1, 'of' => count($rounds), 'count' => $want]);
             }
@@ -186,6 +199,9 @@ final class QuizWizardController
                     // ข้อที่ได้จากรอบก่อน ๆ — กันถามซ้ำเมื่อเนื้อหาสองก้อนคาบเกี่ยวกัน
                     'avoid' => self::avoidList($collected),
                 ], $quality) as $ev) {
+                    if ($ev['event'] === 'question' && $cancelled()) {
+                        return $this->stopCancelled($response, $send, (int) $user['id'], $jobId, $route, count($collected));
+                    }
                     if ($ev['event'] === 'question' && $got < $want) {
                         $got++;
                         $ev['data']['no'] = count($collected) + 1;
@@ -204,6 +220,10 @@ final class QuizWizardController
                     return $response;
                 }
             }
+        }
+
+        if ($cancelled()) {
+            return $this->stopCancelled($response, $send, (int) $user['id'], $jobId, $route, count($collected));
         }
 
         if ($collected === []) {
@@ -231,10 +251,45 @@ final class QuizWizardController
         return $response;
     }
 
+    /** ครูกดยกเลิก: ทำเครื่องหมายงานเป็น cancelled แล้ว stream() จะหยุดเองก่อนรอบ/ข้อถัดไป */
+    public function cancel(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            return $this->json($response, ['ok' => false, 'message' => 'หมดเวลาการใช้งาน กรุณาโหลดหน้าใหม่'], 419);
+        }
+
+        $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id']);
+        $job = $this->ai->findJob((int) $args['jobId']);
+        if ($job === null || (int) $job['user_id'] !== (int) $user['id'] || (int) $job['course_id'] !== (int) $course['id']) {
+            throw new HttpNotFoundException($request);
+        }
+
+        // เสร็จหรือล้มไปแล้วก็ไม่ต้องทำอะไร — ร่างที่บันทึกแล้วยังอยู่ในรายการรอตรวจ
+        if (!in_array($job['status'], ['queued', 'running'], true)) {
+            return $this->json($response, ['ok' => true, 'status' => $job['status']]);
+        }
+
+        $this->ai->updateJob((int) $job['id'], ['status' => 'cancelled', 'finished_at' => date('Y-m-d H:i:s')]);
+
+        return $this->json($response, ['ok' => true, 'status' => 'cancelled']);
+    }
+
+    /** หยุดงานที่ครูยกเลิก: ไม่บันทึกร่าง ไม่ตัดโควตา แต่ยังเก็บบันทึกการเรียกโมเดลไว้ */
+    private function stopCancelled(Response $response, callable $send, int $userId, int $jobId, AiRoute $route, int $got): Response
+    {
+        $this->ai->logUsage($userId, $jobId, $route->source, $route->model, false);
+        $this->auth->log('ai.quiz.cancel', 'job#' . $jobId, ['got' => $got, 'source' => $route->source]);
+        $send('cancelled', ['got' => $got]);
+
+        return $response;
+    }
+
     public function review(Request $request, Response $response, array $args): Response
     {
         $user = $request->getAttribute('user');
-        $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id']);
+        $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id'], ai: false);
         $quiz = $this->ownedQuiz($request, (int) $args['quizId'], $course['id']);
 
         $questions = $this->quizzes->questions($quiz['id']);
@@ -259,15 +314,106 @@ final class QuizWizardController
             $regenQuery = implode('&', $qs);
         }
 
+        $aiOn = (int) ($course['ai_quiz_enabled'] ?? 1) === 1;
+
         return $this->view->render($response, 'quiz/review', [
             'page' => 'courses',
             'course' => $course,
             'quiz' => $quiz,
             'questions' => $questions,
-            'aiChip' => $this->sourceChip($generation),
+            'manual' => $quiz['source'] === 'manual',
+            'aiOn' => $aiOn,
+            'aiChip' => $quiz['source'] === 'manual' ? 'สร้างเอง' : $this->sourceChip($generation),
             'createdAgo' => Thai::ago($quiz['created_at']),
-            'regenQuery' => $regenQuery,
+            'regenQuery' => $aiOn ? $regenQuery : '',
+            'attemptCount' => $this->quizzes->submittedCount((int) $quiz['id']),
+            'editorData' => [
+                'questions' => array_map(static fn (array $q): array => [
+                    'id' => (int) $q['id'],
+                    'type' => $q['type'],
+                    'question' => (string) $q['question'],
+                    'explanation' => (string) ($q['explanation'] ?? ''),
+                    'score' => (float) $q['score'],
+                    'choices' => array_map(static fn (array $c): array => [
+                        'id' => (int) $c['id'],
+                        'content' => (string) $c['content'],
+                        'is_correct' => (int) $c['is_correct'] === 1,
+                    ], $q['choices']),
+                ], $questions),
+                'labels' => QuizRepository::CHOICE_LABELS,
+            ],
         ]);
+    }
+
+    /** หน้าสร้างแบบทดสอบเอง (ไม่ใช้ AI): เลือกหน่วย ชนิด และชื่อ แล้วไปเขียนข้อสอบในหน้าแก้ไข */
+    public function newForm(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id'], ai: false);
+        $q = $request->getQueryParams();
+
+        return $this->view->render($response, 'quiz/new', [
+            'page' => 'courses',
+            'course' => $course,
+            'units' => $this->units->forCourse($course['id']),
+            'unitId' => isset($q['unit_id']) ? (int) $q['unit_id'] : 0,
+            'kind' => ($q['kind'] ?? '') === 'pretest' ? 'pretest' : 'posttest',
+        ]);
+    }
+
+    public function createManual(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id'], ai: false);
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
+
+            return $this->redirect($response, "/courses/{$course['id']}/quizzes/new");
+        }
+
+        $unit = null;
+        if ((int) ($data['unit_id'] ?? 0) > 0) {
+            $unit = $this->units->find((int) $data['unit_id']);
+            if ($unit === null || (int) $unit['course_id'] !== (int) $course['id']) {
+                throw new HttpNotFoundException($request, 'ไม่พบหน่วยการเรียนนี้');
+            }
+        }
+        // หน่วยสอบมีแต่แบบทดสอบคิดคะแนน
+        $kind = ($data['kind'] ?? '') === 'pretest' && !($unit && UnitRepository::isExam($unit)) ? 'pretest' : 'posttest';
+
+        $title = mb_substr(trim((string) ($data['title'] ?? '')), 0, 180);
+        if ($title === '') {
+            $title = match (true) {
+                $unit !== null && UnitRepository::isExam($unit) => 'แบบทดสอบ' . $unit['title'] . ' · ' . $course['name'],
+                default => ($kind === 'pretest' ? 'แบบทดสอบก่อนเรียน' : 'แบบทดสอบหลังเรียน') . ' · ' . ($unit['title'] ?? $course['name']),
+            };
+        }
+
+        $fields = [
+            'course_id' => $course['id'],
+            'title' => $title,
+            'attempts_allowed' => 1,
+            'source' => 'manual',
+            'review_status' => 'draft',
+            'created_by' => (int) $user['id'],
+            'kind' => $kind,
+        ];
+        if ($unit !== null) {
+            $fields['unit_id'] = (int) $unit['id'];
+        }
+
+        // เริ่มด้วยข้อปรนัยว่างหนึ่งข้อ ให้ครูเขียนต่อได้ทันที
+        $quizId = $this->quizzes->createWithQuestions($fields, [[
+            'type' => 'choice',
+            'question' => '',
+            'score' => 1,
+            'source' => 'manual',
+            'choices' => array_map(static fn (string $l): array => ['label' => $l, 'content' => ''], array_slice(QuizRepository::CHOICE_LABELS, 0, 4)),
+        ]]);
+        $this->auth->log('quiz.create_manual', 'quiz#' . $quizId);
+
+        return $this->redirect($response, "/courses/{$course['id']}/quizzes/$quizId/review");
     }
 
     public function regenerateOne(Request $request, Response $response, array $args): Response
@@ -332,7 +478,7 @@ final class QuizWizardController
     public function save(Request $request, Response $response, array $args): Response
     {
         $user = $request->getAttribute('user');
-        $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id']);
+        $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id'], ai: false);
         $quiz = $this->ownedQuiz($request, (int) $args['quizId'], $course['id']);
 
         $data = (array) $request->getParsedBody();
@@ -342,19 +488,41 @@ final class QuizWizardController
             return $this->redirect($response, "/courses/{$course['id']}/quizzes/{$quiz['id']}/review");
         }
 
-        $payload = json_decode((string) ($data['payload'] ?? '[]'), true);
-        if (is_array($payload)) {
+        $payload = json_decode((string) ($data['payload'] ?? ''), true);
+        $regraded = 0;
+        if (($data['sync'] ?? '') === '1' && is_array($payload)) {
+            // หน้าแก้ไขส่งข้อสอบทั้งชุดมา (ข้อที่ไม่อยู่ในชุด = ครูลบออก)
+            if ($this->quizzes->syncQuestions((int) $quiz['id'], $payload) && $this->quizzes->submittedCount((int) $quiz['id']) > 0) {
+                $regraded = $this->attempts->regradeQuiz((int) $quiz['id']);
+            }
+        } elseif (is_array($payload)) {
             $this->quizzes->saveEdits((int) $quiz['id'], $payload);
         }
 
-        $title = trim((string) ($data['title'] ?? '')) ?: $quiz['title'];
+        $meta = [
+            'title' => mb_substr(trim((string) ($data['title'] ?? '')), 0, 180) ?: $quiz['title'],
+            'time_limit_minutes' => max(0, min(600, (int) ($data['time_limit'] ?? $quiz['time_limit_minutes'] ?? 0))) ?: null,
+        ];
         $publish = ($data['action'] ?? '') === 'publish';
+        $problems = $publish ? $this->quizzes->problems((int) $quiz['id']) : [];
+        if ($publish && $this->quizzes->questionCount((int) $quiz['id']) === 0) {
+            $problems[] = 'ยังไม่มีข้อสอบสักข้อ';
+        }
 
-        $this->quizzes->updateQuiz((int) $quiz['id'], [
-            'title' => $title,
-            'time_limit_minutes' => (int) ($data['time_limit'] ?? 0) ?: null,
-            'review_status' => $publish ? 'published' : 'pending',
-        ]);
+        // เผยแพร่ไม่ได้ (เช่น ยังไม่ได้เลือกเฉลย): เก็บที่แก้ไว้เป็นร่าง แล้วกลับไปแก้ต่อ
+        // ชุดที่เผยแพร่อยู่ก็ซ่อนจากนักเรียนไว้ก่อน ไม่ให้เจอข้อที่ยังไม่มีเฉลย
+        if ($problems !== []) {
+            $this->quizzes->updateQuiz((int) $quiz['id'], $meta + ['review_status' => 'pending']);
+            Flash::error('บันทึกที่แก้ไว้แล้ว แต่ยังเผยแพร่ไม่ได้' . ($quiz['review_status'] === 'published' ? ' (ซ่อนจากนักเรียนไว้ก่อน)' : '') . ': '
+                . implode(' · ', array_slice($problems, 0, 6)) . (count($problems) > 6 ? ' …' : ''));
+
+            return $this->redirect($response, "/courses/{$course['id']}/quizzes/{$quiz['id']}/review");
+        }
+
+        $this->quizzes->updateQuiz((int) $quiz['id'], $meta + ['review_status' => $publish ? 'published' : 'pending']);
+        if ($regraded > 0) {
+            Flash::warning(sprintf('เฉลยหรือคะแนนเปลี่ยน — คิดคะแนนนักเรียนที่ทำไปแล้ว %d ครั้งใหม่ให้แล้ว', $regraded));
+        }
 
         $generation = $this->reviews->findByTarget((int) $user['id'], 'quiz', (int) $quiz['id']);
         if ($generation !== null && $publish) {
@@ -363,27 +531,26 @@ final class QuizWizardController
 
         $this->auth->log($publish ? 'quiz.publish' : 'quiz.draft', 'quiz#' . $quiz['id']);
 
-        if ($publish) {
-            Flash::success('บันทึกเป็นแบบทดสอบแล้ว');
+        // ร่างจาก AI ที่ยังไม่เผยแพร่กลับไปรายการรอตรวจ · นอกนั้นกลับไปหน้าหน่วยของแบบทดสอบ (ไม่มีหน่วย = แท็บแบบทดสอบของรายวิชา)
+        if (!$publish && $generation !== null) {
+            Flash::success('เก็บไว้ในรายการรอตรวจแล้ว');
 
-            // กลับไปหน้าหน่วยการเรียนของแบบทดสอบนี้ · ไม่ผูกกับหน่วย (หรือหน่วยถูกลบไปแล้ว) = แท็บแบบทดสอบของรายวิชา
-            $unit = (int) ($quiz['unit_id'] ?? 0) > 0 ? $this->units->find((int) $quiz['unit_id']) : null;
-            if ($unit !== null && (int) $unit['course_id'] === (int) $course['id']) {
-                return $this->redirect($response, "/courses/{$course['id']}/units/{$unit['id']}/edit");
-            }
+            return $this->redirect($response, '/review');
+        }
+        Flash::success($publish ? 'บันทึกเป็นแบบทดสอบแล้ว' : 'เก็บเป็นฉบับร่างแล้ว · นักเรียนยังไม่เห็นแบบทดสอบนี้');
 
-            return $this->redirect($response, "/courses/{$course['id']}?tab=quizzes");
+        $unit = (int) ($quiz['unit_id'] ?? 0) > 0 ? $this->units->find((int) $quiz['unit_id']) : null;
+        if ($unit !== null && (int) $unit['course_id'] === (int) $course['id']) {
+            return $this->redirect($response, "/courses/{$course['id']}/units/{$unit['id']}/edit");
         }
 
-        Flash::success('เก็บไว้ในรายการรอตรวจแล้ว');
-
-        return $this->redirect($response, '/review');
+        return $this->redirect($response, "/courses/{$course['id']}?tab=quizzes");
     }
 
     public function deleteQuestion(Request $request, Response $response, array $args): Response
     {
         $user = $request->getAttribute('user');
-        $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id']);
+        $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id'], ai: false);
         $quiz = $this->ownedQuiz($request, (int) $args['quizId'], $course['id']);
 
         $data = (array) $request->getParsedBody();
@@ -628,7 +795,7 @@ final class QuizWizardController
     }
 
     /** @return array<string,mixed> */
-    private function ownedCourse(Request $request, int $courseId, int $teacherId): array
+    private function ownedCourse(Request $request, int $courseId, int $teacherId, bool $ai = true): array
     {
         $course = $this->courses->find($courseId);
         if ($course === null) {
@@ -637,7 +804,8 @@ final class QuizWizardController
         if ((int) $course['teacher_id'] !== $teacherId) {
             throw new HttpForbiddenException($request, 'คุณไม่ได้เป็นผู้สอนรายวิชานี้');
         }
-        if ((int) ($course['ai_quiz_enabled'] ?? 1) !== 1) {
+        // สร้าง/แก้แบบทดสอบเองไม่ต้องใช้ AI — สวิตช์ของผู้ดูแลปิดเฉพาะงานที่เรียก AI
+        if ($ai && (int) ($course['ai_quiz_enabled'] ?? 1) !== 1) {
             throw new HttpForbiddenException($request, 'ผู้ดูแลระบบยังไม่เปิดใช้งานฟังก์ชันออกข้อสอบด้วย AI สำหรับรายวิชานี้');
         }
 

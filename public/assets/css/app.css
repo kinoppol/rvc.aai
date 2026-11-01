@@ -2207,6 +2207,7 @@ textarea.note-input { height: auto; min-height: 84px; padding: 10px 14px; line-h
 .path-state { font-size: 12.5px; color: var(--ink3); }
 .path-state-ok { color: var(--ok); font-weight: 700; }
 .path-state-warn { color: var(--warn); font-weight: 700; }
+.path-state-lock { display: flex; align-items: center; gap: 4px; color: var(--warn); font-weight: 600; }
 .path-check {
     flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center;
     border: 1.5px dashed color-mix(in srgb, var(--ink3) 45%, transparent); color: transparent;
@@ -2214,6 +2215,9 @@ textarea.note-input { height: auto; min-height: 84px; padding: 10px 14px; line-h
 .path-check .msi { font-size: 22px; }
 .path-check.is-done { border: 1.5px solid var(--ok); color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, transparent); }
 .path-check.is-optional { border-style: solid; color: var(--ink3); }
+.path-check.is-locked { border-style: solid; color: var(--ink3); background: var(--surface2); }
+.path-row.is-locked { cursor: not-allowed; }
+.path-row.is-locked .path-title { color: var(--ink3); }
 
 .learn-item-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: -10px; }
 .learn-item-title { font: 800 clamp(22px, 3vw, 28px)/1.35 var(--sans); letter-spacing: -.02em; margin: 0; }
@@ -2765,3 +2769,48 @@ html.is-presenting { overflow: hidden; }
 /* สถานะข้อความของ PDF ในหน้าแก้ไขหน่วย (พร้อมให้ AI ใช้ / รอ OCR / กำลังอ่าน) — unit-ocr.js */
 .pdf-text-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 6px; }
 .pdf-text-status .hint:empty { display: none; }
+
+/* ── ตัวแก้ไขแบบทดสอบ (quiz/review.latte + quiz-editor.js) ── */
+.qe-stack { display: flex; flex-direction: column; gap: 8px; }
+.qe-meta { display: flex; gap: 14px; align-items: flex-end; margin-top: 16px; flex-wrap: wrap; }
+.qe-meta .field { margin: 0; }
+.qe-time { width: 150px; }
+.qe-card .q-card-top { flex-wrap: wrap; }
+.qe-type { width: auto; padding: 4px 10px; font-size: 13px; height: 32px; }
+.qe-score { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink2); }
+.qe-score .input { width: 74px; padding: 4px 8px; height: 32px; }
+.btn-icon { display: inline-flex; align-items: center; justify-content: center; padding: 4px 6px; }
+.btn-icon .msi { font-size: 18px; }
+.qe-area { margin-top: 10px; width: 100%; resize: vertical; font: 400 15px/1.6 var(--body); }
+.q-why .qe-area { margin-top: 0; font-size: 13.5px; }
+.qe-choice { align-items: center; }
+.qe-pick { display: inline-flex; align-items: center; cursor: pointer; }
+.qe-pick input { width: 18px; height: 18px; accent-color: var(--ok); cursor: pointer; }
+.qe-choice-text { flex: 1; padding: 6px 10px; font-size: 14px; }
+.qe-choice.is-correct .qe-choice-text { border-color: var(--ok); }
+.qe-add-choice { margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; }
+.qe-add-choice .msi { font-size: 18px; }
+.qe-problem { margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--warn); }
+.qe-add { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.qe-add .btn { display: inline-flex; align-items: center; gap: 4px; }
+.qe-add .btn .msi { font-size: 18px; }
+@media (max-width: 640px) {
+    .qe-time { width: 100%; }
+    .qe-card .q-card-top .grow { flex-basis: 100%; height: 0; }
+}
+
+/* ── คำแนะนำหา API key เอง (_partials/byok-guide.latte) ── */
+.byok-guide { margin-top: 24px; }
+.byok-guide > summary { display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none; font-size: 15px; }
+.byok-guide > summary::-webkit-details-marker { display: none; }
+.byok-guide > summary .msi { color: var(--brand); }
+.byok-guide[open] .byok-caret { transform: rotate(180deg); }
+.byok-guide > p { margin: 14px 0 0; color: var(--ink2); line-height: 1.7; }
+.byok-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
+.byok-opt { border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; background: var(--surface); }
+.byok-opt h3 { margin: 8px 0 6px; font-size: 15px; }
+.byok-opt p { margin: 0 0 8px; font-size: 13.5px; line-height: 1.6; color: var(--ink2); }
+.byok-opt a { font-size: 13px; font-weight: 600; word-break: break-all; }
+.byok-steps { margin: 16px 0 0; padding-left: 22px; line-height: 1.8; color: var(--ink2); }
+.byok-safe { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; }
+.byok-safe .msi { font-size: 18px; flex: none; }

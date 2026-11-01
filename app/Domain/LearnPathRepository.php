@@ -98,6 +98,17 @@ final class LearnPathRepository
 
         $result = [];
         foreach ($buckets as $uid => $b) {
+            // แบบทดสอบหลังเรียนล็อกไว้จนกว่าจะทำแบบทดสอบก่อนเรียนและส่งใบงานของหน่วยครบ (มีเท่าที่มี)
+            // ต้องตรงกับ postLock() ที่ startQuiz ใช้ตรวจฝั่งเซิร์ฟเวอร์
+            $missing = self::missingLabels(array_merge($b['pre'], $b['work']));
+            if ($missing !== [] && !$exams[$uid]) {
+                foreach ($b['post'] as $k => $it) {
+                    if (empty($it['quiz']['open_attempt_id'])) {
+                        $b['post'][$k]['locked'] = true;
+                        $b['post'][$k]['lock_note'] = self::lockNote($missing);
+                    }
+                }
+            }
             $items = array_merge($b['pre'], $b['section'], $b['work'], $b['post']);
             $result[$uid] = ['items' => $items] + self::summary($items);
         }
@@ -150,6 +161,68 @@ final class LearnPathRepository
         ];
     }
 
+    /**
+     * สิ่งที่นักเรียนยังต้องทำก่อนเริ่มแบบทดสอบหลังเรียนของหน่วยนี้ — ว่าง = เริ่มได้
+     * นับแบบทดสอบก่อนเรียนที่นักเรียนเห็น (เผยแพร่แล้ว มีข้อสอบ) ที่ยังไม่เคยส่ง และใบงานที่ยังไม่ส่ง/ถูกส่งกลับให้แก้
+     * หน่วยสอบ (กลางภาค/ปลายภาค) ไม่ล็อก
+     */
+    public function postLock(int $unitId, int $studentId): string
+    {
+        $unit = $this->db->first('SELECT kind FROM {units} WHERE id = ?', [$unitId]);
+        if ($unit === null || UnitRepository::isExam($unit)) {
+            return '';
+        }
+
+        $pre = $this->db->all(
+            'SELECT q.title,
+                    EXISTS(SELECT 1 FROM {quiz_attempts} a WHERE a.quiz_id = q.id AND a.student_id = ? AND a.status <> \'in_progress\') AS done
+             FROM {quizzes} q
+             WHERE q.unit_id = ? AND q.kind = \'pretest\' AND q.review_status = \'published\' AND q.deleted_at IS NULL
+               AND EXISTS(SELECT 1 FROM {quiz_questions} qq WHERE qq.quiz_id = q.id)',
+            [$studentId, $unitId]
+        );
+        $work = $this->db->all(
+            'SELECT a.title,
+                    EXISTS(SELECT 1 FROM {submissions} sb WHERE sb.assignment_id = a.id AND sb.student_id = ? AND sb.status <> \'returned\') AS done
+             FROM {assignments} a
+             WHERE a.unit_id = ? AND a.kind = \'worksheet\'',
+            [$studentId, $unitId]
+        );
+
+        $items = array_merge(
+            array_map(static fn (array $r): array => ['type' => 'pretest', 'done' => (bool) $r['done']], $pre),
+            array_map(static fn (array $r): array => ['type' => 'worksheet', 'done' => (bool) $r['done']], $work)
+        );
+        $missing = self::missingLabels($items);
+
+        return $missing === [] ? '' : self::lockNote($missing);
+    }
+
+    /** @param list<array<string,mixed>> $items @return array<string,int> ป้ายประเภท => จำนวนที่ยังไม่ได้ทำ */
+    private static function missingLabels(array $items): array
+    {
+        $missing = [];
+        foreach ($items as $it) {
+            if (!$it['done']) {
+                $label = self::TYPES[$it['type']][0];
+                $missing[$label] = ($missing[$label] ?? 0) + 1;
+            }
+        }
+
+        return $missing;
+    }
+
+    /** @param array<string,int> $missing */
+    private static function lockNote(array $missing): string
+    {
+        $parts = [];
+        foreach ($missing as $label => $n) {
+            $parts[] = $label === self::TYPES['worksheet'][0] ? "ส่ง{$label}อีก {$n} ชิ้น" : "ทำ{$label}";
+        }
+
+        return 'ต้อง' . implode(' และ', $parts) . 'ก่อน จึงจะทำแบบทดสอบหลังเรียนได้';
+    }
+
     /** ส่วนเนื้อหาของนักเรียนคนนี้เปิดอ่านแล้ว (บันทึกครั้งแรกครั้งเดียว) */
     public function markSection(int $sectionId, int $studentId): void
     {
@@ -186,6 +259,8 @@ final class LearnPathRepository
             'title' => $title !== '' ? $title : $label,
             'done' => $done,
             'counts' => $counts,
+            'locked' => false,
+            'lock_note' => '',
         ];
     }
 
