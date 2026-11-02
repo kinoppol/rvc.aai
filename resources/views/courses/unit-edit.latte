@@ -461,6 +461,9 @@
                 {if $q['review_status'] === 'published'}<span class="tag tag-ok">เผยแพร่แล้ว</span>
                 {elseif $q['review_status'] === 'pending'}<span class="tag tag-warn">รอตรวจ</span>
                 {else}<span class="tag">ฉบับร่าง</span>{/if}
+                {if $q['submitted_count'] > 0 || $q['review_status'] === 'published'}
+                    <a class="btn btn-sm" href="{$quizBase}/{$q['id']}/results">ผลคะแนน ({$q['submitted_count']})</a>
+                {/if}
                 <a class="btn btn-sm" href="{$quizBase}/{$q['id']}/review">แก้ไข</a>
             </div>
         {/foreach}

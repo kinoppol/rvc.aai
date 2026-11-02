@@ -184,6 +184,46 @@ final class AttemptRepository
         return count($attempts);
     }
 
+    /**
+     * ทุกครั้งที่ส่งแล้วของแบบทดสอบนี้ (ไม่รวมที่กำลังทำ) พร้อมชื่อนักเรียน เรียงตามนักเรียนและครั้งที่
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function submittedForQuiz(int $quizId): array
+    {
+        return $this->db->all(
+            'SELECT a.id, a.student_id, a.attempt_no, a.status, a.score, a.max_score, a.submitted_at,
+                    u.username, u.full_name
+             FROM {quiz_attempts} a
+             JOIN {users} u ON u.id = a.student_id
+             WHERE a.quiz_id = ? AND a.status <> \'in_progress\'
+             ORDER BY a.student_id, a.attempt_no',
+            [$quizId]
+        );
+    }
+
+    /**
+     * จำนวนคนที่ตอบถูกต่อข้อ นับจากครั้งที่ระบุ
+     *
+     * @param list<int> $attemptIds
+     * @return array<int,int> question_id => จำนวนที่ตอบถูก
+     */
+    public function correctByQuestion(array $attemptIds): array
+    {
+        if ($attemptIds === []) {
+            return [];
+        }
+        $rows = $this->db->all(
+            'SELECT question_id, SUM(is_correct = 1) AS correct
+             FROM {quiz_answers}
+             WHERE attempt_id IN (' . implode(',', array_fill(0, count($attemptIds), '?')) . ')
+             GROUP BY question_id',
+            $attemptIds
+        );
+
+        return array_map('intval', array_column($rows, 'correct', 'question_id'));
+    }
+
     public function bestScore(int $quizId, int $studentId): ?float
     {
         $value = $this->db->value(

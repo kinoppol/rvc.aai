@@ -1,0 +1,171 @@
+{layout '../layout.latte'}
+
+{block title}ผลคะแนน · {$quiz['title']}{/block}
+
+{*
+    ผลคะแนนของแบบทดสอบหนึ่งชุด (QuizResultsController::show) — ครูดูได้ทุกประเภท รวมถึงก่อนเรียนที่ไม่คิดคะแนน
+      • ก่อนเรียน: ใช้คะแนนครั้งแรกของแต่ละคน และเทียบกับหลังเรียนของหน่วยเดียวกัน (พัฒนาการ)
+      • หลังเรียน/สอบ: ใช้ครั้งที่ดีที่สุด และนับคนผ่านเกณฑ์ของรายวิชา
+*}
+
+{block content}
+{var $fmt = fn($v) => rtrim(rtrim(number_format((float) $v, 2, '.', ''), '0'), '.')}
+{var $kindLabel = $isExam ? 'ข้อสอบ' : ($isPre ? 'แบบทดสอบก่อนเรียน' : 'แบบทดสอบหลังเรียน')}
+{var $pairLabel = $isPre ? 'หลังเรียน' : 'ก่อนเรียน'}
+{var $anyRetry = (bool) array_filter($rows, fn($r) => $r['tries'] > 1)}
+<div class="rv-page">
+    {if $unit}
+        <a class="back-link" href="{$base}/courses/{$course['id']}/units/{$unit['id']}/edit">← {$unit['title']}</a>
+    {else}
+        <a class="back-link" href="{$base}/courses/{$course['id']}?tab=quizzes">← {$course['name']}</a>
+    {/if}
+    <div class="rv-top">
+        <div class="rv-title">
+            <h1>{$quiz['title']}</h1>
+            <div class="sub">
+                {$kindLabel}{if $unit} · {$unit['title']}{/if}
+                · {count($items)} ข้อ · เต็ม {$fmt($fullScore)} คะแนน
+                {if $quiz['review_status'] !== 'published'} · <span class="tag tag-warn">ยังไม่เผยแพร่</span>{/if}
+            </div>
+        </div>
+        <div class="rv-top-actions">
+            <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/quizzes/{$quiz['id']}/review"><span class="msi" aria-hidden="true">edit</span>แก้ไขแบบทดสอบ</a>
+        </div>
+    </div>
+
+    {if $isPre}
+        <div class="alert alert-info qr-note">
+            <span class="msi" aria-hidden="true">info</span>
+            <span>แบบทดสอบก่อนเรียน<b>ไม่นำไปคิดคะแนนรายวิชา</b> ใช้ดูพื้นฐานของนักเรียนก่อนเริ่มหน่วย · คะแนนในหน้านี้ใช้<b>ครั้งแรก</b>ของแต่ละคน{if $pair} และเทียบกับ "{$pair['title']}" เพื่อดูพัฒนาการ{/if}</span>
+        </div>
+    {/if}
+    {if $stats['waiting']}
+        <div class="alert alert-warning qr-note">
+            <span class="msi" aria-hidden="true">schedule</span>
+            <span>มีนักเรียน {$stats['waiting']} คนที่ตอบข้ออัตนัย คะแนนที่เห็นนับเฉพาะข้อปรนัยที่ตรวจอัตโนมัติ</span>
+        </div>
+    {/if}
+
+    <div class="metric-grid qr-metrics">
+        <div class="metric metric-indigo">
+            <div class="metric-top"><div class="metric-icon"><span class="msi">group</span></div></div>
+            <div class="metric-label">ทำแล้ว</div>
+            <div class="metric-value">{$stats['taken']}<small class="qr-of"> / {$stats['students']} คน</small></div>
+        </div>
+        <div class="metric metric-emerald">
+            <div class="metric-top"><div class="metric-icon"><span class="msi">leaderboard</span></div></div>
+            <div class="metric-label">คะแนนเฉลี่ย</div>
+            <div class="metric-value">{if $stats['avg'] !== null}{(int) round($stats['avg'])}%{else}—{/if}</div>
+        </div>
+        <div class="metric metric-amber">
+            <div class="metric-top"><div class="metric-icon"><span class="msi">trending_up</span></div></div>
+            <div class="metric-label">สูงสุด / ต่ำสุด</div>
+            <div class="metric-value">{if $stats['max'] !== null}{(int) round($stats['max'])}%<small class="qr-of"> / {(int) round($stats['min'])}%</small>{else}—{/if}</div>
+        </div>
+        {if $isPre}
+            <div class="metric metric-rose">
+                <div class="metric-top"><div class="metric-icon"><span class="msi">school</span></div></div>
+                <div class="metric-label">พัฒนาการเฉลี่ย (หลัง − ก่อน)</div>
+                <div class="metric-value">
+                    {if $stats['gain'] !== null}{$stats['gain'] > 0 ? '+' : ''}{(int) round($stats['gain'])}%<small class="qr-of"> จาก {$stats['gainN']} คน</small>
+                    {else}—{/if}
+                </div>
+            </div>
+        {else}
+            <div class="metric metric-rose">
+                <div class="metric-top"><div class="metric-icon"><span class="msi">task_alt</span></div></div>
+                <div class="metric-label">ผ่านเกณฑ์ {$fmt($passPct)}%</div>
+                <div class="metric-value">{$stats['passed']}<small class="qr-of"> / {$stats['taken']} คน</small></div>
+            </div>
+        {/if}
+    </div>
+
+    <div class="card qr-card">
+        <div class="qr-head">คะแนนรายคน</div>
+        {if !$rows}
+            <div class="empty"><h3>ยังไม่มีนักเรียนในรายวิชานี้</h3><p>เพิ่มนักเรียนได้ที่แท็บ "นักเรียน" ของรายวิชา</p></div>
+        {else}
+        <div class="table-scroll">
+            <table class="data qr-table">
+                <thead>
+                <tr>
+                    <th>รหัส</th>
+                    <th>ชื่อ - นามสกุล</th>
+                    <th class="num">{$isPre ? 'คะแนน (ครั้งแรก)' : 'คะแนน (ดีที่สุด)'}</th>
+                    <th class="qr-bar-col">ร้อยละ</th>
+                    {if $isPre && $anyRetry}<th class="num">ดีที่สุด</th>{/if}
+                    <th class="num">ทำ (ครั้ง)</th>
+                    {if $pair}<th class="num">{$pairLabel}</th><th class="num">พัฒนาการ</th>{/if}
+                    <th>ส่งล่าสุด</th>
+                </tr>
+                </thead>
+                <tbody>
+                {foreach $rows as $r}
+                    {var $main = $isPre ? $r['first'] : $r['best']}
+                    <tr n:class="!$r['tries'] ? qr-none">
+                        <td class="mono">{$r['username']}</td>
+                        <td>
+                            {$r['full_name']}
+                            {if $r['left']}<span class="tag tag-muted">ออกจากรายวิชาแล้ว</span>{/if}
+                            {if $r['pending']}<span class="tag tag-warn" title="มีข้ออัตนัยที่ยังไม่ได้ให้คะแนน">มีอัตนัย</span>{/if}
+                        </td>
+                        {if $main}
+                            <td class="num mono">{$fmt($main['score'])} / {$fmt($main['max_score'])}</td>
+                            <td class="qr-bar-col">
+                                {if $r['pct'] !== null}
+                                    <span n:class="qr-bar, !$isPre && $r['pct'] < $passPct ? is-low"><i style="width: {(int) round($r['pct'])}%"></i></span>
+                                    <span class="qr-pct">{(int) round($r['pct'])}%</span>
+                                {/if}
+                            </td>
+                            {if $isPre && $anyRetry}<td class="num mono">{$r['tries'] > 1 ? $fmt($r['best']['score']) : ''}</td>{/if}
+                            <td class="num mono">{$r['tries']}</td>
+                            {if $pair}
+                                <td class="num mono">{$r['pair'] !== null ? (int) round($r['pair']) . '%' : '—'}</td>
+                                <td class="num">
+                                    {if $r['gain'] !== null}
+                                        <span n:class="qr-gain, $r['gain'] > 0 ? is-up, $r['gain'] < 0 ? is-down">{$r['gain'] > 0 ? '+' : ''}{(int) round($r['gain'])}%</span>
+                                    {else}—{/if}
+                                </td>
+                            {/if}
+                            <td class="hint">{App\Support\Thai::dateTime($r['last_at'])}</td>
+                        {else}
+                            <td class="num muted">ยังไม่ทำ</td>
+                            <td class="qr-bar-col"></td>
+                            {if $isPre && $anyRetry}<td></td>{/if}
+                            <td class="num mono">0</td>
+                            {if $pair}
+                                <td class="num mono">{$r['pair'] !== null ? (int) round($r['pair']) . '%' : '—'}</td>
+                                <td class="num">—</td>
+                            {/if}
+                            <td></td>
+                        {/if}
+                    </tr>
+                {/foreach}
+                </tbody>
+            </table>
+        </div>
+        {/if}
+    </div>
+
+    {if $items && $stats['taken']}
+        <div class="card qr-card">
+            <div class="qr-head">ร้อยละที่ตอบถูกรายข้อ</div>
+            <p class="hint qr-items-hint">{$isPre ? 'ข้อที่ตอบถูกน้อยคือเรื่องที่นักเรียนยังไม่รู้ ควรเน้นตอนสอน' : 'ข้อที่ตอบถูกน้อยอาจเป็นเรื่องที่ต้องทบทวน หรือข้อสอบที่ควรปรับถ้อยคำ'} · นับจาก{$isPre ? 'ครั้งแรก' : 'ครั้งที่ดีที่สุด'}ของ {$stats['taken']} คน</p>
+            <ol class="qr-items">
+                {foreach $items as $it}
+                    <li>
+                        <span class="qr-item-no">{$it['no']}</span>
+                        <span class="qr-item-text">{$it['question']|stripHtml|truncate:140}</span>
+                        {if $it['pct'] !== null}
+                            <span n:class="qr-bar, $it['pct'] < 40 ? is-low"><i style="width: {(int) round($it['pct'])}%"></i></span>
+                            <span class="qr-pct">{(int) round($it['pct'])}%</span>
+                        {else}
+                            <span class="hint qr-item-manual">อัตนัย · ครูให้คะแนน</span>
+                        {/if}
+                    </li>
+                {/foreach}
+            </ol>
+        </div>
+    {/if}
+</div>
+{/block}

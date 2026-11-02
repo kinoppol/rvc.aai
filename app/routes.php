@@ -35,6 +35,7 @@ use App\Controllers\MessageController;
 use App\Controllers\ModelRolesController;
 use App\Controllers\PlanPrintController;
 use App\Controllers\PlanReviewController;
+use App\Controllers\QuizResultsController;
 use App\Controllers\QuizWizardController;
 use App\Controllers\PublicCourseController;
 use App\Controllers\RegisterController;
@@ -187,6 +188,7 @@ return static function (App $app): void {
             $t->get('/{courseId:[0-9]+}/quizzes/stream', [QuizWizardController::class, 'stream']);
             $t->post('/{courseId:[0-9]+}/quizzes/jobs/{jobId:[0-9]+}/cancel', [QuizWizardController::class, 'cancel']);
             $t->get('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/review', [QuizWizardController::class, 'review']);
+            $t->get('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/results', [QuizResultsController::class, 'show']);
             $t->post('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}', [QuizWizardController::class, 'save']);
             $t->post('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/questions/{qid:[0-9]+}/regenerate', [QuizWizardController::class, 'regenerateOne']);
             $t->post('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/questions/{qid:[0-9]+}/delete', [QuizWizardController::class, 'deleteQuestion']);
