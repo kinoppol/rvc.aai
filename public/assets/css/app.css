@@ -2229,6 +2229,20 @@ textarea.note-input { height: auto; min-height: 84px; padding: 10px 14px; line-h
 .learn-file > .msi { font-size: 26px; color: #D97706; }
 .learn-file-name { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
 .learn-file .btn .msi { font-size: 18px; }
+/* ไฟล์ประกอบที่ครูแนบกับใบงาน (_partials/assignment-files.latte และฟอร์มแก้ใบงาน) */
+.assign-files { margin-top: 18px; }
+.assign-files-head { display: flex; align-items: center; gap: 6px; font-weight: 700; margin-bottom: 8px; }
+.assign-files-head .msi { font-size: 20px; color: var(--brand); }
+.assign-file-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.assign-file-edit { margin-bottom: 10px; }
+.assign-file { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface2); flex-wrap: wrap; }
+.assign-file-icon { font-size: 26px; color: #D97706; }
+.assign-file-thumb img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; display: block; }
+.assign-file-name { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; }
+.assign-file-name small { color: var(--ink3, var(--ink2)); font-size: 12px; }
+.assign-file-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.assign-file-actions .btn .msi { font-size: 18px; }
+.assign-file-remove { margin: 0; }
 .learn-pdf { margin-top: 12px; border-radius: 12px; background: var(--surface2); padding: 10px; }
 .learn-pdf-pages { display: grid; gap: 10px; }
 .learn-pdf-page { width: 100%; background: #fff; border-radius: 6px; box-shadow: 0 1px 4px rgb(0 0 0 / .12); overflow: hidden; display: grid; place-items: center; color: var(--ink3); font-size: 13px; }

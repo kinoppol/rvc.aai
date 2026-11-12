@@ -198,6 +198,11 @@ final class QuizWizardController
                     'source' => $chunk,
                     // ข้อที่ได้จากรอบก่อน ๆ — กันถามซ้ำเมื่อเนื้อหาสองก้อนคาบเกี่ยวกัน
                     'avoid' => self::avoidList($collected),
+                    // ตำแหน่งคำตอบของรอบก่อน ๆ — ให้ไม่ซ้ำติดกันเกิน 2 ข้อข้ามรอบด้วย
+                    'avoid_correct' => array_values(array_map(
+                        static fn (array $q): int => QuizGenerator::correctIndex($q['choices']),
+                        array_filter($collected, static fn (array $q): bool => $q['type'] === 'choice')
+                    )),
                 ], $quality) as $ev) {
                     if ($ev['event'] === 'question' && $cancelled()) {
                         return $this->stopCancelled($response, $send, (int) $user['id'], $jobId, $route, count($collected));
@@ -469,10 +474,47 @@ final class QuizWizardController
             return $this->json($response, ['error' => 'ร่างข้อใหม่ไม่สำเร็จ'], 500);
         }
 
+        if ($fresh['type'] === 'choice') {
+            $fresh = $this->fitNeighbours($fresh, (int) $quiz['id'], (int) $question['id']);
+        }
+
         $this->quizzes->replaceQuestion((int) $question['id'], $fresh);
         $this->ai->logUsage((int) $user['id'], null, $route->source, $route->model, true, 'quiz');
 
         return $this->json($response, ['question' => $this->quizzes->getQuestion((int) $question['id'])]);
+    }
+
+    /**
+     * วางคำตอบของข้อที่ร่างใหม่ไม่ให้ซ้ำตำแหน่งกับข้อข้างเคียงติดกันเกินกำหนด
+     * และให้คำตอบกระจายทั่วทั้งชุด
+     */
+    private function fitNeighbours(array $fresh, int $quizId, int $questionId): array
+    {
+        $before = [];
+        $after = [];
+        $used = [];
+        $seen = false;
+        foreach ($this->quizzes->questions($quizId) as $q) {
+            if ((int) $q['id'] === $questionId) {
+                $seen = true;
+                continue;
+            }
+            if ($q['type'] !== 'choice') {
+                continue;
+            }
+            $idx = QuizGenerator::correctIndex($q['choices']);
+            if ($idx < 0) {
+                continue;
+            }
+            $used[$idx] = ($used[$idx] ?? 0) + 1;
+            if ($seen) {
+                $after[] = $idx;
+            } else {
+                $before[] = $idx;
+            }
+        }
+
+        return QuizGenerator::spreadCorrect($fresh, $before, $used, $after);
     }
 
     public function save(Request $request, Response $response, array $args): Response

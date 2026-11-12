@@ -12,10 +12,12 @@ use App\Domain\CourseRepository;
 use App\Domain\UnitRepository;
 use App\Support\Csrf;
 use App\Support\Flash;
+use App\Support\Paths;
 use App\Support\Url;
 use App\Support\View;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Psr\Http\Message\UploadedFileInterface;
 use Psr\Log\LoggerInterface;
 use Slim\Exception\HttpForbiddenException;
 use Slim\Exception\HttpNotFoundException;
@@ -66,6 +68,9 @@ final class AssignmentController
             'units' => $isTask ? $this->lessonUnits((int) $course['id']) : [],
             'form' => $this->formValues($assignment, is_array($draft) ? $draft : null),
             'aiEnabled' => (int) ($course['ai_lesson_plan_enabled'] ?? 1) === 1,
+            'files' => $assignment ? $this->assignments->files((int) $assignment['id']) : [],
+            'filesReady' => $this->assignments->filesReady(),
+            'fileLimits' => ['files' => AssignmentRepository::FILE_MAX, 'mb' => (int) (AssignmentRepository::FILE_MAX_BYTES / 1048576)],
         ]);
     }
 
@@ -78,6 +83,12 @@ final class AssignmentController
         $isTask = $this->isTask($args);
         $noun = $isTask ? 'งาน' : 'ใบงาน';
 
+        if ($data === [] && (int) $request->getHeaderLine('Content-Length') > 0) {
+            // ใหญ่เกิน post_max_size — PHP ทิ้งทั้งฟอร์มรวมถึง _token จึงไม่ใช่เรื่องเซสชันหมดอายุ
+            Flash::error('ไฟล์แนบรวมกันใหญ่เกินที่เซิร์ฟเวอร์รับได้ กรุณาลดจำนวนหรือขนาดไฟล์แล้วบันทึกใหม่');
+
+            return $this->backToForm($response, $course, $unit, $args['id'] ?? null, $isTask);
+        }
         if (!Csrf::check($data['_token'] ?? null)) {
             Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
 
@@ -100,6 +111,23 @@ final class AssignmentController
             return $this->backToForm($response, $course, $unit, $args['id'] ?? null, $isTask);
         }
 
+        // ตรวจไฟล์แนบทั้งหมดก่อนบันทึกอะไร — ผิดไฟล์เดียวก็ไม่บันทึกทั้งชุด
+        $removeFiles = array_map('intval', (array) ($data['remove_files'] ?? []));
+        $kept = $assignment === null ? 0 : count(array_filter(
+            $this->assignments->files((int) $assignment['id']),
+            static fn (array $f): bool => !in_array((int) $f['id'], $removeFiles, true)
+        ));
+        $uploads = $this->postedFiles($request);
+        if (is_array($uploads) && $uploads !== [] && !$this->assignments->filesReady()) {
+            $uploads = 'ระบบยังไม่พร้อมรับไฟล์แนบ (ผู้ดูแลระบบต้องรันการอัปเดตฐานข้อมูลก่อน)';
+        }
+        if (is_string($uploads) || $kept + count($uploads) > AssignmentRepository::FILE_MAX) {
+            Flash::error(is_string($uploads) ? $uploads : 'แนบไฟล์ได้ไม่เกิน ' . AssignmentRepository::FILE_MAX . ' ไฟล์ต่อ' . $noun);
+            $_SESSION['assignment_draft'] = $data;
+
+            return $this->backToForm($response, $course, $unit, $args['id'] ?? null, $isTask);
+        }
+
         $fields = [
             'title' => mb_substr($title, 0, 191),
             'description' => $description ?: null,
@@ -112,16 +140,39 @@ final class AssignmentController
         }
 
         if ($assignment !== null) {
-            $this->assignments->update((int) $assignment['id'], $fields);
+            $id = (int) $assignment['id'];
+            $this->assignments->update($id, $fields);
             Flash::success('บันทึก' . $noun . ' ' . $title . ' แล้ว');
         } else {
-            $this->assignments->create($fields + [
+            $id = $this->assignments->create($fields + [
                 'course_id' => (int) $course['id'],
                 'unit_id' => $unit === null ? null : (int) $unit['id'],
                 'kind' => $isTask ? 'task' : 'worksheet',
                 'created_by' => (int) $user['id'],
             ]);
             Flash::success('เพิ่ม' . $noun . ' ' . $title . ' แล้ว');
+        }
+
+        if ($removeFiles !== [] || $uploads !== []) {
+            try {
+                $this->assignments->removeFiles($id, $removeFiles);
+                $dir = AssignmentRepository::fileDir($id);
+                foreach ($uploads as [$file, $name, $mime]) {
+                    $stored = $dir . '/' . bin2hex(random_bytes(8)) . '.' . AssignmentRepository::FILE_TYPES[$mime];
+                    $file->moveTo(Paths::storage('uploads/' . $stored));
+                    $this->assignments->addFile($id, [
+                        'original_name' => mb_substr($name !== '' ? $name : basename($stored), 0, 255),
+                        'stored_path' => $stored,
+                        'mime_type' => $mime,
+                        'size_bytes' => (int) $file->getSize(),
+                    ]);
+                }
+            } catch (Throwable $e) {
+                $this->logger->error('Assignment file save failed: ' . $e->getMessage(), ['assignment' => $id, 'exception' => $e]);
+                Flash::error('บันทึก' . $noun . 'แล้ว แต่แนบไฟล์ไม่สำเร็จ กรุณาลองแนบใหม่อีกครั้ง');
+
+                return $this->backToForm($response, $course, $unit, $id, $isTask);
+            }
         }
 
         return $this->backToList($response, $course, $unit, $isTask);
@@ -315,6 +366,44 @@ final class AssignmentController
             'allow_late' => (string) ($draft['allow_late'] ?? '') !== '',
             'unit_id' => (string) ($draft['unit_id'] ?? $base['unit_id']),
         ];
+    }
+
+    /**
+     * ไฟล์ที่ครูเลือกแนบ ตรวจขนาดและชนิดจริงแล้ว
+     *
+     * @return list<array{0:UploadedFileInterface,1:string,2:string}>|string ข้อความผิดพลาดเมื่อมีไฟล์ใช้ไม่ได้
+     */
+    private function postedFiles(Request $request): array|string
+    {
+        $posted = $request->getUploadedFiles()['files'] ?? [];
+        $mb = (int) (AssignmentRepository::FILE_MAX_BYTES / 1048576);
+        $uploads = [];
+        foreach (is_array($posted) ? $posted : [$posted] as $file) {
+            if (!$file instanceof UploadedFileInterface || $file->getError() === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+            $name = (string) $file->getClientFilename();
+            $error = match (true) {
+                in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true),
+                (int) $file->getSize() > AssignmentRepository::FILE_MAX_BYTES => 'ใหญ่เกิน ' . $mb . ' MB',
+                $file->getError() !== UPLOAD_ERR_OK => 'อัปโหลดไม่สำเร็จ',
+                default => null,
+            };
+            $mime = null;
+            if ($error === null) {
+                $detected = (string) (new \finfo(FILEINFO_MIME_TYPE))->file($file->getStream()->getMetadata('uri'));
+                $mime = AssignmentRepository::fileType($detected, $name);
+                if ($mime === null) {
+                    $error = 'เป็นไฟล์ชนิดที่ไม่รับ (รับ PDF, รูปภาพ, Word, Excel, PowerPoint, ZIP, TXT)';
+                }
+            }
+            if ($error !== null) {
+                return 'ไฟล์ "' . mb_substr($name, 0, 60) . '" ' . $error;
+            }
+            $uploads[] = [$file, $name, (string) $mime];
+        }
+
+        return $uploads;
     }
 
     /** เส้นทาง /tasks = งานที่มอบหมาย · เส้นทางใต้หน่วย = ใบงาน */

@@ -1,0 +1,32 @@
+{*
+    ไฟล์ที่ครูแนบไว้กับใบงาน / งานที่มอบหมาย — ใช้ใน learn/item.latte และ learn/task.latte
+    ตัวแปร: $assignFiles (AssignmentRepository::files()), $assignFileBase (SubmissionController::attachmentBase())
+    รูปและ PDF เปิดดูในแท็บใหม่ได้ · ไฟล์อื่น (Word, Excel ฯลฯ) ดาวน์โหลด
+*}
+{if $assignFiles}
+    <div class="assign-files">
+        <div class="assign-files-head"><span class="msi" aria-hidden="true">attach_file</span>ไฟล์ประกอบจากครู ({count($assignFiles)})</div>
+        <ul class="assign-file-list">
+            {foreach $assignFiles as $f}
+                {var $url = $base . $assignFileBase . $f['id']}
+                <li class="assign-file">
+                    {if $f['is_image']}
+                        <a class="assign-file-thumb" href="{$url}" target="_blank" rel="noopener"><img src="{$url}" alt="{$f['original_name']}" loading="lazy"></a>
+                    {else}
+                        <span class="msi assign-file-icon" aria-hidden="true">{$f['mime_type'] === 'application/pdf' ? 'picture_as_pdf' : 'description'}</span>
+                    {/if}
+                    <span class="assign-file-name">
+                        {$f['original_name']}
+                        <small>{$f['ext']} · {$f['size_bytes'] >= 1048576 ? number_format($f['size_bytes'] / 1048576, 1) . ' MB' : max(1, (int) round($f['size_bytes'] / 1024)) . ' KB'}</small>
+                    </span>
+                    <span class="assign-file-actions">
+                        {if $f['inline']}
+                            <a class="btn btn-sm" href="{$url}" target="_blank" rel="noopener"><span class="msi" aria-hidden="true">open_in_new</span>เปิดดู</a>
+                        {/if}
+                        <a class="btn btn-sm" href="{$url}?download=1"><span class="msi" aria-hidden="true">download</span>ดาวน์โหลด</a>
+                    </span>
+                </li>
+            {/foreach}
+        </ul>
+    </div>
+{/if}

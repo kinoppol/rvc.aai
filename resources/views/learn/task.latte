@@ -28,6 +28,7 @@
         {else}
             <p class="learn-text">ครูยังไม่ได้ใส่รายละเอียดของงานนี้</p>
         {/if}
+        {include '../_partials/assignment-files.latte'}
         <p class="learn-note">
             <span class="msi" aria-hidden="true">schedule</span>
             {if $assignment['due_at']}กำหนดส่ง {App\Support\Thai::dateTime($assignment['due_at'])}{if !$assignment['allow_late']} (ไม่รับส่งช้า){/if}{else}ไม่กำหนดวันส่ง{/if}

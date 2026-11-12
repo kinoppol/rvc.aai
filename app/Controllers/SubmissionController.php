@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Auth\Auth;
+use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
 use App\Domain\EnrollmentRepository;
 use App\Domain\SubmissionRepository;
@@ -36,6 +37,8 @@ use Throwable;
  *   GET  /courses/{c}/assignments/{id}/submissions            รายชื่อนักเรียน + งานที่ส่ง
  *   POST /courses/{c}/assignments/{id}/submissions/{sid}      ให้คะแนน (do=grade) / ส่งกลับให้แก้ (do=return)
  *   GET  /courses/{c}/submissions/files/{fileId}              เปิดไฟล์ที่นักเรียนส่ง
+ *   GET  /learn/assignments/{id}/files/{fileId}               ไฟล์ที่ครูแนบกับใบงาน (นักเรียนที่ลงทะเบียน)
+ *   GET  /courses/{c}/assignments/{id}/files/{fileId}         ไฟล์ที่ครูแนบกับใบงาน (ครูเจ้าของรายวิชา)
  */
 final class SubmissionController
 {
@@ -47,6 +50,7 @@ final class SubmissionController
         private readonly UnitRepository $units,
         private readonly EnrollmentRepository $enrollments,
         private readonly SubmissionRepository $submissions,
+        private readonly AssignmentRepository $assignments,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -190,7 +194,23 @@ final class SubmissionController
         return $this->send($request, $response, $file);
     }
 
+    /** ไฟล์ที่ครูแนบไว้กับใบงาน/งาน — นักเรียนที่เห็นงานนี้ได้เท่านั้น */
+    public function studentAttachment(Request $request, Response $response, array $args): Response
+    {
+        $assignment = $this->studentAssignment($request, (int) $args['id'], (int) $request->getAttribute('user')['id']);
+
+        return $this->sendAttachment($request, $response, (int) $assignment['id'], (int) $args['fileId']);
+    }
+
     // ── ครู ──────────────────────────────────────────────────────────────────
+
+    public function teacherAttachment(Request $request, Response $response, array $args): Response
+    {
+        $course = $this->ownedCourse($request, (int) $args['courseId']);
+        $assignment = $this->courseAssignment($request, (int) $args['id'], (int) $course['id']);
+
+        return $this->sendAttachment($request, $response, (int) $assignment['id'], (int) $args['fileId']);
+    }
 
     public function previewTask(Request $request, Response $response, array $args): Response
     {
@@ -340,6 +360,10 @@ final class SubmissionController
     private function renderTask(Response $response, array $course, array $assignment, int $studentId, bool $preview): Response
     {
         $submission = $preview ? null : $this->submissions->forStudent((int) $assignment['id'], $studentId);
+        $attach = [
+            'assignFiles' => $this->assignments->files((int) $assignment['id']),
+            'assignFileBase' => self::attachmentBase($assignment, $preview),
+        ];
 
         return $this->view->render($response, 'learn/task', [
             'page'       => $preview ? 'courses' : 'learn',
@@ -348,7 +372,37 @@ final class SubmissionController
             'assignment' => $assignment,
             'unit'       => $assignment['unit_id'] ? $this->units->find((int) $assignment['unit_id']) : null,
             'backUrl'    => $preview ? '/courses/' . $course['id'] . '/preview' : '/learn/' . $course['id'],
-        ] + self::formContext($assignment, $submission, $preview));
+        ] + $attach + self::formContext($assignment, $submission, $preview));
+    }
+
+    /** ต้น URL ของไฟล์ที่ครูแนบ (ต่อท้ายด้วย id ไฟล์) — มุมมองของครูเปิดผ่านเส้นทางของครู */
+    public static function attachmentBase(array $assignment, bool $preview): string
+    {
+        return $preview
+            ? '/courses/' . $assignment['course_id'] . '/assignments/' . $assignment['id'] . '/files/'
+            : '/learn/assignments/' . $assignment['id'] . '/files/';
+    }
+
+    private function sendAttachment(Request $request, Response $response, int $assignmentId, int $fileId): Response
+    {
+        $file = $this->assignments->file($fileId, $assignmentId);
+        $path = $file === null ? null : SubmissionRepository::path((string) $file['stored_path']);
+        $mime = (string) ($file['mime_type'] ?? '');
+        if ($path === null || !isset(AssignmentRepository::FILE_TYPES[$mime])) {
+            throw new HttpNotFoundException($request, 'ไม่พบไฟล์นี้');
+        }
+        $inline = in_array($mime, AssignmentRepository::FILE_INLINE, true)
+            && ($request->getQueryParams()['download'] ?? '') === '';
+        $name = (string) $file['original_name'];
+        $ascii = preg_replace('/[^A-Za-z0-9._-]+/', '_', $name) ?: 'file';
+
+        return $response
+            ->withBody(new Stream(fopen($path, 'rb')))
+            ->withHeader('Content-Type', $mime)
+            ->withHeader('Content-Length', (string) filesize($path))
+            ->withHeader('Content-Disposition', sprintf('%s; filename="%s"; filename*=UTF-8\'\'%s', $inline ? 'inline' : 'attachment', $ascii, rawurlencode($name)))
+            ->withHeader('Cache-Control', 'private, max-age=3600')
+            ->withHeader('X-Content-Type-Options', 'nosniff');
     }
 
     /**

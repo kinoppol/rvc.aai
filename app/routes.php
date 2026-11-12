@@ -171,6 +171,7 @@ return static function (App $app): void {
             $t->get('/{courseId:[0-9]+}/assignments/{id:[0-9]+}/submissions', [SubmissionController::class, 'index']);
             $t->post('/{courseId:[0-9]+}/assignments/{id:[0-9]+}/submissions/{sid:[0-9]+}', [SubmissionController::class, 'grade']);
             $t->get('/{courseId:[0-9]+}/submissions/files/{fileId:[0-9]+}', [SubmissionController::class, 'teacherFile']);
+            $t->get('/{courseId:[0-9]+}/assignments/{id:[0-9]+}/files/{fileId:[0-9]+}', [SubmissionController::class, 'teacherAttachment']);
 
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/report', [UnitController::class, 'saveReport']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft', [UnitController::class, 'draftContent']);
@@ -260,6 +261,7 @@ return static function (App $app): void {
             $s->get('/task/{id:[0-9]+}', [SubmissionController::class, 'task']);
             $s->post('/assignments/{id:[0-9]+}/submit', [SubmissionController::class, 'submit']);
             $s->get('/submissions/files/{fileId:[0-9]+}', [SubmissionController::class, 'studentFile']);
+            $s->get('/assignments/{id:[0-9]+}/files/{fileId:[0-9]+}', [SubmissionController::class, 'studentAttachment']);
             $s->post('/quizzes/{quizId:[0-9]+}/start', [StudentController::class, 'startQuiz']);
             $s->get('/attempts/{attemptId:[0-9]+}', [StudentController::class, 'take']);
             $s->post('/attempts/{attemptId:[0-9]+}/answer', [StudentController::class, 'answer']);

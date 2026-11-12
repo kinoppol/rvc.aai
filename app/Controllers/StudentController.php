@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Domain\AssignmentRepository;
 use App\Domain\AttemptRepository;
 use App\Domain\CourseFeedRepository;
 use App\Domain\EnrollmentRepository;
@@ -40,6 +41,7 @@ final class StudentController
         private readonly Db $db,
         private readonly SubmissionRepository $submissions,
         private readonly CourseFeedRepository $feed,
+        private readonly AssignmentRepository $assignments,
     ) {
     }
 
@@ -524,7 +526,11 @@ final class StudentController
                 $record,
                 $preview ? null : $this->submissions->forStudent($itemId, $studentId),
                 $preview
-            ) + ['assignment' => $record]
+            ) + [
+                'assignment' => $record,
+                'assignFiles' => $this->assignments->files($itemId),
+                'assignFileBase' => SubmissionController::attachmentBase($record, $preview),
+            ]
             : [];
 
         return $this->view->render($response, 'learn/item', [

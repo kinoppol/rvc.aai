@@ -44,7 +44,7 @@
         </form>
     {/if}
 
-    <form method="post" action="{$formUrl}{if $assignment}/{$assignment['id']}{/if}" class="card">
+    <form method="post" action="{$formUrl}{if $assignment}/{$assignment['id']}{/if}" class="card" enctype="multipart/form-data">
         <input type="hidden" name="_token" value="{$csrf}">
 
         <div class="field">
@@ -68,6 +68,38 @@
             <label for="description">รายละเอียด{$noun}</label>
             <textarea class="input" id="description" name="description" rows="20"
                       placeholder="จุดประสงค์ ขั้นตอนการทำงาน สิ่งที่ต้องส่ง และเกณฑ์การให้คะแนน">{$form['description']}</textarea>
+        </div>
+
+        {* ไฟล์ประกอบที่นักเรียนเปิด/ดาวน์โหลดได้จากหน้าใบงาน — บันทึกพร้อมฟอร์มนี้ *}
+        <div class="field">
+            <label for="assignFiles">ไฟล์ประกอบ{$noun} (ไม่บังคับ)</label>
+            {if !$filesReady}
+                <div class="hint">ยังแนบไฟล์ไม่ได้ ผู้ดูแลระบบต้องรันการอัปเดตฐานข้อมูล (ไฟล์แนบของใบงาน) ก่อน</div>
+            {else}
+                {if $files}
+                    <ul class="assign-file-list assign-file-edit">
+                        {foreach $files as $f}
+                            <li class="assign-file">
+                                <span class="msi assign-file-icon" aria-hidden="true">{$f['is_image'] ? 'image' : ($f['mime_type'] === 'application/pdf' ? 'picture_as_pdf' : 'description')}</span>
+                                <span class="assign-file-name">
+                                    <a href="{$base}/courses/{$course['id']}/assignments/{$assignment['id']}/files/{$f['id']}" target="_blank" rel="noopener">{$f['original_name']}</a>
+                                    <small>{$f['ext']} · {$f['size_bytes'] >= 1048576 ? number_format($f['size_bytes'] / 1048576, 1) . ' MB' : max(1, (int) round($f['size_bytes'] / 1024)) . ' KB'}</small>
+                                </span>
+                                <label class="check-row assign-file-remove">
+                                    <input type="checkbox" name="remove_files[]" value="{$f['id']}">
+                                    <span>ลบ</span>
+                                </label>
+                            </li>
+                        {/foreach}
+                    </ul>
+                {/if}
+                <input class="input" type="file" id="assignFiles" name="files[]" multiple
+                       accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt">
+                <div class="hint" style="margin-top:6px">
+                    เช่น ใบงานฉบับ Word แบบฟอร์ม ตาราง Excel รูปประกอบ · PDF, รูปภาพ, Word, Excel, PowerPoint, ZIP, TXT
+                    ไม่เกิน {$fileLimits['mb']} MB ต่อไฟล์ รวมไม่เกิน {$fileLimits['files']} ไฟล์ · นักเรียนเปิดและดาวน์โหลดได้จากหน้า{$noun}
+                </div>
+            {/if}
         </div>
 
         <div class="register-form-grid">
