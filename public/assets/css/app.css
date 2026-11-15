@@ -3022,3 +3022,7 @@ html.is-presenting { overflow: hidden; }
 .qad-label { flex: 1; min-width: 0; }
 .qad-queue .autodraft-state a { color: inherit; }
 .qad-actions { margin-top: 14px; }
+
+/* วิซาร์ดออกข้อสอบ: ช่องกำหนดจำนวนข้อเอง ต่อท้ายปุ่มจำนวน */
+.count-custom { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink2); margin-left: 4px; }
+.count-custom .input { width: 96px; height: 40px; text-align: center; }

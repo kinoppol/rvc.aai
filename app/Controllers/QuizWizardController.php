@@ -34,7 +34,11 @@ use Throwable;
  */
 final class QuizWizardController
 {
-    private const COUNT_OPTIONS = [5, 8, 10, 20];
+    private const COUNT_OPTIONS = [5, 8, 10, 20, 40, 60, 80];
+    /** ครูกำหนดจำนวนข้อเองได้ 1–COUNT_MAX (สอบกลางภาค/ปลายภาคมักใช้ 40 ข้อขึ้นไป) */
+    private const COUNT_MAX = 100;
+    /** สั่งโมเดลครั้งละไม่เกินกี่ข้อ — ขอทีเดียวเยอะ ๆ โมเดลมักหยุดกลางทาง */
+    private const PER_CALL = 15;
     private const TYPE_OPTIONS = ['ปรนัย', 'อัตนัย', 'จับคู่'];
     private const LEVELS = [
         'ง่าย' => 'เน้นความจำและคำศัพท์พื้นฐาน',
@@ -46,6 +50,8 @@ final class QuizWizardController
      * รวมแล้วส่งเนื้อหาได้ราว chars × รอบ × 0.85 ตัวอักษร (เผื่อที่ว่างตอนจัดหัวข้อลงแต่ละรอบ)
      */
     private const MAX_ROUNDS = 6;
+    /** ร่างครบทุกรอบแล้วยังได้ไม่ครบจำนวน: สั่งออกเพิ่มได้อีกกี่ครั้ง */
+    private const TOPUP_TRIES = 3;
 
     public function __construct(
         private readonly View $view,
@@ -223,8 +229,18 @@ final class QuizWizardController
     private function runRounds(AiRoute $route, array $course, array $params, string $quality, array $rounds, int $jobId, ?callable $send = null): array
     {
         $collected = [];
+        $short = [];
         $cancelled = fn (): bool => ($this->ai->findJob($jobId)['status'] ?? '') === 'cancelled';
         $stop = static fn (array $collected): array => ['questions' => $collected, 'cancelled' => true, 'error' => null];
+
+        // ก้อนเนื้อหาที่ต้องออกหลายข้อ แบ่งเป็นครั้งละไม่เกิน PER_CALL ข้อ (ส่งโจทย์ที่ได้แล้วไปห้ามซ้ำทุกครั้ง)
+        $calls = [];
+        foreach ($rounds as [$chunk, $want]) {
+            for ($left = $want; $left > 0; $left -= self::PER_CALL) {
+                $calls[] = [$chunk, min($left, self::PER_CALL)];
+            }
+        }
+        $rounds = $calls;
 
         foreach ($rounds as $i => [$chunk, $want]) {
             if ($cancelled()) {
@@ -245,7 +261,7 @@ final class QuizWizardController
                     'level' => $params['level'],
                     'source' => $chunk,
                     // ข้อที่ได้จากรอบก่อน ๆ — กันถามซ้ำเมื่อเนื้อหาสองก้อนคาบเกี่ยวกัน
-                    'avoid' => self::avoidList($collected),
+                    'avoid' => self::avoidList($collected, 40, 100),
                     // ตำแหน่งคำตอบของรอบก่อน ๆ — ให้ไม่ซ้ำติดกันเกิน 2 ข้อข้ามรอบด้วย
                     'avoid_correct' => array_values(array_map(
                         static fn (array $q): int => QuizGenerator::correctIndex($q['choices']),
@@ -255,7 +271,7 @@ final class QuizWizardController
                     if ($ev['event'] === 'question' && $cancelled()) {
                         return $stop($collected);
                     }
-                    if ($ev['event'] === 'question' && $got < $want) {
+                    if ($ev['event'] === 'question' && $got < $want && !self::isDuplicate($ev['data'], $collected)) {
                         $got++;
                         $ev['data']['no'] = count($collected) + 1;
                         $collected[] = $ev['data'];
@@ -275,9 +291,103 @@ final class QuizWizardController
                     ];
                 }
             }
+            if ($got < $want) {
+                $short[] = $chunk;
+            }
+        }
+
+        // ตรวจหลังร่างเสร็จ: โมเดลมักหยุดก่อนครบ — สั่งออกเพิ่มเฉพาะส่วนที่ขาด โดยส่งโจทย์ทุกข้อที่ได้แล้วไปห้ามถามซ้ำ
+        // (ก้อนเนื้อหาที่ขาดก่อน แล้ววนก้อนอื่น · สูงสุด TOPUP_TRIES ครั้ง · ครั้งที่ไม่ได้ข้อใหม่เลยนับเป็นครั้งเสีย)
+        $target = (int) $params['count'];
+        $chunks = array_values(array_unique(array_merge($short, array_column($rounds, 0))));
+        $tries = self::TOPUP_TRIES + intdiv($target, 20);
+        for ($try = 0; $try < $tries && count($collected) < $target; $try++) {
+            if ($cancelled()) {
+                return $stop($collected);
+            }
+            $missing = min($target - count($collected), self::PER_CALL);
+            if ($send !== null) {
+                $send('topup', ['missing' => $target - count($collected), 'try' => $try + 1, 'have' => count($collected)]);
+            }
+            try {
+                foreach ($this->generator->stream($route, [
+                    'course_code' => $course['code'],
+                    'course_name' => $course['name'],
+                    'lesson_titles' => $params['unitTitles'],
+                    'count' => $missing,
+                    'types' => $params['types'],
+                    'level' => $params['level'],
+                    'source' => $chunks === [] ? '' : $chunks[$try % count($chunks)],
+                    'avoid' => self::avoidList($collected, 60, 90),
+                    'avoid_correct' => array_values(array_map(
+                        static fn (array $q): int => QuizGenerator::correctIndex($q['choices']),
+                        array_filter($collected, static fn (array $q): bool => $q['type'] === 'choice')
+                    )),
+                ], $quality) as $ev) {
+                    if ($ev['event'] === 'question' && $cancelled()) {
+                        return $stop($collected);
+                    }
+                    if ($ev['event'] === 'question' && count($collected) < $target && !self::isDuplicate($ev['data'], $collected)) {
+                        $ev['data']['no'] = count($collected) + 1;
+                        $collected[] = $ev['data'];
+                        if ($send !== null) {
+                            $send('question', $ev['data']);
+                        }
+                    } elseif ($ev['event'] === 'error') {
+                        break;
+                    }
+                }
+            } catch (Throwable) {
+                // เติมไม่สำเร็จ — เก็บข้อที่ได้ไว้ ลองครั้งถัดไป
+            }
         }
 
         return ['questions' => $collected, 'cancelled' => $cancelled(), 'error' => null];
+    }
+
+    /**
+     * โจทย์นี้ซ้ำกับข้อที่ได้แล้วหรือไม่: เทียบหลังตัดช่องว่าง/เครื่องหมาย — เหมือนกัน, ข้อหนึ่งครอบอีกข้อ
+     * หรือคล้ายกันตั้งแต่ร้อยละ 85 (similar_text บนตัวอักษร)
+     *
+     * @param array<string,mixed> $q
+     * @param list<array<string,mixed>> $collected
+     */
+    private static function isDuplicate(array $q, array $collected): bool
+    {
+        $norm = static fn (string $t): string => mb_strtolower((string) preg_replace('/[\s\p{P}\p{S}]+/u', '', $t));
+        $a = $norm((string) ($q['question'] ?? ''));
+        if ($a === '') {
+            return false;
+        }
+        $aChars = mb_str_split($a);
+        foreach ($collected as $c) {
+            $b = $norm((string) ($c['question'] ?? ''));
+            if ($b === '') {
+                continue;
+            }
+            if ($a === $b || (mb_strlen($a) >= 12 && mb_strlen($b) >= 12 && (str_contains($a, $b) || str_contains($b, $a)))) {
+                return true;
+            }
+            // similar_text ทำงานทีละไบต์ — แปลงตัวอักษรไทยเป็นไบต์เดียวก่อนเทียบ
+            $map = [];
+            $enc = static function (array $chars) use (&$map): string {
+                $out = '';
+                foreach ($chars as $ch) {
+                    $map[$ch] ??= chr(count($map) % 256);
+                    $out .= $map[$ch];
+                }
+
+                return $out;
+            };
+            $x = $enc($aChars);
+            $y = $enc(mb_str_split($b));
+            similar_text($x, $y, $pct);
+            if ($pct >= 85) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -804,7 +914,8 @@ final class QuizWizardController
         }
 
         $types = array_values(array_intersect(self::TYPE_OPTIONS, (array) ($q['types'] ?? [])));
-        $count = in_array((int) ($q['count'] ?? 0), self::COUNT_OPTIONS, true) ? (int) $q['count'] : 10;
+        $count = (int) ($q['count'] ?? 0);
+        $count = $count >= 1 ? min($count, self::COUNT_MAX) : 10;
         $level = array_key_exists((string) ($q['level'] ?? ''), self::LEVELS) ? (string) $q['level'] : 'กลาง';
 
         return [
@@ -841,11 +952,11 @@ final class QuizWizardController
     }
 
     /** โจทย์ของข้อที่ได้แล้ว (ตัดสั้น) สำหรับบอกโมเดลไม่ให้ถามซ้ำ */
-    private static function avoidList(array $collected): string
+    private static function avoidList(array $collected, int $limit = 20, int $chars = 120): string
     {
         $stems = array_map(
-            static fn (array $q): string => '- ' . mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) $q['question'])), 0, 120),
-            array_slice($collected, -20)
+            static fn (array $q): string => '- ' . mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) $q['question'])), 0, $chars),
+            array_slice($collected, -$limit)
         );
 
         return implode("\n", $stems);

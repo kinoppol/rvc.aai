@@ -67,6 +67,12 @@
         headline.textContent = 'รอบที่ ' + d.no + ' จาก ' + d.of + ' · กำลังเขียนข้อ ' + (got + 1) + ' จาก ' + total;
     });
 
+    /* ร่างครบทุกรอบแล้วยังไม่ครบจำนวน → ระบบสั่งออกเพิ่มเฉพาะที่ขาด (ไม่ซ้ำข้อเดิม) */
+    es.addEventListener('topup', function (e) {
+        var d = JSON.parse(e.data);
+        headline.textContent = 'ได้ ' + d.have + ' จาก ' + total + ' ข้อ · กำลังออกเพิ่มอีก ' + d.missing + ' ข้อ (ครั้งที่ ' + d['try'] + ')';
+    });
+
     es.addEventListener('question', function (e) {
         var q = JSON.parse(e.data);
         got++;

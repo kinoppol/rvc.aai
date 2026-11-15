@@ -48,7 +48,13 @@
                 {foreach $countOptions as $n}
                     <button type="button" data-value="{$n}" n:class="pill, mono, $n === 10 ? is-on">{$n}</button>
                 {/foreach}
+                <label class="count-custom">
+                    กำหนดเอง
+                    <input type="number" class="input mono" id="countCustom" min="1" max="100" step="1" inputmode="numeric" placeholder="เช่น 30" aria-label="กำหนดจำนวนข้อเอง (1–100)">
+                    ข้อ
+                </label>
             </div>
+            <div class="hint">สอบกลางภาค/ปลายภาคมักใช้ 40 ข้อขึ้นไป · ข้อสอบชุดใหญ่ผู้ช่วยจะออกทีละ 15 ข้อจนครบ จึงใช้เวลานานขึ้น</div>
 
             <div class="hr"></div>
             <div class="step-label">4 · ชนิดข้อสอบ</div>
@@ -136,6 +142,21 @@
                 refresh();
             });
         });
+    });
+
+    /* จำนวนข้อกำหนดเอง: พิมพ์แล้วยกเลิกปุ่มที่เลือกไว้ · กดปุ่มจำนวนแล้วล้างช่องนี้ */
+    var custom = document.getElementById('countCustom');
+    var countRow = root.querySelector('.pill-row[data-group=count]');
+    custom.addEventListener('input', function () {
+        var n = parseInt(custom.value, 10);
+        if (!n || n < 1) { return; }
+        if (n > 100) { n = 100; custom.value = '100'; }
+        countRow.querySelectorAll('.pill').forEach(function (b) { b.classList.toggle('is-on', parseInt(b.dataset.value, 10) === n); });
+        state.count = n;
+        refresh();
+    });
+    countRow.querySelectorAll('.pill').forEach(function (b) {
+        b.addEventListener('click', function () { custom.value = ''; });
     });
 
     root.querySelectorAll('.level-card').forEach(function (btn) {
