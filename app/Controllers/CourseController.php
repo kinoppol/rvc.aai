@@ -341,7 +341,7 @@ final class CourseController
             : null;
         $units = $course !== null ? $this->units->forCourse((int) $course['id']) : [];
         $lessonUnits = array_values(array_filter($units, static fn (array $u): bool => !UnitRepository::isExam($u)));
-        $behaviorReady = $this->courses->hasColumn('behavior_analysis');
+        $behaviorReady = $this->hasCourseColumn($course, 'behavior_analysis');
         $behavior = $course !== null && $behaviorReady
             ? BehaviorAnalysis::decode($course['behavior_analysis'] ?? null)
             : null;
@@ -360,10 +360,10 @@ final class CourseController
             // หัวหน้าแผนกผู้ลงนามในแผนการสอน · รายวิชาใหม่ใช้คนที่ครูเลือกไว้ในรายวิชาล่าสุด
             'staff' => $this->signers->ready() ? $this->signers->staff() : null,
             // แบบฟอร์มแผนการสอน (PlanFormat) · ก่อนรัน migration 000134 ซ่อนช่องนี้
-            'planFormats' => $this->courses->hasColumn('plan_format') ? PlanFormat::labels() : null,
+            'planFormats' => $this->hasCourseColumn($course, 'plan_format') ? PlanFormat::labels() : null,
             'planFormat' => PlanFormat::resolve(null, $course['plan_format'] ?? null),
             // กลุ่มอาชีพ ปวช. 2567 + ชื่อที่ครูคนนี้พิมพ์เองไว้ในรายวิชาของตน · null = ยังไม่รัน migration 000135
-            'careerGroups' => $this->courses->hasColumn('career_group') ? CareerGroups::BY_PROGRAM : null,
+            'careerGroups' => $this->hasCourseColumn($course, 'career_group') ? CareerGroups::BY_PROGRAM : null,
             'programTypes' => CareerGroups::programs(),
             // ตารางวิเคราะห์พฤติกรรมการเรียนรู้ (หน่วยการเรียนปกติเท่านั้น) · null = วิชาใหม่หรือยังไม่รัน migration 000137
             'behavior' => $behavior,
@@ -375,7 +375,7 @@ final class CourseController
                 ? PlanCompleteness::check($course, $units, $behaviorReady ? $behavior : null, Url::base())
                 : null,
             // มาตรฐานอาชีพ · null = ยังไม่รัน migration 000136 (ซ่อนแท็บ)
-            'occupation' => $this->courses->hasColumn('occupation_standard')
+            'occupation' => $this->hasCourseColumn($course, 'occupation_standard')
                 ? (OccupationStandard::decode($course['occupation_standard'] ?? null)
                     ?? ['agency' => '', 'standard' => '', 'occupation' => '', 'rows' => []])
                 : null,
@@ -448,7 +448,7 @@ final class CourseController
             $fields['dept_head_id'] = $this->signers->validStaff((int) ($data['dept_head_id'] ?? 0));
         }
         // ตารางวิเคราะห์พฤติกรรม — ส่ง bh_present=1 มาเมื่อฟอร์มแสดงตาราง (วิชาที่มีหน่วยการเรียนแล้ว)
-        if ($course !== null && isset($data['bh_present']) && $this->courses->hasColumn('behavior_analysis')) {
+        if ($course !== null && isset($data['bh_present']) && $this->hasCourseColumn($course, 'behavior_analysis')) {
             $unitIds = array_map(
                 static fn (array $u): int => (int) $u['id'],
                 array_filter($this->units->forCourse((int) $course['id']), static fn (array $u): bool => !UnitRepository::isExam($u))
@@ -456,14 +456,14 @@ final class CourseController
             $fields['behavior_analysis'] = BehaviorAnalysis::fromPost($data, array_values($unitIds));
         }
         // มาตรฐานอาชีพ — ฟอร์มส่ง os_present=1 มาเสมอเมื่อมีแท็บนี้ (ลบทุกแถว = ไม่มีมาตรฐานอาชีพ)
-        if (isset($data['os_present']) && $this->courses->hasColumn('occupation_standard')) {
+        if (isset($data['os_present']) && $this->hasCourseColumn($course, 'occupation_standard')) {
             $fields['occupation_standard'] = OccupationStandard::fromPost($data);
         }
-        if (array_key_exists('career_group', $data) && $this->courses->hasColumn('career_group')) {
+        if (array_key_exists('career_group', $data) && $this->hasCourseColumn($course, 'career_group')) {
             $group = preg_replace('/\s+/u', ' ', trim((string) $data['career_group'])) ?? '';
             $fields['career_group'] = mb_substr($group, 0, 191) ?: null;
         }
-        if (isset($data['plan_format']) && $this->courses->hasColumn('plan_format')) {
+        if (isset($data['plan_format']) && $this->hasCourseColumn($course, 'plan_format')) {
             $fields['plan_format'] = PlanFormat::clean((string) $data['plan_format']);
         }
 
@@ -654,6 +654,17 @@ final class CourseController
         }
 
         return $response->withHeader('Location', $tabUrl)->withStatus(302);
+    }
+
+    /**
+     * มีคอลัมน์นี้ใน courses แล้วหรือยัง (หลังรัน migration) — วิชาที่มีอยู่แล้วดูจากแถวที่อ่านมา (SELECT *) ได้เลย
+     * วิชาใหม่ถามฐานข้อมูลผ่าน CourseRepository::hasColumn()
+     *
+     * @param array<string,mixed>|null $course
+     */
+    private function hasCourseColumn(?array $course, string $column): bool
+    {
+        return ($course !== null && array_key_exists($column, $course)) || $this->courses->hasColumn($column);
     }
 
     /**

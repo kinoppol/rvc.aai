@@ -153,14 +153,23 @@ final class CourseRepository
     public function hasColumn(string $column): bool
     {
         if (!isset($this->columns[$column])) {
+            $this->columns[$column] = false;
+            if (preg_match('/^[a-z_]+$/', $column) !== 1) {
+                return false;
+            }
+            // ห้ามใช้ SHOW COLUMNS … LIKE ? — MariaDB ไม่รับ placeholder ในคำสั่ง SHOW เมื่อใช้ real prepares
+            // จึงใส่ชื่อคอลัมน์ตรง ๆ (ตรวจรูปแบบแล้วข้างบน) แบบเดียวกับ PlanSignerRepository · สำรองด้วย information_schema
             try {
-                // ห้ามใช้ SHOW COLUMNS … LIKE ? — MariaDB ไม่รับ placeholder ในคำสั่ง SHOW เมื่อใช้ real prepares (คืน false ตลอด)
-                $this->columns[$column] = $this->db->int(
-                    'SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
-                    [$this->db->table('courses'), $column]
-                ) > 0;
+                $this->columns[$column] = $this->db->first("SHOW COLUMNS FROM {courses} LIKE '{$column}'") !== null;
             } catch (\PDOException) {
-                $this->columns[$column] = false;
+                try {
+                    $this->columns[$column] = $this->db->int(
+                        'SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+                        [$this->db->table('courses'), $column]
+                    ) > 0;
+                } catch (\PDOException) {
+                    $this->columns[$column] = false;
+                }
             }
         }
 
