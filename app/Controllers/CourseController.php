@@ -13,6 +13,7 @@ use App\Domain\PlanSignerRepository;
 use App\Domain\QuizRepository;
 use App\Domain\StudentAccountRepository;
 use App\Domain\UnitRepository;
+use App\Support\CareerGroups;
 use App\Support\Cover;
 use App\Support\Csrf;
 use App\Support\Db;
@@ -352,6 +353,10 @@ final class CourseController
             // แบบฟอร์มแผนการสอน (PlanFormat) · ก่อนรัน migration 000134 ซ่อนช่องนี้
             'planFormats' => $this->courses->hasColumn('plan_format') ? PlanFormat::labels() : null,
             'planFormat' => PlanFormat::resolve(null, $course['plan_format'] ?? null),
+            // กลุ่มอาชีพ ปวช. 2567 + ชื่อที่ครูคนนี้พิมพ์เองไว้ในรายวิชาของตน · null = ยังไม่รัน migration 000135
+            'careerGroups' => $this->courses->hasColumn('career_group') ? CareerGroups::BY_PROGRAM : null,
+            'programTypes' => CareerGroups::programs(),
+            'myCareerGroups' => $this->courses->careerGroupsOf((int) $user['id']),
             'deptHeadId' => $course !== null
                 ? (int) ($course['dept_head_id'] ?? 0)
                 : $this->signers->lastDeptHead((int) $user['id']),
@@ -418,6 +423,10 @@ final class CourseController
         // ก่อนรันไมเกรชัน 000128 ยังไม่มีคอลัมน์นี้ — ข้ามไปให้บันทึกรายวิชาได้ตามปกติ
         if ($this->signers->ready()) {
             $fields['dept_head_id'] = $this->signers->validStaff((int) ($data['dept_head_id'] ?? 0));
+        }
+        if (array_key_exists('career_group', $data) && $this->courses->hasColumn('career_group')) {
+            $group = preg_replace('/\s+/u', ' ', trim((string) $data['career_group'])) ?? '';
+            $fields['career_group'] = mb_substr($group, 0, 191) ?: null;
         }
         if (isset($data['plan_format']) && $this->courses->hasColumn('plan_format')) {
             $fields['plan_format'] = PlanFormat::clean((string) $data['plan_format']);

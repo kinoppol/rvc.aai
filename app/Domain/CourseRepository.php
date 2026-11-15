@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain;
 
+use App\Support\CareerGroups;
 use App\Support\Cover;
 use App\Support\Db;
 
@@ -124,9 +125,29 @@ final class CourseRepository
         ]);
     }
 
-    /** @param array<string,mixed> $data */
     /** @var array<string,bool> */
     private array $columns = [];
+
+    /**
+     * กลุ่มอาชีพที่ครูคนนี้เคยพิมพ์เองในรายวิชาของตน (ไม่อยู่ในรายการมาตรฐาน)
+     * — ใช้เติมอัตโนมัติให้ครูคนนั้นเท่านั้น ครูคนอื่นไม่เห็น
+     * @return list<string>
+     */
+    public function careerGroupsOf(int $teacherId): array
+    {
+        if (!$this->hasColumn('career_group')) {
+            return [];
+        }
+        $rows = $this->db->all(
+            "SELECT DISTINCT career_group FROM {courses} WHERE teacher_id = ? AND career_group IS NOT NULL AND career_group <> '' ORDER BY career_group",
+            [$teacherId]
+        );
+
+        return array_values(array_filter(
+            array_map(static fn (array $r): string => (string) $r['career_group'], $rows),
+            static fn (string $g): bool => !CareerGroups::isOfficial($g)
+        ));
+    }
 
     /** มีคอลัมน์นี้ใน courses แล้วหรือยัง (ใช้ก่อน/หลังรัน migration ให้หน้าไม่พัง) */
     public function hasColumn(string $column): bool

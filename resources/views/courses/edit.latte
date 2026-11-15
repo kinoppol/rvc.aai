@@ -139,11 +139,58 @@
                 <input class="input" id="cProgram" name="program_type" maxlength="191" list="programTypes"
                        value="{$course['program_type'] ?? ''}" placeholder="เช่น อุตสาหกรรม">
                 <datalist id="programTypes">
-                    {foreach ['อุตสาหกรรม', 'พาณิชยกรรม/บริหารธุรกิจ', 'ศิลปกรรมและเศรษฐกิจสร้างสรรค์', 'คหกรรม', 'เกษตรกรรมและประมง', 'อุตสาหกรรมการท่องเที่ยว', 'อุตสาหกรรมแฟชั่นและสิ่งทอ', 'อุตสาหกรรมดิจิทัลและเทคโนโลยีสารสนเทศ', 'อุตสาหกรรมบันเทิง'] as $p}
+                    {foreach $programTypes as $p}
                         <option value="{$p}"></option>
                     {/foreach}
                 </datalist>
             </div>
+            {if $careerGroups !== null}
+                <div class="field">
+                    <label for="cCareer">กลุ่มอาชีพ</label>
+                    <input class="input" id="cCareer" name="career_group" maxlength="191" list="careerGroups" autocomplete="off"
+                           value="{$course['career_group'] ?? ''}" placeholder="เช่น ซอฟต์แวร์และการประยุกต์">
+                    <datalist id="careerGroups">
+                        {foreach $careerGroups as $program => $groups}
+                            {foreach $groups as $g}
+                                <option value="{$g}" label="{$program}" data-program="{$program}"></option>
+                            {/foreach}
+                        {/foreach}
+                        {foreach $myCareerGroups as $g}
+                            <option value="{$g}" label="ที่คุณเพิ่มเอง" data-mine="1"></option>
+                        {/foreach}
+                    </datalist>
+                    <div class="hint">เลือกจากกลุ่มอาชีพ ปวช. 2567 หรือพิมพ์ชื่อใหม่เองได้ · ชื่อที่พิมพ์เองแสดงเป็นตัวเลือกให้คุณคนเดียว</div>
+                </div>
+                <script n:syntax="off">
+                (function () {
+                    var program = document.getElementById('cProgram');
+                    var career = document.getElementById('cCareer');
+                    var list = document.getElementById('careerGroups');
+                    if (!program || !career || !list) return;
+                    var norm = function (s) { return (s || '').replace(/^ประเภทวิชา/, '').replace(/\s+/g, ''); };
+                    var options = Array.prototype.slice.call(list.options);
+                    // กลุ่มอาชีพของประเภทวิชาที่เลือกขึ้นก่อน ตามด้วยชื่อที่ครูเพิ่มเอง แล้วจึงที่เหลือ
+                    var reorder = function () {
+                        var p = norm(program.value);
+                        var rank = function (o) {
+                            if (p && norm(o.dataset.program) === p) return 0;
+                            return o.dataset.mine ? 1 : 2;
+                        };
+                        options.slice().sort(function (a, b) {
+                            return rank(a) - rank(b) || options.indexOf(a) - options.indexOf(b);
+                        }).forEach(function (o) { list.appendChild(o); });
+                    };
+                    // เลือกกลุ่มอาชีพมาตรฐานโดยยังไม่ได้กรอกประเภทวิชา → เติมประเภทวิชาให้
+                    career.addEventListener('change', function () {
+                        if (program.value.trim() !== '') return;
+                        var hit = options.filter(function (o) { return o.value === career.value.trim() && o.dataset.program; })[0];
+                        if (hit) { program.value = hit.dataset.program; reorder(); }
+                    });
+                    program.addEventListener('input', reorder);
+                    reorder();
+                })();
+                </script>
+            {/if}
             <div class="field">
                 <label for="cMajor">สาขาวิชา</label>
                 <input class="input" id="cMajor" name="major" maxlength="191"

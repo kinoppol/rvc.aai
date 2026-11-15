@@ -36,7 +36,7 @@
     <div>
         <p class="mid">หลักสูตร{$levelText}</p>
         <p class="mid">พุทธศักราช 2567</p>
-        <p class="mid">ประเภทวิชา{$programType} สาขาวิชา{$major}</p>
+        <p class="mid">ประเภทวิชา{$programType}{if $course['career_group'] ?? null} กลุ่มอาชีพ{$course['career_group']}{/if} สาขาวิชา{$major}</p>
     </div>
     <div>
         <p class="mid">จัดทำโดย</p>
@@ -55,7 +55,7 @@
     <h2>ลักษณะรายวิชา</h2>
     <p><b>รหัสวิชา</b> {$course['code']} <b>ชื่อวิชา</b> {$course['name']} <b>ท-ป-น</b> {$tpn}</p>
     <p><b>หน่วยกิต</b> {$credits} <b>เวลาเรียน</b> {$weekly} ชั่วโมงต่อสัปดาห์ (ท + ป) · {$weeks} สัปดาห์รวมวัดผล รวม {$totalHours} ชั่วโมง</p>
-    <p><b>ประเภทวิชา</b> {$programType} <b>สาขาวิชา</b> {$major}</p>
+    <p><b>ประเภทวิชา</b> {$programType}{if $course['career_group'] ?? null} <b>กลุ่มอาชีพ</b> {$course['career_group']}{/if} <b>สาขาวิชา</b> {$major}</p>
     {if $course['classroom_name']}<p><b>กลุ่มเรียน</b> {$course['classroom_name']}</p>{/if}
 
     <h3>ผลลัพธ์การเรียนรู้ระดับรายวิชา</h3>

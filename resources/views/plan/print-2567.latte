@@ -10,6 +10,7 @@
 {var $levelText = $level === 'ปวส.' ? 'ประกาศนียบัตรวิชาชีพชั้นสูง' : ($level === 'ปริญญาตรี (ทล.บ.)' ? 'ปริญญาตรีสายเทคโนโลยีหรือสายปฏิบัติการ' : 'ประกาศนียบัตรวิชาชีพ')}
 {var $dots = '........................'}
 {var $programType = $course['program_type'] ?: $dots}
+{var $careerGroup = ($course['career_group'] ?? null) ?: $dots}
 {var $major = $course['major'] ?: ($teacher['subject_area'] ?? '') ?: $dots}
 {var $blankDate = 'วันที่ ...... เดือน .................... พ.ศ. ..........'}
 {var $dateText = $planDate ? 'วันที่ ' . $planDate['day'] . ' เดือน ' . $planDate['month'] . ' พ.ศ. ' . $planDate['year'] : $blankDate}
@@ -56,7 +57,7 @@
     <div class="lines">
         <p>หลักสูตร{$levelText} พุทธศักราช 2567</p>
         <p>สาขาวิชา{$major}</p>
-        <p>กลุ่มอาชีพ{$dots}</p>
+        <p>กลุ่มอาชีพ{$careerGroup}</p>
         <p>ประเภทวิชา{$programType}</p>
     </div>
     <div class="lines">
@@ -111,7 +112,7 @@
 <section class="sheet front"{if $edit} contenteditable="true"{/if}>
     <h2>หลักสูตรรายวิชา</h2>
     <p class="center">หลักสูตร{$levelText} พุทธศักราช 2567</p>
-    <p class="center">ประเภทวิชา{$programType} กลุ่มอาชีพ{$dots} สาขาวิชา{$major}</p>
+    <p class="center">ประเภทวิชา{$programType} กลุ่มอาชีพ{$careerGroup} สาขาวิชา{$major}</p>
     <p class="center">รหัส {$course['code']} ชื่อวิชา {$course['name']}</p>
     <p class="center" style="margin-bottom:8pt">ทฤษฎี {$course['theory_hours']} ชั่วโมง/สัปดาห์ ปฏิบัติ {$course['practice_hours']} ชั่วโมง/สัปดาห์ จำนวน {$credits} หน่วยกิต</p>
     <div class="box">
