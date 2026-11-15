@@ -210,22 +210,22 @@ final class SubjectCatalogRepository
     /** @param list<array<string,mixed>> $items */
     public function import(array $items): int
     {
-        $sql = 'INSERT INTO {subject_catalog}
-                    (code, curriculum_year, name_th, name_en, theory_hours, practice_hours, credits, self_study_hours,
-                     subject_group, description, objectives, competencies, source_id, imported_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        $variants = $this->hasVariants();
+        $cols = 'code, curriculum_year, name_th, name_en, theory_hours, practice_hours, credits, self_study_hours,
+                 subject_group, description, objectives, competencies, source_id' . ($variants ? ', tpn_variants' : '');
+        $sql = 'INSERT INTO {subject_catalog} (' . $cols . ', imported_at)
+                VALUES (' . str_repeat('?, ', $variants ? 14 : 13) . 'NOW())
                 ON DUPLICATE KEY UPDATE name_th = VALUES(name_th), name_en = VALUES(name_en),
                     theory_hours = VALUES(theory_hours), practice_hours = VALUES(practice_hours), credits = VALUES(credits),
                     self_study_hours = VALUES(self_study_hours), subject_group = VALUES(subject_group),
                     description = VALUES(description), objectives = VALUES(objectives), competencies = VALUES(competencies),
-                    source_id = VALUES(source_id), imported_at = NOW()';
+                    source_id = VALUES(source_id),' . ($variants ? ' tpn_variants = VALUES(tpn_variants),' : '') . ' imported_at = NOW()';
         $count = 0;
-        foreach (array_chunk($items, 300) as $chunk) {
-            $this->db->transaction(function () use ($chunk, $sql, &$count): void {
-                foreach ($chunk as $it) {
-                    $row = self::row(is_array($it) ? $it : []);
-                    if ($row === null) {
-                        continue;
+        foreach (array_chunk(self::merge($items), 300) as $chunk) {
+            $this->db->transaction(function () use ($chunk, $sql, $variants, &$count): void {
+                foreach ($chunk as $row) {
+                    if (!$variants) {
+                        unset($row['variants']);
                     }
                     $this->db->run($sql, array_values($row));
                     $count++;
@@ -234,6 +234,83 @@ final class SubjectCatalogRepository
         }
 
         return $count;
+    }
+
+    /** มีคอลัมน์ tpn_variants แล้วหรือยัง (migration 000139) */
+    public function hasVariants(): bool
+    {
+        try {
+            return $this->db->first("SHOW COLUMNS FROM {subject_catalog} LIKE 'tpn_variants'") !== null;
+        } catch (PDOException) {
+            return false;
+        }
+    }
+
+    /**
+     * ต้นทางมีรหัสเดียวกันซ้ำหลายแถว (ตามสาขาที่นำไปใช้) บางแถว ท-ป-น ต่างกัน
+     * รวมเป็นแถวเดียวต่อรหัส + ปี: ใช้ ท-ป-น ที่พบบ่อยที่สุด (เท่ากันใช้แถวแรก) และเก็บแบบอื่นไว้ใน variants
+     * ข้อความ (คำอธิบาย ฯลฯ) ใช้แถวที่มีข้อมูลยาวที่สุด
+     * @param list<mixed> $items
+     * @return list<array<string,mixed>>
+     */
+    private static function merge(array $items): array
+    {
+        $groups = [];
+        foreach ($items as $it) {
+            $row = self::row(is_array($it) ? $it : []);
+            if ($row !== null) {
+                $groups[$row['code'] . '|' . $row['year']][] = $row;
+            }
+        }
+        $out = [];
+        foreach ($groups as $rows) {
+            $tally = [];
+            foreach ($rows as $r) {
+                $key = self::tpn($r);
+                $tally[$key] = ($tally[$key] ?? 0) + 1;
+            }
+            arsort($tally, SORT_NUMERIC); // PHP 8 sort คงลำดับเดิมเมื่อเท่ากัน
+            $main = (string) array_key_first($tally);
+            $best = $rows[0];
+            foreach ($rows as $r) {
+                if (self::tpn($r) === $main && self::richness($r) > self::richness($best)) {
+                    $best = $r;
+                }
+            }
+            if (self::tpn($best) !== $main) {
+                foreach ($rows as $r) {
+                    if (self::tpn($r) === $main) {
+                        $best = $r;
+                        break;
+                    }
+                }
+            }
+            // ข้อความที่แถวหลักไม่มี เติมจากแถวอื่นของรหัสเดียวกัน
+            foreach (['name_en', 'group', 'description', 'objectives', 'competencies'] as $f) {
+                foreach ($rows as $r) {
+                    if (($best[$f] ?? null) === null && $r[$f] !== null) {
+                        $best[$f] = $r[$f];
+                    }
+                }
+            }
+            $others = array_slice(array_keys($tally), 1);
+            $best['variants'] = $others === [] ? null : mb_substr(implode(', ', $others), 0, 191);
+            $out[] = $best;
+        }
+
+        return $out;
+    }
+
+    /** @param array<string,mixed> $r */
+    private static function tpn(array $r): string
+    {
+        return $r['theory'] . '-' . $r['practice'] . '-' . ($r['credits'] + 0);
+    }
+
+    /** @param array<string,mixed> $r */
+    private static function richness(array $r): int
+    {
+        return mb_strlen((string) $r['description']) + mb_strlen((string) $r['objectives']) + mb_strlen((string) $r['competencies']);
     }
 
     /** แถวสำหรับบันทึก — null เมื่อข้อมูลไม่ครบ (ไม่มีรหัส/ปี/ชื่อ) @return array<string,mixed>|null */
@@ -245,8 +322,13 @@ final class SubjectCatalogRepository
         if ($code === '' || $year < 2500 || $name === '') {
             return null;
         }
-        // ท-ป-น จากรายละเอียด ถ้าไม่มีใช้ค่าในตารางรายการ เช่น "1-4-3"
-        $tpn = array_map('floatval', explode('-', (string) ($it['tpn'] ?? '')) + [0, 0, 0]);
+        // ท-ป-น ใช้ค่าในตารางรายการ ("1-4-3") ก่อน: เป็นค่าของแถวนั้นจริง ส่วนหน้ารายละเอียดของ ศธ.02
+        // ค้นตามรหัสจึงตอบค่าเดียวกันทุกแถวที่รหัสซ้ำ (บางทีเป็น "*-*-4") — ใช้เมื่อ tpn อ่านไม่ได้เท่านั้น
+        $tpn = explode('-', (string) ($it['tpn'] ?? ''));
+        if (count($tpn) === 3 && array_filter($tpn, 'is_numeric') === $tpn) {
+            [$it['theory'], $it['practice'], $it['credits']] = $tpn;
+        }
+        $tpn = [0, 0, 0];
         $num = static fn ($v, $fallback): float => is_numeric($v) ? (float) $v : (float) $fallback;
         $text = static fn ($v): ?string => ($v = trim((string) $v)) === '' ? null : $v;
 

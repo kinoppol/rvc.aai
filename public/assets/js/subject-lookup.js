@@ -86,6 +86,27 @@
                 return { description: 'คำอธิบาย', objectives: 'จุดประสงค์', competencies: 'สมรรถนะ' }[k];
             }).join(' ') + ' กรอกเองได้' : '')
             + (overwrite ? '' : ' · เติมเฉพาะช่องที่ว่าง'), 'is-ok');
+        // รหัสเดียวกันบางสาขากำหนด ท-ป-น ต่างกัน — กดเลือกแบบที่สาขาตัวเองใช้
+        if (s.variants && s.variants.length) {
+            var vs = document.createElement('span');
+            vs.textContent = ' · บางสาขาใช้ ท-ป-น: ';
+            s.variants.forEach(function (v, i) {
+                var p = v.split('-');
+                var a = document.createElement('a');
+                a.href = '#';
+                a.textContent = v;
+                a.title = 'ใช้ ท-ป-น ' + v;
+                a.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    set(numbers.theory, p[0]);
+                    set(numbers.practice, p[1]);
+                    set(numbers.credits, Number(p[2]).toFixed(1));
+                });
+                if (i) vs.appendChild(document.createTextNode(', '));
+                vs.appendChild(a);
+            });
+            status.appendChild(vs);
+        }
         if (others && others.length) {
             var span = document.createElement('span');
             span.textContent = ' · หลักสูตรอื่น: ';

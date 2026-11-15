@@ -83,6 +83,7 @@
             <dl>
                 <dt>หลักสูตร</dt><dd>{$show['curriculum_year']}</dd>
                 <dt>ท-ป-น</dt><dd>{$show['theory_hours']}-{$show['practice_hours']}-{$show['credits'] + 0}{if $show['self_study_hours']} (ศึกษาค้นคว้าด้วยตนเอง {$show['self_study_hours']} ชม.){/if}</dd>
+                <dt n:if="!empty($show['tpn_variants'])">ท-ป-น แบบอื่น</dt><dd n:if="!empty($show['tpn_variants'])">{$show['tpn_variants']} <span class="hint">(รหัสเดียวกันแต่บางสาขากำหนดชั่วโมงต่างกัน)</span></dd>
                 <dt>หมวด/กลุ่มวิชา</dt><dd>{$show['subject_group'] ?: '—'}</dd>
                 <dt>จุดประสงค์รายวิชา</dt><dd>{$show['objectives'] ?: '—'}</dd>
                 <dt>สมรรถนะรายวิชา</dt><dd>{$show['competencies'] ?: '—'}</dd>

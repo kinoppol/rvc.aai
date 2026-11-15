@@ -53,6 +53,7 @@ final class SubjectLookupController
             'description' => (string) $r['description'],
             'objectives' => (string) $r['objectives'],
             'competencies' => (string) $r['competencies'],
+            'variants' => array_values(array_filter(array_map('trim', explode(',', (string) ($r['tpn_variants'] ?? ''))))),
         ], $this->catalog->byCode($code));
 
         return $this->json($response, ['ready' => true, 'subjects' => $subjects]);
