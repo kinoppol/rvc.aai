@@ -3040,3 +3040,9 @@ html.is-presenting { overflow: hidden; }
 .ai-model-chip::before { content: "✦"; }
 .ai-model-chip.is-off { color: var(--ink2); background: transparent; border-style: dashed; }
 .busy-note .ai-model-chip { flex-basis: 100%; width: max-content; }
+
+/* แท็บนักเรียน: กลุ่มผู้เรียนที่ผูกทั้งกลุ่ม */
+.linked-group-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; background: var(--brandSoft); color: var(--brandInk); flex: none; }
+.link-group-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin: 14px 0 4px; }
+.bulk-pick-off { width: 18px; flex: none; display: grid; place-items: center; color: var(--ink3, var(--ink2)); }
+.bulk-pick-off .msi { font-size: 16px; }

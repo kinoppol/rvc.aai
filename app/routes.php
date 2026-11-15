@@ -154,6 +154,8 @@ return static function (App $app): void {
             $t->post('/{id:[0-9]+}/students', [CourseController::class, 'addStudents']);
             $t->post('/{id:[0-9]+}/students/{studentId:[0-9]+}/drop', [CourseController::class, 'dropStudent']);
             $t->post('/{id:[0-9]+}/students/drop', [CourseController::class, 'dropStudents']);
+            $t->post('/{id:[0-9]+}/groups', [CourseController::class, 'linkGroup']);
+            $t->post('/{id:[0-9]+}/groups/{groupId:[0-9]+}/remove', [CourseController::class, 'unlinkGroup']);
             // เพิ่มนักเรียนที่ติ๊กเลือกจากกลุ่มเรียนของรายวิชา
             $t->post('/{id:[0-9]+}/students/classroom', [CourseController::class, 'addClassroomStudents']);
             // ประกาศข่าวสารถึงนักเรียนทั้งรายวิชา (แท็บประกาศ)

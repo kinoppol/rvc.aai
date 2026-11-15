@@ -149,13 +149,17 @@ final class CourseController
         $course = $this->requireOwnedCourse($request, (int) $args['id'], (int) $user['id']);
         $studentId = (int) $args['studentId'];
         $name = '';
+        $viaGroup = '';
         foreach ($this->enrollments->studentsInCourse((int) $course['id']) as $s) {
             if ((int) $s['id'] === $studentId) {
                 $name = (string) $s['full_name'];
+                $viaGroup = $s['via_group_id'] !== null ? (string) ($s['via_group_name'] ?? 'เรียน') : '';
             }
         }
 
-        if ($name !== '' && $this->enrollments->drop((int) $course['id'], $studentId)) {
+        if ($name !== '' && $viaGroup !== '') {
+            Flash::error($name . ' เข้ามาพร้อมกลุ่ม ' . $viaGroup . ' — ถอนได้ทั้งกลุ่มเท่านั้น (ที่การ์ดกลุ่มผู้เรียนของรายวิชา)');
+        } elseif ($name !== '' && $this->enrollments->drop((int) $course['id'], $studentId)) {
             $this->auth->log('course.drop_student', 'course#' . $course['id'], ['student_id' => $studentId]);
             Flash::success('ถอน ' . $name . ' ออกจากรายวิชาแล้ว · คะแนนและงานที่ส่งยังเก็บไว้ ถ้าเพิ่มกลับเข้ามาจะได้คืนทั้งหมด');
         } else {
@@ -193,7 +197,72 @@ final class CourseController
             $dropped += $this->enrollments->drop((int) $course['id'], $studentId) ? 1 : 0;
         }
         $this->auth->log('course.drop_students', 'course#' . $course['id'], ['student_ids' => $picked, 'count' => $dropped]);
-        Flash::success('ถอนนักเรียน ' . $dropped . ' คนออกจากรายวิชาแล้ว · คะแนนและงานที่ส่งยังเก็บไว้ ถ้าเพิ่มกลับเข้ามาจะได้คืนทั้งหมด');
+        if ($dropped > 0) {
+            Flash::success('ถอนนักเรียน ' . $dropped . ' คนออกจากรายวิชาแล้ว · คะแนนและงานที่ส่งยังเก็บไว้ ถ้าเพิ่มกลับเข้ามาจะได้คืนทั้งหมด');
+        }
+        if ($dropped < count($picked)) {
+            Flash::warning((count($picked) - $dropped) . ' คนเข้ามาพร้อมกลุ่มเรียน จึงไม่ได้ถอน — ถอนได้ทั้งกลุ่มที่การ์ดกลุ่มผู้เรียนของรายวิชา');
+        }
+
+        return $back;
+    }
+
+    /** ผูกกลุ่มเรียนทั้งกลุ่มเข้ารายวิชา: สมาชิกทุกคนเข้ารายวิชา และคนที่ย้ายเข้ากลุ่มทีหลังก็เข้ามาเอง */
+    public function linkGroup(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $data = (array) $request->getParsedBody();
+        $groupId = (int) ($data['classroom_id'] ?? 0);
+        $back = $response->withHeader('Location', Url::to('/courses/' . (int) $args['id'] . '?tab=students'))->withStatus(302);
+
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
+
+            return $back;
+        }
+        $course = $this->requireOwnedCourse($request, (int) $args['id'], (int) $user['id']);
+        if (!$this->enrollments->groupsReady()) {
+            Flash::error('ระบบยังไม่พร้อมผูกกลุ่มเรียน (ผู้ดูแลระบบต้องรันการอัปเดตฐานข้อมูลก่อน)');
+
+            return $back;
+        }
+        $group = $groupId > 0 ? $this->db->first('SELECT id, name FROM {classrooms} WHERE id = ?', [$groupId]) : null;
+        if ($group === null) {
+            Flash::error('กรุณาเลือกกลุ่มเรียน');
+
+            return $back;
+        }
+
+        $added = $this->enrollments->linkGroup((int) $course['id'], (int) $group['id'], (int) $user['id']);
+        $this->auth->log('course.link_group', 'course#' . $course['id'], ['classroom_id' => (int) $group['id'], 'added' => $added]);
+        Flash::success(sprintf('ผูกกลุ่ม %s เข้ารายวิชาแล้ว · เพิ่มนักเรียนใหม่ %d คน · ถอนนักเรียนกลุ่มนี้ได้ทั้งกลุ่มเท่านั้น', $group['name'], $added));
+
+        return $back;
+    }
+
+    /** ถอนกลุ่มเรียนทั้งกลุ่มออกจากรายวิชา — นักเรียนที่เข้ามาทางกลุ่มถูกถอนหมด คะแนนยังเก็บไว้ */
+    public function unlinkGroup(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $data = (array) $request->getParsedBody();
+        $back = $response->withHeader('Location', Url::to('/courses/' . (int) $args['id'] . '?tab=students'))->withStatus(302);
+
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
+
+            return $back;
+        }
+        $course = $this->requireOwnedCourse($request, (int) $args['id'], (int) $user['id']);
+        $groupId = (int) $args['groupId'];
+        if (!$this->enrollments->isLinked((int) $course['id'], $groupId)) {
+            Flash::error('กลุ่มนี้ไม่ได้ผูกกับรายวิชา');
+
+            return $back;
+        }
+        $name = (string) $this->db->value('SELECT name FROM {classrooms} WHERE id = ?', [$groupId]);
+        $dropped = $this->enrollments->unlinkGroup((int) $course['id'], $groupId);
+        $this->auth->log('course.unlink_group', 'course#' . $course['id'], ['classroom_id' => $groupId, 'dropped' => $dropped]);
+        Flash::success(sprintf('ถอนกลุ่ม %s ออกจากรายวิชาแล้ว (%d คน) · คะแนนและงานที่ส่งยังเก็บไว้ ผูกกลุ่มกลับมาเมื่อไรได้คืนทั้งหมด', $name, $dropped));
 
         return $back;
     }
@@ -783,6 +852,10 @@ final class CourseController
             ],
             'tasks'    => ['tasks' => $this->assignments->forCourse((int) $course['id'], 'task')],
             'students' => $this->classroomRoster($course, (int) ($request->getQueryParams()['group'] ?? 0)) + [
+                // สมาชิกใหม่ของกลุ่มที่ผูกไว้ (เช่น เพิ่งโอนจาก RMS) เข้ารายวิชาเองทุกครั้งที่เปิดแท็บนี้
+                'groupSync' => $this->enrollments->syncGroups((int) $course['id']),
+                'linkedGroups' => $this->enrollments->linkedGroups((int) $course['id']),
+                'groupsReady' => $this->enrollments->groupsReady(),
                 'students' => $this->withEmails($this->enrollments->studentsInCourse($course['id'])),
                 'joinCode' => $code = $this->courses->joinCode((int) $course['id']),
                 'joinUrl' => (string) $request->getUri()->withPath(Url::to('/join/' . $code))->withQuery('')->withFragment(''),

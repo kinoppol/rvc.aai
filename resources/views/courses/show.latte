@@ -512,11 +512,36 @@
                 </div>
             </div>
 
+            {* กลุ่มผู้เรียนที่ผูกกับรายวิชาทั้งกลุ่ม: สมาชิกเข้ารายวิชาเอง (รวมคนที่ย้ายเข้ากลุ่มทีหลัง) และถอนได้ทั้งกลุ่มเท่านั้น *}
+            {if $linkedGroups}
+                <div class="card linked-groups">
+                    <h2>กลุ่มผู้เรียนของรายวิชา</h2>
+                    <div class="card-sub">นักเรียนที่เข้ามาพร้อมกลุ่มถอนทีละคนไม่ได้ ต้องถอนทั้งกลุ่ม · คะแนนและงานที่ส่งยังเก็บไว้ ผูกกลุ่มกลับมาเมื่อไรได้คืนทั้งหมด</div>
+                    <div class="list">
+                        {foreach $linkedGroups as $g}
+                            <div class="list-row">
+                                <span class="msi linked-group-icon" aria-hidden="true">groups</span>
+                                <div class="list-main">
+                                    <div class="list-title">{$g['name']}</div>
+                                    <div class="hint">{$g['members']} คนในรายวิชา · ผูกเมื่อ {App\Support\Thai::dateTime($g['created_at'])}</div>
+                                </div>
+                                <form method="post" action="{$base}/courses/{$course['id']}/groups/{$g['id']}/remove"
+                                      data-confirm-title="ถอนกลุ่ม {$g['name']}" data-confirm-ok="ถอนทั้งกลุ่ม" data-confirm-danger
+                                      data-confirm="นักเรียน {$g['members']} คนที่เข้ามาพร้อมกลุ่มนี้จะถูกถอนออกจากรายวิชาทั้งหมด · คะแนน ผลสอบ และงานที่ส่งยังเก็บไว้ ผูกกลุ่มกลับมาเมื่อไรได้คืน">
+                                    <input type="hidden" name="_token" value="{$csrf}">
+                                    <button class="btn btn-sm btn-danger" type="submit"><span class="msi" aria-hidden="true">group_remove</span>ถอนทั้งกลุ่ม</button>
+                                </form>
+                            </div>
+                        {/foreach}
+                    </div>
+                </div>
+            {/if}
+
             <div class="card roster">
                 <div class="roster-head">
                     <div>
                         <h2>เพิ่มนักเรียนจากกลุ่มเรียน</h2>
-                        <div class="card-sub">เลือกกลุ่มเรียน ติ๊กนักเรียนที่ต้องการแล้วกดเพิ่ม · เพิ่มได้หลายกลุ่ม เปลี่ยนกลุ่มแล้วเพิ่มต่อได้เลย</div>
+                        <div class="card-sub">เลือกกลุ่มเรียน แล้ว <b>ผูกทั้งกลุ่ม</b> (สมาชิกทุกคนเข้ารายวิชา ถอนได้ทั้งกลุ่ม) หรือติ๊กเลือกบางคนแล้วเพิ่มเป็นรายคน · เพิ่มได้หลายกลุ่ม</div>
                     </div>
                     <form method="get" action="{$base}/courses/{$course['id']}" class="roster-pick">
                         <input type="hidden" name="tab" value="students">
@@ -533,7 +558,23 @@
                 </div>
 
                 {if $rosterGroup}
-                    {if $roster}
+                    {var $isLinked = in_array((int) $rosterGroup['id'], array_map('intval', array_column($linkedGroups, 'id')), true)}
+                    {if $groupsReady && $roster}
+                        <div class="link-group-bar">
+                            {if $isLinked}
+                                <span class="chip chip-ok">กลุ่ม {$rosterGroup['name']} ผูกกับรายวิชาแล้ว</span>
+                                <span class="hint">สมาชิกทุกคนอยู่ในรายวิชา ถอนได้ทั้งกลุ่มที่การ์ดกลุ่มผู้เรียนของรายวิชา</span>
+                            {else}
+                                <form method="post" action="{$base}/courses/{$course['id']}/groups">
+                                    <input type="hidden" name="_token" value="{$csrf}">
+                                    <input type="hidden" name="classroom_id" value="{$rosterGroup['id']}">
+                                    <button class="btn btn-primary" type="submit"><span class="msi" aria-hidden="true">group_add</span>ผูกทั้งกลุ่ม {$rosterGroup['name']} ({count($roster)} คน)</button>
+                                </form>
+                                <span class="hint">สมาชิกทุกคนเข้ารายวิชา รวมคนที่ย้ายเข้ากลุ่มทีหลัง · ถอนได้ทั้งกลุ่มเท่านั้น</span>
+                            {/if}
+                        </div>
+                    {/if}
+                    {if $roster && !$isLinked}
                         <form method="post" action="{$base}/courses/{$course['id']}/students/classroom">
                             <input type="hidden" name="_token" value="{$csrf}">
                             <input type="hidden" name="classroom_id" value="{$rosterGroup['id']}">
@@ -564,7 +605,7 @@
                                 <button class="btn btn-primary" type="submit" {if !$rosterPending}disabled{/if}>เพิ่มนักเรียนที่เลือกเข้ารายวิชา</button>
                             </div>
                         </form>
-                    {else}
+                    {elseif !$roster}
                         <div class="hint" style="margin-top:12px">ไม่พบนักเรียนในกลุ่ม {$rosterGroup['name']} — ผู้ดูแลระบบต้องโอนข้อมูลนักเรียนจาก RMS ก่อน</div>
                     {/if}
                 {/if}
@@ -597,7 +638,11 @@
             <div class="list">
                 {foreach $students as $s}
                     <div class="list-row">
-                        <input type="checkbox" class="bulk-pick" name="ids[]" value="{$s['id']}" form="bulkDrop" aria-label="เลือก {$s['full_name']}">
+                        {if $s['via_group_id']}
+                            <span class="bulk-pick-off" title="เข้ามาพร้อมกลุ่ม {$s['via_group_name']} — ถอนได้ทั้งกลุ่ม"><span class="msi" aria-hidden="true">lock</span></span>
+                        {else}
+                            <input type="checkbox" class="bulk-pick" name="ids[]" value="{$s['id']}" form="bulkDrop" aria-label="เลือก {$s['full_name']}">
+                        {/if}
                         <div class="mini-avatar">{mb_substr($s['full_name'], 0, 2)}</div>
                         <div class="mono list-id">{$s['username']}</div>
                         <div class="list-main">
@@ -605,12 +650,16 @@
                             {if $s['email']}<div class="hint mono">{$s['email']}</div>{/if}
                         </div>
                         <a class="btn btn-sm" href="{$base}/messages/{$course['id']}/{$s['id']}" title="ส่งข้อความส่วนตัวถึง {$s['full_name']}"><span class="msi" aria-hidden="true">chat</span>ส่งข้อความ</a>
+                        {if $s['via_group_id']}
+                            <span class="chip chip-muted" title="ถอนได้ทั้งกลุ่มที่การ์ดกลุ่มผู้เรียนของรายวิชา">ผูกกลุ่ม {$s['via_group_name']}</span>
+                        {else}
                         <form method="post" action="{$base}/courses/{$course['id']}/students/{$s['id']}/drop"
                               data-confirm-title="ถอนรายชื่อ {$s['full_name']}" data-confirm-ok="ถอนรายชื่อ" data-confirm-danger
                               data-confirm="นักเรียนจะไม่เห็นรายวิชานี้อีก · คะแนน ผลสอบ และงานที่ส่งยังเก็บไว้ ถ้าเพิ่มกลับเข้ามา (ด้วยรหัสเข้าร่วม อีเมล หรือกลุ่มเรียน) จะได้คืนทั้งหมด">
                             <input type="hidden" name="_token" value="{$csrf}">
                             <button class="btn btn-sm btn-danger" type="submit" title="ถอน {$s['full_name']} ออกจากรายวิชา"><span class="msi" aria-hidden="true">person_remove</span>ถอนรายชื่อ</button>
                         </form>
+                        {/if}
                     </div>
                 {/foreach}
                 {if $students}
