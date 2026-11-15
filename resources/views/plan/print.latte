@@ -1,7 +1,9 @@
 {*
   แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ ตามแบบฟอร์ม สอศ. หลักสูตร พ.ศ. 2567 — หน้าสำหรับสั่งพิมพ์ (A4)
   ทั้งเอกสารแก้ไขได้ (contenteditable) เพื่อให้ครูเติมส่วนที่ระบบยังไม่มีข้อมูลก่อนพิมพ์ ข้อความที่แก้จะไม่ถูกบันทึกลงระบบ
+  $shared = เปิดจากลิงก์แชร์สาธารณะ /plan/{token}: อ่านอย่างเดียว ไม่มีปุ่มแชร์ ไม่มี contenteditable
 *}
+
 {* ระดับหลักสูตรจากรหัสวิชา (App\Support\Semester::level) *}
 {var $levelText = $level === 'ปวส.' ? 'ประกาศนียบัตรวิชาชีพชั้นสูง (ปวส.)' : ($level === 'ปริญญาตรี (ทล.บ.)' ? 'ปริญญาตรีสายเทคโนโลยีหรือสายปฏิบัติการ (ทล.บ.)' : 'ประกาศนียบัตรวิชาชีพ (ปวช.)')}
 {var $dots = '........................'}
@@ -19,6 +21,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex" n:if="$shared">
     <title>แผนการจัดการเรียนรู้ {$course['code']} {$course['name']}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -59,6 +62,15 @@
         .toolbar button.primary { background: #6366F1; border-color: #6366F1; color: #fff; }
         .toolbar .note { color: #555; flex: 1 1 260px; }
         .toolbar .warn { color: #a15c00; }
+        .toolbar button.danger { border-color: #c0392b; color: #c0392b; }
+        .toolbar .flash { color: #146c2e; font-weight: 700; }
+        .toolbar .flash-error { color: #c0392b; }
+        .share-panel { flex: 1 1 100%; padding: 10px 12px; border: 1px solid #d6d6f5; border-radius: 8px; background: #f6f6ff; }
+        .share-panel p { margin: 0 0 8px; }
+        .share-panel .muted { font-size: 13px; }
+        .share-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .share-row + .share-row { margin-top: 8px; }
+        .share-row input { flex: 1 1 320px; min-width: 0; font: inherit; padding: 6px 8px; border: 1px solid #999; border-radius: 6px; }
         .sheet {
             width: 21cm; min-height: 29.7cm; margin: 16px auto; padding: 2.5cm 2cm 2cm 3cm;
             background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.15);
@@ -108,13 +120,54 @@
 <div class="toolbar">
     <button type="button" class="primary" onclick="window.print()">🖨 พิมพ์ / บันทึกเป็น PDF</button>
     <label><input type="checkbox" id="frontToggle" checked> พิมพ์ส่วนหน้า (ปก ลักษณะรายวิชา ตารางหน่วย)</label>
+    {if $share}
+        <button type="button" id="shareToggle" aria-expanded="false" aria-controls="sharePanel">🔗 แชร์{if $share['url']} · เปิดอยู่{/if}</button>
+    {/if}
     {if $reviewing}<span class="warn">ดูในฐานะผู้ตรวจแผน · แผนของ {$teacherName}</span>{/if}
-    <span class="note">คลิกที่ข้อความเพื่อแก้ไข/เติมข้อมูลก่อนพิมพ์ได้ — ข้อความที่แก้บนหน้านี้จะไม่ถูกบันทึกลงระบบ · ตั้งค่ากระดาษ A4 และปิด "ส่วนหัวและท้ายกระดาษ" ในหน้าต่างพิมพ์</span>
+    {if $shared}
+        <span class="note">แผนการจัดการเรียนรู้ของ {$teacherName} · {$college} · เผยแพร่แบบอ่านอย่างเดียว</span>
+    {else}
+        <span class="note">คลิกที่ข้อความเพื่อแก้ไข/เติมข้อมูลก่อนพิมพ์ได้ — ข้อความที่แก้บนหน้านี้จะไม่ถูกบันทึกลงระบบ · ตั้งค่ากระดาษ A4 และปิด "ส่วนหัวและท้ายกระดาษ" ในหน้าต่างพิมพ์</span>
+    {/if}
     <span class="warn" id="fontWarn" hidden>เครื่องนี้ไม่มีฟอนต์ TH Sarabun New จึงใช้ Sarabun แทน — ติดตั้งฟอนต์ หรือวางไฟล์ THSarabunNew.ttf ไว้ที่ assets/fonts/</span>
+    {if !$shared}
+        {foreach $flash as $message}<span n:class="flash, $message['type'] === 'error' ? flash-error">{$message['message']}</span>{/foreach}
+    {/if}
+
+    {* แผงลิงก์แชร์ (เฉพาะเจ้าของรายวิชา) — ข้อความที่แก้บนหน้านี้ไม่ไปถึงลิงก์ เพราะลิงก์แสดงข้อมูลจากระบบเสมอ *}
+    {if $share}
+        <div class="share-panel" id="sharePanel" hidden>
+            {if $share['url']}
+                <p><b>ลิงก์แชร์แผนการสอน (อ่านอย่างเดียว)</b> — ใครที่มีลิงก์นี้เปิดอ่านและพิมพ์แผนได้โดยไม่ต้องเข้าสู่ระบบ แต่แก้ไขไม่ได้ · แผนที่แชร์อัปเดตตามข้อมูลในระบบเสมอ</p>
+                <div class="share-row">
+                    <input type="text" id="shareUrl" value="{$share['url']}" readonly>
+                    <button type="button" class="primary" id="shareCopy">คัดลอกลิงก์</button>
+                    <a href="{$share['url']}" target="_blank" rel="noopener">เปิดดู</a>
+                </div>
+                <div class="share-row">
+                    <form method="post" action="{$base}/courses/{$course['id']}/plan-share" onsubmit="return confirm('สร้างลิงก์ใหม่? ลิงก์เดิมที่ส่งต่อไปแล้วจะใช้ไม่ได้อีก')">
+                        <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="regenerate">
+                        <button type="submit">สร้างลิงก์ใหม่</button>
+                    </form>
+                    <form method="post" action="{$base}/courses/{$course['id']}/plan-share" onsubmit="return confirm('ปิดลิงก์แชร์? คนที่มีลิงก์จะเปิดแผนนี้ไม่ได้อีก')">
+                        <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="revoke">
+                        <button type="submit" class="danger">ปิดการแชร์</button>
+                    </form>
+                </div>
+            {else}
+                <p><b>แชร์แผนการสอนนี้บนอินเทอร์เน็ต</b> — ระบบจะสร้างลิงก์ลับสำหรับเปิดอ่านแบบอ่านอย่างเดียว ส่งต่อให้ใครก็ได้ (ไม่ต้องเข้าสู่ระบบ) และปิดการแชร์ได้ทุกเมื่อ</p>
+                <p class="muted">แผนที่แชร์รวมบันทึกหลังการจัดการเรียนรู้และชื่อผู้ลงนามด้วย ตรวจสอบก่อนเผยแพร่</p>
+                <form method="post" action="{$base}/courses/{$course['id']}/plan-share">
+                    <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="create">
+                    <button type="submit" class="primary">สร้างลิงก์แชร์</button>
+                </form>
+            {/if}
+        </div>
+    {/if}
 </div>
 
 {* ───────── ปก ───────── *}
-<section class="sheet cover front" contenteditable="true">
+<section class="sheet cover front"{if !$shared} contenteditable="true"{/if}>
     <div>
         <img class="logo" src="{$base}/assets/img/ovec-logo.jpg" alt="ตราสำนักงานคณะกรรมการการอาชีวศึกษา">
         <p class="big">แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ</p>
@@ -139,7 +192,7 @@
 </section>
 
 {* ───────── ลักษณะรายวิชา ───────── *}
-<section class="sheet front" contenteditable="true">
+<section class="sheet front"{if !$shared} contenteditable="true"{/if}>
     <h2>ลักษณะรายวิชา</h2>
     <p><b>รหัสวิชา</b> {$course['code']} <b>ชื่อวิชา</b> {$course['name']} <b>ท-ป-น</b> {$tpn}</p>
     <p><b>หน่วยกิต</b> {$credits} <b>เวลาเรียน</b> {$weekly} ชั่วโมงต่อสัปดาห์ (ท + ป) · {$weeks} สัปดาห์รวมวัดผล รวม {$totalHours} ชั่วโมง</p>
@@ -211,7 +264,7 @@
 </section>
 
 {* ───────── หน่วยการเรียนรู้และเวลา ───────── *}
-<section class="sheet front" contenteditable="true">
+<section class="sheet front"{if !$shared} contenteditable="true"{/if}>
     <h2>หน่วยการเรียนรู้และกำหนดเวลา</h2>
     <p class="center">รหัสวิชา {$course['code']} ชื่อวิชา {$course['name']} ท-ป-น {$tpn}</p>
     <table>
@@ -239,7 +292,7 @@
 {foreach $plans as $p}
 {continueIf $p['exam']}
 {var $u = $p['unit']}
-<section class="sheet" contenteditable="true">
+<section class="sheet"{if !$shared} contenteditable="true"{/if}>
     <table class="head-box">
         <tr>
             <td rowspan="2" style="width:62%"><b>แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ</b><br>รหัสวิชา {$course['code']} ชื่อวิชา {$course['name']}</td>
@@ -375,6 +428,37 @@
     toggle.addEventListener('change', function () {
         document.body.classList.toggle('no-front', !toggle.checked);
     });
+
+    // แผงลิงก์แชร์: เปิด/ปิดด้วยปุ่ม และเปิดเองเมื่อกลับมาจากการสร้าง/ปิดลิงก์ (#share)
+    var shareBtn = document.getElementById('shareToggle');
+    var panel = document.getElementById('sharePanel');
+    if (shareBtn && panel) {
+        var setOpen = function (open) {
+            panel.hidden = !open;
+            shareBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+        shareBtn.addEventListener('click', function () { setOpen(panel.hidden); });
+        if (location.hash === '#share') {
+            setOpen(true);
+            history.replaceState(null, '', location.pathname + location.search);
+        }
+        var copy = document.getElementById('shareCopy');
+        var input = document.getElementById('shareUrl');
+        if (copy && input) {
+            copy.addEventListener('click', function () {
+                var done = function () {
+                    copy.textContent = 'คัดลอกแล้ว ✓';
+                    setTimeout(function () { copy.textContent = 'คัดลอกลิงก์'; }, 2000);
+                };
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(input.value).then(done, function () { input.select(); });
+                } else {
+                    input.select();
+                    try { document.execCommand('copy'); done(); } catch (e) { /* ให้ผู้ใช้คัดลอกเอง */ }
+                }
+            });
+        }
+    }
 
     // ตรวจว่ามีฟอนต์ TH Sarabun New หรือไม่ ถ้าไม่มีให้เตือนและปรับขนาดตัวอักษรของ Sarabun ให้ใกล้เคียง
     if (document.fonts && document.fonts.load) {

@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Auth\Auth;
 use App\Auth\Roles;
 use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
 use App\Domain\PlanSignerRepository;
 use App\Domain\UnitRepository;
+use App\Support\Csrf;
 use App\Support\Db;
+use App\Support\Flash;
 use App\Support\Semester;
 use App\Support\Thai;
+use App\Support\Url;
 use App\Support\View;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -32,6 +36,7 @@ final class PlanPrintController
         private readonly AssignmentRepository $assignments,
         private readonly Db $db,
         private readonly PlanSignerRepository $signers,
+        private readonly Auth $auth,
     ) {
     }
 
@@ -48,7 +53,103 @@ final class PlanPrintController
             throw new HttpForbiddenException($request, 'คุณไม่ได้เป็นผู้สอนรายวิชานี้');
         }
 
-        $term = $course['term_id'] !== null
+        // ลิงก์แชร์ (เฉพาะเจ้าของ) · ก่อนรัน migration 000132 คอลัมน์ยังไม่มี = ซ่อนปุ่มแชร์
+        $share = null;
+        if ($owner && array_key_exists('plan_share_token', $course)) {
+            $token = (string) ($course['plan_share_token'] ?? '');
+            $share = [
+                'url' => $token !== '' ? $this->shareUrl($request, $token) : null,
+                'at'  => $course['plan_shared_at'] ?? null,
+            ];
+        }
+
+        return $this->renderPlan($response, $course, ['reviewing' => !$owner, 'share' => $share]);
+    }
+
+    /** หน้าสาธารณะ /plan/{token}: แผนการสอนแบบอ่านอย่างเดียว ไม่ต้องเข้าสู่ระบบ */
+    public function shared(Request $request, Response $response, array $args): Response
+    {
+        $token = (string) $args['token'];
+        $id = null;
+        if (preg_match('/^[0-9a-f]{32}$/', $token) === 1) {
+            try {
+                $id = $this->db->value('SELECT id FROM {courses} WHERE plan_share_token = ?', [$token]);
+            } catch (\PDOException) {
+                $id = null; // ยังไม่ได้รัน migration 000132
+            }
+        }
+        $course = $id !== null && $id !== false ? $this->courses->find((int) $id) : null;
+        if ($course === null) {
+            throw new HttpNotFoundException($request, 'ไม่พบแผนการสอนนี้ ลิงก์อาจถูกปิดหรือถูกสร้างใหม่แล้ว');
+        }
+
+        return $this->renderPlan($response, $course, ['reviewing' => false, 'share' => null, 'shared' => true])
+            ->withHeader('X-Robots-Tag', 'noindex');
+    }
+
+    /** POST /courses/{id}/plan-share · do = create | regenerate | revoke (เจ้าของรายวิชาเท่านั้น) */
+    public function share(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $data = (array) $request->getParsedBody();
+        $courseId = (int) $args['id'];
+        $back = $response->withHeader('Location', Url::to('/courses/' . $courseId . '/plan-print') . '#share')->withStatus(302);
+
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
+
+            return $back;
+        }
+        $course = $this->courses->find($courseId);
+        if ($course === null) {
+            throw new HttpNotFoundException($request, 'ไม่พบรายวิชานี้');
+        }
+        if ((int) $course['teacher_id'] !== (int) $user['id']) {
+            throw new HttpForbiddenException($request, 'คุณไม่ได้เป็นผู้สอนรายวิชานี้');
+        }
+        if (!array_key_exists('plan_share_token', $course)) {
+            Flash::error('ระบบยังไม่พร้อมแชร์แผนการสอน กรุณาแจ้งผู้ดูแลระบบให้อัปเดตฐานข้อมูล');
+
+            return $back;
+        }
+
+        $do = (string) ($data['do'] ?? '');
+        $current = (string) ($course['plan_share_token'] ?? '');
+        if ($do === 'revoke') {
+            $this->db->run('UPDATE {courses} SET plan_share_token = NULL, plan_shared_at = NULL WHERE id = ?', [$courseId]);
+            $this->auth->log('plan.share_revoke', 'course#' . $courseId);
+            Flash::success('ปิดลิงก์แชร์แล้ว · คนที่มีลิงก์เดิมจะเปิดแผนนี้ไม่ได้อีก');
+        } elseif ($do === 'create' || $do === 'regenerate') {
+            if ($do === 'create' && $current !== '') {
+                return $back; // มีลิงก์อยู่แล้ว (เช่น กดซ้ำ)
+            }
+            $this->db->run(
+                'UPDATE {courses} SET plan_share_token = ?, plan_shared_at = NOW() WHERE id = ?',
+                [bin2hex(random_bytes(16)), $courseId]
+            );
+            $this->auth->log('plan.share', 'course#' . $courseId, ['regenerate' => $do === 'regenerate']);
+            Flash::success($do === 'create'
+                ? 'สร้างลิงก์แชร์แล้ว · ใครที่มีลิงก์เปิดอ่านแผนนี้ได้โดยไม่ต้องเข้าสู่ระบบ'
+                : 'สร้างลิงก์ใหม่แล้ว · ลิงก์เดิมใช้ไม่ได้อีก');
+        }
+
+        return $back;
+    }
+
+    private function shareUrl(Request $request, string $token): string
+    {
+        return (string) $request->getUri()->withPath(Url::to('/plan/' . $token))->withQuery('')->withFragment('');
+    }
+
+    /**
+     * รวบรวมข้อมูลแผนทั้งฉบับแล้ว render plan/print
+     *
+     * @param array<string,mixed> $course
+     * @param array<string,mixed> $extra reviewing / share / shared
+     */
+    private function renderPlan(Response $response, array $course, array $extra): Response
+    {
+        $term =$course['term_id'] !== null
             ? $this->db->first('SELECT academic_year, semester FROM {academic_terms} WHERE id = ?', [$course['term_id']])
             : null;
         $teacher = $this->db->first('SELECT full_name, subject_area FROM {users} WHERE id = ?', [$course['teacher_id']]);
@@ -125,8 +226,7 @@ final class PlanPrintController
             'signers'            => ['dept_head' => $this->signers->name((int) ($course['dept_head_id'] ?? 0))]
                 + $this->signers->names(),
             'level'              => Semester::level((string) $course['code'])['label'],
-            'reviewing'          => !$owner,
-        ]);
+        ] + $extra + ['shared' => false]);
     }
 
     /**

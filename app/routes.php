@@ -75,6 +75,8 @@ return static function (App $app): void {
     // รายวิชาที่ครูเผยแพร่ — คนทั่วไปอ่านเนื้อหาได้โดยไม่ต้องสมัครหรือเข้าสู่ระบบ
     $app->get('/course/{id:[0-9]+}', [PublicCourseController::class, 'show'])->setName('public.course');
     $app->get('/course/{id:[0-9]+}/unit/{unitId:[0-9]+}', [PublicCourseController::class, 'unit'])->setName('public.unit');
+    // แผนการสอนที่ครูแชร์ลิงก์ไว้ — คนทั่วไปเปิดอ่าน/พิมพ์ได้โดยไม่ต้องเข้าสู่ระบบ (แก้ไขไม่ได้)
+    $app->get('/plan/{token:[0-9a-f]{32}}', [PlanPrintController::class, 'shared'])->setName('plan.shared');
     // รูปหน้าปกรายวิชา — ตรวจสิทธิ์ใน controller (ล็อกอิน หรือวิชาที่เปิดให้แสดงในหน้าแรก)
     $app->get('/course-cover/{id:[0-9]+}', [CourseCoverController::class, 'show']);
 
@@ -120,6 +122,8 @@ return static function (App $app): void {
             $t->get('/{id:[0-9]+}', [CourseController::class, 'show'])->setName('course.show');
             // พิมพ์แผนการจัดการเรียนรู้ตามแบบฟอร์ม สอศ. หลักสูตร พ.ศ. 2567
             $t->get('/{id:[0-9]+}/plan-print', [PlanPrintController::class, 'show']);
+            // สร้าง/สร้างใหม่/ปิด ลิงก์แชร์แผนการสอนแบบอ่านอย่างเดียว (/plan/{token})
+            $t->post('/{id:[0-9]+}/plan-share', [PlanPrintController::class, 'share']);
             $t->get('/{id:[0-9]+}/edit', [CourseController::class, 'edit']);
             $t->post('/{id:[0-9]+}', [CourseController::class, 'save']);
             $t->post('/{id:[0-9]+}/archive', [CourseController::class, 'archive']);
