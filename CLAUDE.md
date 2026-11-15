@@ -178,6 +178,8 @@ Students enroll themselves — nothing else writes `enrollments` except `DemoSee
 
 Teachers can also enroll students directly on the same tab by email: `POST /courses/{id}/students` (`CourseController::addStudents()`) splits the textarea on whitespace/comma/semicolon, and `StudentAccountRepository::activeByEmail()` looks up **existing** active student accounts (case-insensitive, limited to the teacher's `institution_id` when set). Student emails are optional and not unique, so an email matching several accounts is skipped rather than guessed; no account is ever created from an email. The result comes back as separate flashes (added / already enrolled / not found / ambiguous / invalid).
 
+Teachers **withdraw** a student with ถอนรายชื่อ on each row of the นักเรียน tab → `POST /courses/{id}/students/{studentId}/drop` (`CourseController::dropStudent()`, owner + CSRF, `data-confirm`, audit `course.drop_student`). `EnrollmentRepository::drop()` only sets `enrollments.status='dropped'`. Attempts, submissions and messages are never deleted, so adding the student back (join code, email, classroom — `enroll()` reactivates `dropped`) brings every score back.
+
 ### Writing quizzes by hand & the quiz editor
 Teachers do not need AI to make a quiz.
 - **Creating by hand**: `GET/POST /courses/{c}/quizzes/new` (`QuizWizardController::newForm()` / `createManual()`, `quiz/new.latte`) takes an optional unit, a kind (an exam unit forces `posttest`) and an optional title. It creates a `source='manual'` draft with one blank multiple-choice question and opens the editor. Entry points: "+ สร้างเอง" on each quiz part of the unit editor, and "+ สร้างแบบทดสอบเอง" on the course's แบบทดสอบ tab.

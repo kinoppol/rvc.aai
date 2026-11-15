@@ -589,6 +589,12 @@
                             {if $s['email']}<div class="hint mono">{$s['email']}</div>{/if}
                         </div>
                         <a class="btn btn-sm" href="{$base}/messages/{$course['id']}/{$s['id']}" title="ส่งข้อความส่วนตัวถึง {$s['full_name']}"><span class="msi" aria-hidden="true">chat</span>ส่งข้อความ</a>
+                        <form method="post" action="{$base}/courses/{$course['id']}/students/{$s['id']}/drop"
+                              data-confirm-title="ถอนรายชื่อ {$s['full_name']}" data-confirm-ok="ถอนรายชื่อ" data-confirm-danger
+                              data-confirm="นักเรียนจะไม่เห็นรายวิชานี้อีก · คะแนน ผลสอบ และงานที่ส่งยังเก็บไว้ ถ้าเพิ่มกลับเข้ามา (ด้วยรหัสเข้าร่วม อีเมล หรือกลุ่มเรียน) จะได้คืนทั้งหมด">
+                            <input type="hidden" name="_token" value="{$csrf}">
+                            <button class="btn btn-sm btn-danger" type="submit" title="ถอน {$s['full_name']} ออกจากรายวิชา"><span class="msi" aria-hidden="true">person_remove</span>ถอนรายชื่อ</button>
+                        </form>
                     </div>
                 {/foreach}
                 {if !$students}<div class="empty"><h3>ยังไม่มีนักเรียนในรายวิชานี้</h3><p>แจกรหัสหรือลิงก์เข้าร่วมด้านบนให้นักเรียน รายชื่อจะขึ้นที่นี่เมื่อนักเรียนเข้าร่วมแล้ว</p></div>{/if}

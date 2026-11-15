@@ -134,6 +134,37 @@ final class CourseController
      * ครูเพิ่มนักเรียนเข้ารายวิชาโดยระบุอีเมล (ทีละหลายอีเมลได้)
      * ค้นเฉพาะบัญชีนักเรียนที่มีอยู่แล้วในสถานศึกษาเดียวกัน — ไม่สร้างบัญชีใหม่จากอีเมล
      */
+    /** ถอนรายชื่อนักเรียนออกจากรายวิชา (enrollments.status = dropped) — คะแนน/งานที่ส่งยังเก็บไว้ เพิ่มกลับมาก็ได้คืน */
+    public function dropStudent(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $data = (array) $request->getParsedBody();
+        $back = $response->withHeader('Location', Url::to('/courses/' . (int) $args['id'] . '?tab=students'))->withStatus(302);
+
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
+
+            return $back;
+        }
+        $course = $this->requireOwnedCourse($request, (int) $args['id'], (int) $user['id']);
+        $studentId = (int) $args['studentId'];
+        $name = '';
+        foreach ($this->enrollments->studentsInCourse((int) $course['id']) as $s) {
+            if ((int) $s['id'] === $studentId) {
+                $name = (string) $s['full_name'];
+            }
+        }
+
+        if ($name !== '' && $this->enrollments->drop((int) $course['id'], $studentId)) {
+            $this->auth->log('course.drop_student', 'course#' . $course['id'], ['student_id' => $studentId]);
+            Flash::success('ถอน ' . $name . ' ออกจากรายวิชาแล้ว · คะแนนและงานที่ส่งยังเก็บไว้ ถ้าเพิ่มกลับเข้ามาจะได้คืนทั้งหมด');
+        } else {
+            Flash::error('ไม่พบนักเรียนคนนี้ในรายวิชา');
+        }
+
+        return $back;
+    }
+
     public function addStudents(Request $request, Response $response, array $args): Response
     {
         $user = $request->getAttribute('user');

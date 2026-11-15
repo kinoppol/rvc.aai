@@ -56,6 +56,18 @@ final class EnrollmentRepository
         );
     }
 
+    /**
+     * ถอนนักเรียนออกจากรายวิชา: แค่เปลี่ยนสถานะเป็น dropped — ผลสอบ งานที่ส่ง และข้อความยังอยู่ครบ
+     * เพิ่มกลับเข้ามาเมื่อไร (enroll()) คะแนนเดิมก็กลับมาด้วย
+     */
+    public function drop(int $courseId, int $studentId): bool
+    {
+        return $this->db->run(
+            'UPDATE {enrollments} SET status = \'dropped\' WHERE course_id = ? AND student_id = ? AND status = \'active\'',
+            [$courseId, $studentId]
+        ) > 0;
+    }
+
     /** @return list<array<string,mixed>> รายวิชาที่นักเรียนคนนี้เรียนอยู่ */
     public function coursesForStudent(int $studentId): array
     {
