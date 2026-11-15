@@ -123,6 +123,17 @@
             <div class="field" style="grid-column:1 / -1;margin-bottom:0">
                 <div class="hint">ใช้ในแผนการจัดการเรียนรู้ (สอศ. 2567) ที่สั่งพิมพ์จากปุ่ม “พิมพ์แผนการสอน” ในหน้ารายวิชา</div>
             </div>
+            {if $planFormats !== null}
+                <div class="field" style="grid-column:1 / -1">
+                    <label for="cPlanFormat">แบบฟอร์มแผนการจัดการเรียนรู้</label>
+                    <select class="input" id="cPlanFormat" name="plan_format">
+                        {foreach $planFormats as $key => $label}
+                            <option value="{$key}" selected="{$key === $planFormat}">{$label}</option>
+                        {/foreach}
+                    </select>
+                    <div class="hint">แบบที่ใช้เมื่อเปิด “พิมพ์แผนการสอน” และในลิงก์แชร์ · ในหน้าพิมพ์สลับดูอีกแบบได้จากแถบเครื่องมือ</div>
+                </div>
+            {/if}
             <div class="field">
                 <label for="cProgram">ประเภทวิชา</label>
                 <input class="input" id="cProgram" name="program_type" maxlength="191" list="programTypes"

@@ -1,0 +1,52 @@
+{* สคริปต์ร่วมของหน้าพิมพ์แผนการสอน: ซ่อน/แสดงส่วนที่จะพิมพ์ แผงแชร์ คัดลอกลิงก์ และตรวจฟอนต์ *}
+<script>
+(function () {
+    // ช่องติ๊ก data-toggle="front|know|work" → body.no-front / no-know / no-work
+    document.querySelectorAll('[data-toggle]').forEach(function (box) {
+        box.addEventListener('change', function () {
+            document.body.classList.toggle('no-' + box.getAttribute('data-toggle'), !box.checked);
+        });
+    });
+
+    // แผงลิงก์แชร์: เปิด/ปิดด้วยปุ่ม และเปิดเองเมื่อกลับมาจากการสร้าง/ปิดลิงก์ (#share)
+    var shareBtn = document.getElementById('shareToggle');
+    var panel = document.getElementById('sharePanel');
+    if (shareBtn && panel) {
+        var setOpen = function (open) {
+            panel.hidden = !open;
+            shareBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+        shareBtn.addEventListener('click', function () { setOpen(panel.hidden); });
+        if (location.hash === '#share') {
+            setOpen(true);
+            history.replaceState(null, '', location.pathname + location.search);
+        }
+        var copy = document.getElementById('shareCopy');
+        var input = document.getElementById('shareUrl');
+        if (copy && input) {
+            copy.addEventListener('click', function () {
+                var done = function () {
+                    copy.textContent = 'คัดลอกแล้ว ✓';
+                    setTimeout(function () { copy.textContent = 'คัดลอกลิงก์'; }, 2000);
+                };
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(input.value).then(done, function () { input.select(); });
+                } else {
+                    input.select();
+                    try { document.execCommand('copy'); done(); } catch (e) { /* ให้ผู้ใช้คัดลอกเอง */ }
+                }
+            });
+        }
+    }
+
+    // ตรวจว่ามีฟอนต์ TH Sarabun New หรือไม่ ถ้าไม่มีให้เตือนและปรับขนาดตัวอักษรของ Sarabun ให้ใกล้เคียง
+    if (document.fonts && document.fonts.load) {
+        document.fonts.load('16pt PlanSarabun', 'ก').then(function (faces) {
+            if (!faces.length) {
+                document.body.classList.add('fallback');
+                document.getElementById('fontWarn').hidden = false;
+            }
+        }).catch(function () { /* เบราว์เซอร์ไม่รองรับ — ปล่อยไว้ */ });
+    }
+})();
+</script>

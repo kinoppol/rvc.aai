@@ -1,0 +1,539 @@
+{*
+  แบบฟอร์ม "แผนการจัดการเรียนรู้หลักสูตร 2567" ของ สอศ. (PlanFormat cur2567 — ค่าเริ่มต้น) — หน้าสำหรับสั่งพิมพ์ (A4)
+  ลำดับตามแบบฟอร์ม: ปก · คำนำ · สารบัญ · หลักสูตรรายวิชา · มาตรฐานอาชีพ (ถ้ามี) · ตารางวิเคราะห์หน่วยการเรียนรู้
+  · ตารางวิเคราะห์พฤติกรรมการเรียนรู้ · หน่วยการเรียนรู้ · ต่อหน่วย: แผนการจัดการเรียนรู้ ใบความรู้ ใบงาน ใบมอบหมายงาน
+  · บรรณานุกรม · ภาคผนวก
+  ข้อมูลมาจากรายวิชา/หน่วย/ส่วนเนื้อหา/ใบงาน/แบบทดสอบ/บันทึกหลังสอน ส่วนที่ระบบไม่มีข้อมูล (มาตรฐานอาชีพ ระดับพฤติกรรม ฯลฯ)
+  เว้นจุดไว้ให้ครูพิมพ์เติมบนหน้า (contenteditable, ไม่บันทึก) · $shared = ลิงก์แชร์สาธารณะ อ่านอย่างเดียว
+  ใบความรู้ = ส่วนเนื้อหาแบบข้อความ · ใบงาน = ใบงานของหน่วย · ใบมอบหมายงาน = งานที่มอบหมายที่ผูกกับหน่วย · เลขที่ = หน่วย.ลำดับ
+*}
+{var $levelText = $level === 'ปวส.' ? 'ประกาศนียบัตรวิชาชีพชั้นสูง' : ($level === 'ปริญญาตรี (ทล.บ.)' ? 'ปริญญาตรีสายเทคโนโลยีหรือสายปฏิบัติการ' : 'ประกาศนียบัตรวิชาชีพ')}
+{var $dots = '........................'}
+{var $programType = $course['program_type'] ?: $dots}
+{var $major = $course['major'] ?: ($teacher['subject_area'] ?? '') ?: $dots}
+{var $blankDate = 'วันที่ ...... เดือน .................... พ.ศ. ..........'}
+{var $dateText = $planDate ? 'วันที่ ' . $planDate['day'] . ' เดือน ' . $planDate['month'] . ' พ.ศ. ' . $planDate['year'] : $blankDate}
+{var $credits = rtrim(rtrim(number_format((float) $course['credits'], 1, '.', ''), '0'), '.')}
+{var $teacherName = $teacher['full_name'] ?? '........................................'}
+{var $pass = number_format((float) $course['pass_threshold'], 0)}
+{var $edit = !$shared}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+{include '_base.latte'}
+    <style>
+        .cover .lines p { font-size: 20pt; font-weight: 700; line-height: 1.6; }
+        .cover .foot { display: flex; justify-content: space-between; font-size: 18pt; font-weight: 700; }
+        .toc { border: 0; }
+        .toc td { border: 0; padding: 1pt 0; }
+        .toc td.pg { width: 2.2cm; text-align: right; }
+        .toc .u { padding-left: 1.4em; font-weight: 700; }
+        .toc .d { padding-left: 2.8em; }
+        .box { border: 1px solid #000; padding: 8pt 10pt; }
+        .box h3:first-child { margin-top: 0; }
+        .grid-table th, .grid-table td { font-size: 14pt; }
+        .grid-table td.blank { height: 1.4em; }
+        .legend td { font-size: 13pt; }
+        .unit-head { margin-bottom: 8pt; }
+        .unit-head td { vertical-align: middle; }
+        .unit-head .logo-cell { width: 2.2cm; text-align: center; }
+        .unit-head .logo-cell img { width: 1.8cm; height: auto; }
+        .unit-head .kind { font-size: 18pt; font-weight: 700; text-align: center; }
+        .unit-head .side { width: 4.2cm; }
+        .lines-list p { padding-left: 1.2em; }
+        .content p { text-indent: 2.5em; text-align: justify; }
+    </style>
+</head>
+<body>
+{include '_toolbar.latte', toggles: ['front' => 'ส่วนหน้า (ปก คำนำ สารบัญ หลักสูตรรายวิชา ตารางวิเคราะห์)', 'know' => 'ใบความรู้', 'work' => 'ใบงาน/ใบมอบหมายงาน'], teacherName: $teacherName}
+
+{* ───────── ปก ───────── *}
+<section class="sheet cover front"{if $edit} contenteditable="true"{/if}>
+    <div>
+        <img class="logo" src="{$base}/assets/img/ovec-logo.jpg" alt="ตราสำนักงานคณะกรรมการการอาชีวศึกษา">
+        <p class="big">แผนการจัดการเรียนรู้</p>
+    </div>
+    <div class="lines">
+        <p>หลักสูตร{$levelText} พุทธศักราช 2567</p>
+        <p>สาขาวิชา{$major}</p>
+        <p>กลุ่มอาชีพ{$dots}</p>
+        <p>ประเภทวิชา{$programType}</p>
+    </div>
+    <div class="lines">
+        <p>รหัสวิชา {$course['code']} วิชา{$course['name']}</p>
+        <p>ทฤษฎี {$course['theory_hours']} ปฏิบัติ {$course['practice_hours']} หน่วยกิต {$credits}</p>
+    </div>
+    <div class="lines">
+        <p>จัดทำโดย {$teacherName}</p>
+        <p>{$college}</p>
+    </div>
+    <div class="foot"><span>สำนักงานคณะกรรมการการอาชีวศึกษา</span><span>กระทรวงศึกษาธิการ</span></div>
+</section>
+
+{* ───────── คำนำ ───────── *}
+<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+    <h2>คำนำ</h2>
+    <p class="indent">แผนการจัดการเรียนรู้รายวิชา{$course['name']} รหัสวิชา {$course['code']} ฉบับนี้ จัดทำขึ้นตามหลักสูตร{$levelText} พุทธศักราช 2567 ของสำนักงานคณะกรรมการการอาชีวศึกษา เพื่อใช้เป็นแนวทางในการจัดการเรียนรู้ให้ผู้เรียนบรรลุผลลัพธ์การเรียนรู้และสมรรถนะรายวิชา ประกอบด้วยหลักสูตรรายวิชา ตารางวิเคราะห์หน่วยการเรียนรู้ ตารางวิเคราะห์พฤติกรรมการเรียนรู้ แผนการจัดการเรียนรู้รายหน่วย ใบความรู้ ใบงาน และใบมอบหมายงาน</p>
+    <p class="indent">ผู้จัดทำหวังเป็นอย่างยิ่งว่าแผนการจัดการเรียนรู้ฉบับนี้จะเป็นประโยชน์ต่อการจัดการเรียนการสอน และการพัฒนาผู้เรียนให้มีสมรรถนะตามมาตรฐานวิชาชีพ หากมีข้อเสนอแนะประการใด ผู้จัดทำยินดีรับไว้เพื่อปรับปรุงต่อไป</p>
+    <div style="margin-top:24pt;margin-left:50%;text-align:center">
+        <p>{$teacherName}</p>
+        <p>{$dateText}</p>
+    </div>
+</section>
+
+{* ───────── สารบัญ (เลขหน้าเว้นไว้ให้เติมหลังพิมพ์) ───────── *}
+<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+    <h2>สารบัญ</h2>
+    <table class="toc">
+        <tr><td></td><td class="pg"><b>หน้า</b></td></tr>
+        <tr><td>คำนำ</td><td class="pg">....</td></tr>
+        <tr><td>สารบัญ</td><td class="pg">....</td></tr>
+        <tr><td>หลักสูตรรายวิชา</td><td class="pg">....</td></tr>
+        <tr><td>มาตรฐานอาชีพ (ถ้ามี)</td><td class="pg">....</td></tr>
+        <tr><td>ตารางวิเคราะห์หน่วยการเรียนรู้</td><td class="pg">....</td></tr>
+        <tr><td>ตารางวิเคราะห์พฤติกรรมการเรียนรู้</td><td class="pg">....</td></tr>
+        <tr><td>หน่วยการเรียนรู้</td><td class="pg">....</td></tr>
+        {foreach $plans as $p}
+            {continueIf $p['exam']}
+            <tr><td class="u">หน่วยที่ {$p['no']} {$p['unit']['title']}</td><td class="pg"></td></tr>
+            <tr><td class="d">แผนการจัดการเรียนรู้</td><td class="pg">....</td></tr>
+            {if $p['texts']}<tr class="know"><td class="d">ใบความรู้</td><td class="pg">....</td></tr>{/if}
+            {if $p['assignments']}<tr class="work"><td class="d">ใบงาน</td><td class="pg">....</td></tr>{/if}
+            {if $p['tasks']}<tr class="work"><td class="d">ใบมอบหมายงาน</td><td class="pg">....</td></tr>{/if}
+            <tr><td class="d">แบบประเมินความสามารถในการปฏิบัติงาน/ผลลัพธ์การเรียนรู้/สมรรถนะ</td><td class="pg">....</td></tr>
+        {/foreach}
+        <tr><td>บรรณานุกรม</td><td class="pg">....</td></tr>
+        <tr><td>ภาคผนวก</td><td class="pg">....</td></tr>
+    </table>
+</section>
+
+{* ───────── หลักสูตรรายวิชา ───────── *}
+<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+    <h2>หลักสูตรรายวิชา</h2>
+    <p class="center">หลักสูตร{$levelText} พุทธศักราช 2567</p>
+    <p class="center">ประเภทวิชา{$programType} กลุ่มอาชีพ{$dots} สาขาวิชา{$major}</p>
+    <p class="center">รหัส {$course['code']} ชื่อวิชา {$course['name']}</p>
+    <p class="center" style="margin-bottom:8pt">ทฤษฎี {$course['theory_hours']} ชั่วโมง/สัปดาห์ ปฏิบัติ {$course['practice_hours']} ชั่วโมง/สัปดาห์ จำนวน {$credits} หน่วยกิต</p>
+    <div class="box">
+        <h3>อ้างอิงมาตรฐาน</h3>
+        <p class="dots"></p>
+        <h3>ผลลัพธ์การเรียนรู้ระดับรายวิชา</h3>
+        {if $courseOutcomes}
+            {foreach $courseOutcomes as $o}<p class="indent">{$o}</p>{/foreach}
+        {else}<p class="dots"></p><p class="dots"></p>{/if}
+        <h3>จุดประสงค์รายวิชา เพื่อให้</h3>
+        {if $courseObjectives}
+            <ol>{foreach $courseObjectives as $o}<li>{$o}</li>{/foreach}</ol>
+        {else}<p class="dots"></p><p class="dots"></p>{/if}
+        <h3>สมรรถนะรายวิชา</h3>
+        <ol>
+            {if $courseCompetencies}
+                {foreach $courseCompetencies as $c}<li>{$c}</li>{/foreach}
+            {else}
+                {* ยังไม่ได้กรอกสมรรถนะรายวิชา — ใช้สมรรถนะประจำหน่วยแทนให้ครูแก้ก่อนพิมพ์ *}
+                {foreach $plans as $p}{foreach $p['competencies'] as $c}<li>{$c}</li>{/foreach}{/foreach}
+            {/if}
+        </ol>
+        <h3>คำอธิบายรายวิชา</h3>
+        {if $description}
+            {foreach $description as $d}<p class="indent">{$d}</p>{/foreach}
+        {else}<p class="dots"></p><p class="dots"></p><p class="dots"></p>{/if}
+    </div>
+
+    {* ผู้ลงนาม: ตั้งค่าที่ /admin/settings และหัวหน้าแผนกในฟอร์มรายวิชา (เหมือนแบบมุ่งเน้นสมรรถนะ) *}
+    <div class="sign no-break">
+        <div>
+            <p>ลงชื่อ ........................................ ครูผู้สอน</p>
+            <p>({$teacherName})</p>
+            <p>{$dateText}</p>
+        </div>
+        <div>
+            <p>ลงชื่อ ........................................</p>
+            <p>({$signers['dept_head'] ?? '........................................'})</p>
+            <p>หัวหน้าแผนกวิชา</p>
+        </div>
+        <div>
+            <p>ลงชื่อ ........................................</p>
+            <p>({$signers['plan_sign_curriculum'] ?? '........................................'})</p>
+            <p>หัวหน้างานพัฒนาหลักสูตรการเรียนการสอน</p>
+        </div>
+        <div>
+            <p>ลงชื่อ ........................................</p>
+            <p>({$signers['plan_sign_deputy'] ?? '........................................'})</p>
+            <p>รองผู้อำนวยการฝ่ายวิชาการ</p>
+        </div>
+        <div class="one">
+            <p>☐ อนุมัติ &nbsp; ☐ ไม่อนุมัติ</p>
+            <p>ลงชื่อ ........................................</p>
+            <p>({$signers['plan_sign_director'] ?? '........................................'})</p>
+            <p>ผู้อำนวยการ{$college}</p>
+        </div>
+    </div>
+</section>
+
+{* ───────── มาตรฐานอาชีพ (ถ้ามี) — ระบบยังไม่มีข้อมูลนี้ เว้นตารางไว้ให้เติม ───────── *}
+<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+    <h2>มาตรฐานอาชีพ</h2>
+    <p class="center">หน่วยงานรับรองมาตรฐานอาชีพ ........................................................</p>
+    <p class="center">มาตรฐานอาชีพ ........................................................</p>
+    <p class="center" style="margin-bottom:8pt">อาชีพ ........................................................</p>
+    <table class="grid-table">
+        <thead>
+            <tr><th colspan="2">หน่วยสมรรถนะ (UoC)</th><th colspan="2">สมรรถนะย่อย (EoC)</th><th rowspan="2">เกณฑ์การปฏิบัติงาน (PC)</th><th rowspan="2">วิธีประเมิน</th></tr>
+            <tr><th>รหัส</th><th>คำอธิบาย</th><th>รหัส</th><th>คำอธิบาย</th></tr>
+        </thead>
+        <tbody>
+            {for $i = 0; $i < 8; $i++}
+                <tr><td class="blank"></td><td></td><td></td><td></td><td></td><td></td></tr>
+            {/for}
+        </tbody>
+    </table>
+    <p class="muted" style="font-size:14pt;margin-top:6pt">หมายเหตุ รายวิชาที่ไม่มีมาตรฐานอาชีพอ้างอิง ยกเลิกการพิมพ์หน้านี้ได้ (ลบข้อความหรือข้ามหน้าในหน้าต่างพิมพ์)</p>
+</section>
+
+{* ───────── ตารางวิเคราะห์หน่วยการเรียนรู้ ───────── *}
+<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+    <h2>ตารางวิเคราะห์หน่วยการเรียนรู้</h2>
+    <table class="grid-table">
+        <thead>
+            <tr><td colspan="5"><b>ผลลัพธ์การเรียนรู้ระดับรายวิชา</b> {if $courseOutcomes}{foreach $courseOutcomes as $o}{$o}{sep} · {/sep}{/foreach}{else}........................................................{/if}</td></tr>
+            <tr><th>งานหลัก<br>(Duty)</th><th>งานย่อย<br>(Task)</th><th>สมรรถนะย่อย (EoC)<br>(มาตรฐานอาชีพ)</th><th>ความรู้<br>ในการปฏิบัติงาน</th><th>ทักษะ<br>ในการปฏิบัติงาน</th></tr>
+        </thead>
+        <tbody>
+            {foreach $plans as $p}
+                {continueIf $p['exam']}
+                <tr>
+                    <td>หน่วยที่ {$p['no']} {$p['unit']['title']}</td>
+                    <td>{foreach $p['sections'] as $s}{$p['no']}.{$iterator->counter} {$s['title']}{sep}<br>{/sep}{else}{$p['no']}.1{/foreach}</td>
+                    <td></td>
+                    <td>{foreach $p['objectives'] as $o}{$o}{sep}<br>{/sep}{/foreach}</td>
+                    <td>{foreach $p['competencies'] as $c}{$c}{sep}<br>{/sep}{/foreach}</td>
+                </tr>
+            {else}
+                <tr><td colspan="5" class="center muted">ยังไม่มีหน่วยการเรียน</td></tr>
+            {/foreach}
+        </tbody>
+    </table>
+</section>
+
+{* ───────── ตารางวิเคราะห์พฤติกรรมการเรียนรู้ (แบบที่ 2) — ระดับที่คาดหวังครูเติมเอง ───────── *}
+<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+    <h2>ตารางวิเคราะห์พฤติกรรมการเรียนรู้</h2>
+    <p class="center">รหัส {$course['code']} ชื่อวิชา {$course['name']}</p>
+    <p class="center" style="margin-bottom:8pt">ทฤษฎี {$course['theory_hours']} ชั่วโมง/สัปดาห์ ปฏิบัติ {$course['practice_hours']} ชั่วโมง/สัปดาห์ จำนวน {$credits} หน่วยกิต</p>
+    <table class="grid-table">
+        <thead>
+            <tr><th rowspan="2">หน่วยการเรียนรู้</th><th colspan="4">ระดับความสามารถที่คาดหวัง</th><th rowspan="2">จำนวนชั่วโมง<br>ท/ป</th><th rowspan="2">ร้อยละ<br>ประเมินผล</th></tr>
+            <tr><th>พุทธิพิสัย</th><th>ทักษะพิสัย</th><th>จิตพิสัย</th><th>ประยุกต์ใช้</th></tr>
+        </thead>
+        <tbody>
+            {foreach $plans as $p}
+                {continueIf $p['exam']}
+                <tr><td>{$p['no']}. {$p['unit']['title']}</td><td></td><td></td><td></td><td></td><td class="num">{$p['theory']}/{$p['practice']}</td><td></td></tr>
+            {/foreach}
+            <tr><th colspan="5">รวมการจัดการเรียนรู้ตลอดภาคเรียน</th><th>{$totals['lesson']['theory']}/{$totals['lesson']['practice']}</th><th></th></tr>
+            <tr><td colspan="5" class="center">ประเมินผลลัพธ์การเรียนรู้ระดับรายวิชา (เมื่อเรียนรายวิชานี้สำเร็จแล้วทำอะไรได้)</td><td class="num">{$totals['exam']['theory']}/{$totals['exam']['practice']}</td><td></td></tr>
+            <tr><th colspan="5" class="right">รวม</th><th>{$totals['all']['theory']}/{$totals['all']['practice']}</th><th>100</th></tr>
+        </tbody>
+    </table>
+    <table class="legend no-break">
+        <tr><td colspan="3" class="center"><b>ระดับความสามารถที่คาดหวัง</b> วิเคราะห์ให้สอดคล้องจุดประสงค์รายวิชาหรือสูงกว่า</td></tr>
+        <tr><th>พุทธิพิสัย</th><th>ทักษะพิสัย</th><th>จิตพิสัย</th></tr>
+        <tr>
+            <td>K1 = ความรู้ ความจำ<br>K2 = ความเข้าใจ<br>K3 = การนำไปใช้<br>K4 = การวิเคราะห์<br>K5 = การประเมินค่า<br>K6 = การสร้างสรรค์<br><i>ใส่ได้มากกว่า 1 ระดับ</i></td>
+            <td>S1 = เลียนแบบ<br>S2 = ทำได้ตามแบบ<br>S3 = ทำได้ถูกต้อง<br>S4 = ทำได้อย่างต่อเนื่อง<br>S5 = ทำได้อย่างเป็นธรรมชาติ<br><i>ใส่ระดับที่คาดหวังระดับเดียว</i></td>
+            <td>A1 = รับรู้<br>A2 = ตอบสนอง<br>A3 = การสร้างคุณค่า<br>A4 = จัดระบบคุณค่านิยม<br>A5 = การสร้างลักษณะนิสัย<br><i>ใส่ระดับที่คาดหวังระดับเดียว</i></td>
+        </tr>
+        <tr><th colspan="3">ด้านความสามารถประยุกต์ใช้และรับผิดชอบ</th></tr>
+        <tr><td colspan="3">
+            Ap1 = สามารถปฏิบัติงานตามแบบแผนที่กำหนด<br>
+            Ap2 = สามารถปฏิบัติงานตามแบบแผน และปรับตัวภายใต้ความเปลี่ยนแปลงที่ไม่ซับซ้อน<br>
+            Ap3 = สามารถวางแผนการปฏิบัติงานที่ได้รับมอบหมายและแก้ไขปัญหาการปฏิบัติงานที่ไม่อยู่ภายใต้การควบคุมในบางเรื่อง โดยประยุกต์ใช้ความรู้ ทักษะทางวิชาชีพ เทคโนโลยีสารสนเทศและการสื่อสาร<br>
+            Ap4 = สามารถวางแผนการปฏิบัติงานที่รับผิดชอบ ปรับตัวและแก้ไขปัญหาการปฏิบัติงานที่ไม่คุ้นเคยหรือซับซ้อนและเป็นนามธรรม โดยประยุกต์ใช้ความรู้ ทักษะทางวิชาชีพ เทคโนโลยีสารสนเทศและการสื่อสาร<br>
+            Ap5 = สามารถประยุกต์ใช้ความรู้ ทักษะทางวิชาชีพ เทคโนโลยีสารสนเทศและการสื่อสารในการวางแผนแก้ไขปัญหาและพัฒนานวัตกรรมตามสายอาชีพ<br>
+            <i>ใส่ระดับที่คาดหวังระดับเดียว</i>
+        </td></tr>
+    </table>
+</section>
+
+{* ───────── หน่วยการเรียนรู้ (ชั่วโมง ท/ป แบ่งตามสัดส่วน ท:ป ของวิชา) ───────── *}
+<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+    <h2>หน่วยการเรียนรู้</h2>
+    <p class="center">รหัส {$course['code']} ชื่อวิชา {$course['name']}</p>
+    <p class="center" style="margin-bottom:8pt">ทฤษฎี {$course['theory_hours']} ชั่วโมง/สัปดาห์ ปฏิบัติ {$course['practice_hours']} ชั่วโมง/สัปดาห์ จำนวน {$credits} หน่วยกิต</p>
+    <table>
+        <thead>
+            <tr><th rowspan="2">หน่วยที่</th><th rowspan="2">หน่วยการเรียนรู้</th><th colspan="3">เวลาเรียน (ชม.)</th></tr>
+            <tr><th>ทฤษฎี</th><th>ปฏิบัติ</th><th>รวม</th></tr>
+        </thead>
+        <tbody>
+            {foreach $plans as $p}
+                {continueIf $p['exam']}
+                <tr><td class="num">{$p['no']}</td><td>{$p['unit']['title']}</td><td class="num">{$p['theory']}</td><td class="num">{$p['practice']}</td><td class="num">{$p['hours']}</td></tr>
+            {/foreach}
+            <tr>
+                <td class="num"></td>
+                <td class="center">ประเมินผลลัพธ์การเรียนรู้ระดับรายวิชา{if $totals['exam']['names']} ({$totals['exam']['names']}){/if}</td>
+                <td class="num">{$totals['exam']['theory']}</td><td class="num">{$totals['exam']['practice']}</td><td class="num">{$totals['exam']['hours']}</td>
+            </tr>
+            <tr><th colspan="2" class="right">รวม</th><th>{$totals['all']['theory']}</th><th>{$totals['all']['practice']}</th><th>{$totals['all']['hours']}</th></tr>
+        </tbody>
+    </table>
+    <p class="muted" style="font-size:14pt;margin-top:6pt">หมายเหตุ เวลาเรียน {$weekly} ชั่วโมงต่อสัปดาห์ × {$weeks} สัปดาห์รวมวัดผล · ชั่วโมงทฤษฎี/ปฏิบัติของแต่ละหน่วยแบ่งตามสัดส่วน ท:ป ของรายวิชา แก้ไขตัวเลขให้ตรงกับการสอนจริงได้</p>
+</section>
+
+{* ───────── หัวกระดาษรายหน่วย: ตรา สอศ. · ชื่อเอกสาร · หน่วยที่ · สอนครั้งที่ · ชั่วโมง ───────── *}
+{define unitHead}
+    <table class="unit-head">
+        <tr>
+            <td rowspan="3" class="logo-cell"><img src="{$base}/assets/img/ovec-logo.jpg" alt=""></td>
+            <td class="kind">{$title}</td>
+            <td class="side">หน่วยที่ {$p['no']}</td>
+        </tr>
+        <tr>
+            <td>รหัสวิชา {$course['code']} ชื่อวิชา {$course['name']}</td>
+            <td class="side">สอนครั้งที่ {$p['week_from']}{if $p['week_to'] > $p['week_from']}–{$p['week_to']}{/if}</td>
+        </tr>
+        <tr>
+            <td>ชื่อหน่วยการเรียนรู้ {$p['unit']['title']}</td>
+            <td class="side" rowspan="2">ทฤษฎี {$p['theory']} ชม.<br>ปฏิบัติ {$p['practice']} ชม.</td>
+        </tr>
+        <tr><td colspan="2">{$label} {$topic}</td></tr>
+    </table>
+{/define}
+
+{* ข้อความหลายข้อแบบมีเลขนำ (3.1, 3.2 …) หรือเว้นจุดเมื่อยังไม่มีข้อมูล *}
+{define numbered}
+    {if $lines}
+        <div class="lines-list">{foreach $lines as $line}<p>{$prefix}{$iterator->counter} {$line}</p>{/foreach}</div>
+    {else}<p class="dots"></p><p class="dots"></p>{/if}
+{/define}
+
+{define blank}
+    {for $i = 0; $i < ($n ?? 2); $i++}<p class="dots"></p>{/for}
+{/define}
+
+{* ───────── ต่อหน่วย: แผนการจัดการเรียนรู้ + ใบความรู้ + ใบงาน + ใบมอบหมายงาน (ไม่รวมหน่วยสอบ) ───────── *}
+{foreach $plans as $p}
+{continueIf $p['exam']}
+{var $u = $p['unit']}
+{var $texts = $p['texts']}
+{var $r = $p['report']}
+<section class="sheet"{if $edit} contenteditable="true"{/if}>
+    {include unitHead, title: 'แผนการจัดการเรียนรู้', p: $p, label: 'ชื่อเรื่อง/งาน', topic: $u['title']}
+
+    <h3>1. ผลลัพธ์การเรียนรู้ระดับหน่วยการเรียน</h3>
+    {include blank, n: 2}
+
+    <h3>2. อ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพ</h3>
+    <p class="sub">2.1 มาตรฐานอาชีพ ..............................................................................</p>
+    <p class="sub">2.2 หน่วยสมรรถนะ ..............................................................................</p>
+    <p class="sub2">1) สมรรถนะย่อย ..............................................................................</p>
+    <p class="sub2">2) สมรรถนะย่อย ..............................................................................</p>
+    <p class="sub">2.3 บูรณาการกลุ่มอาชีพ ..............................................................................</p>
+
+    <h3>3. สมรรถนะประจำหน่วย</h3>
+    {include numbered, lines: $p['competencies'], prefix: '3.'}
+
+    <h3>4. จุดประสงค์เชิงพฤติกรรม</h3>
+    <p class="sub"><b>4.1 ด้านความรู้ (พุทธิพิสัย)</b></p>
+    {if $p['objectives']}
+        <div class="lines-list sub">{foreach $p['objectives'] as $o}<p>{$iterator->counter}) {$o}</p>{/foreach}</div>
+    {else}{include blank, n: 2}{/if}
+    <p class="sub"><b>4.2 ด้านทักษะ (ทักษะพิสัย)</b></p>
+    {if $p['assignments']}
+        <div class="lines-list sub">{foreach $p['assignments'] as $a}<p>{$iterator->counter}) ปฏิบัติงานตามใบงาน "{$a['title']}" ได้ถูกต้องตามขั้นตอน</p>{/foreach}</div>
+    {else}{include blank, n: 2}{/if}
+    <p class="sub"><b>4.3 ด้านคุณลักษณะอันพึงประสงค์/เจตคติ (จิตพิสัย)</b></p>
+    <div class="lines-list sub"><p>1) มีความรับผิดชอบ ตรงต่อเวลา ซื่อสัตย์ และทำงานร่วมกับผู้อื่นได้</p></div>
+    <p class="sub"><b>4.4 ด้านประยุกต์ใช้</b></p>
+    <div class="lines-list sub"><p>1) ประยุกต์ใช้ความรู้และทักษะในหน่วยนี้กับงานอาชีพได้อย่างเหมาะสม</p></div>
+
+    <h3>5. สาระการเรียนรู้</h3>
+    {foreach $p['key_content'] as $line}<p class="indent">{$line}</p>{/foreach}
+    {if $p['sections']}
+        <div class="lines-list">{foreach $p['sections'] as $s}<p>5.{$iterator->counter} {$s['title']}</p>{/foreach}</div>
+    {elseif !$p['key_content']}{include blank, n: 2}{/if}
+
+    <h3>6. กิจกรรมการเรียนรู้</h3>
+    <p class="sub"><b>6.1 ขั้นนำเข้าสู่บทเรียน</b></p>
+    <ol class="sub">
+        <li>ครูชี้แจงสมรรถนะประจำหน่วยและจุดประสงค์การเรียนรู้ เชื่อมโยงกับประสบการณ์เดิมของผู้เรียน</li>
+        {foreach $p['pretests'] as $q}<li>ผู้เรียนทำแบบทดสอบก่อนเรียน "{$q['title']}" ({$q['question_count']} ข้อ) ผ่านระบบ RVC Learn</li>{/foreach}
+    </ol>
+    <p class="sub"><b>6.2 ขั้นให้ความรู้</b></p>
+    <ol class="sub">
+        {var $k = 0}
+        {foreach $p['sections'] as $s}
+            {if $s['type'] === 'text'}{do $k++}{/if}
+            <li>{if $s['type'] === 'video'}ผู้เรียนศึกษาวีดิทัศน์ "{$s['title']}"{elseif $s['type'] === 'pdf'}ผู้เรียนศึกษาเอกสาร "{$s['title']}"{else}ครูอธิบายและผู้เรียนศึกษาใบความรู้ที่ {$p['no']}.{$k} เรื่อง "{$s['title']}"{/if}</li>
+        {else}
+            <li>ครูอธิบายเนื้อหาตามสาระการเรียนรู้ในข้อ 5 พร้อมยกตัวอย่างประกอบ</li>
+        {/foreach}
+        <li>ครูและผู้เรียนร่วมกันอภิปราย ซักถาม และสรุปประเด็นสำคัญ</li>
+    </ol>
+    <p class="sub"><b>6.3 ขั้นฝึกปฏิบัติและประยุกต์ใช้</b></p>
+    <ol class="sub">
+        {foreach $p['assignments'] as $a}
+            <li>ผู้เรียนปฏิบัติตามใบงานที่ {$p['no']}.{$iterator->counter} "{$a['title']}" โดยครูสังเกตและให้คำแนะนำระหว่างปฏิบัติ</li>
+        {else}
+            <li>ผู้เรียนฝึกปฏิบัติตามที่ครูมอบหมาย โดยครูสังเกตและให้คำแนะนำระหว่างปฏิบัติ</li>
+        {/foreach}
+        {foreach $p['tasks'] as $t}<li>ผู้เรียนปฏิบัติงานตามใบมอบหมายงานที่ {$p['no']}.{$iterator->counter} "{$t['title']}"</li>{/foreach}
+    </ol>
+    <p class="sub"><b>6.4 ขั้นสรุปและประเมินผล</b></p>
+    <ol class="sub">
+        <li>ครูและผู้เรียนร่วมกันสรุปสาระสำคัญของหน่วย</li>
+        {foreach $p['posttests'] as $q}<li>ผู้เรียนทำแบบทดสอบหลังเรียน "{$q['title']}" ({$q['question_count']} ข้อ) ผ่านระบบ RVC Learn</li>{/foreach}
+    </ol>
+
+    <h3>7. สื่อและแหล่งการเรียนรู้</h3>
+    <ol>
+        {foreach $texts as $s}<li>ใบความรู้ที่ {$p['no']}.{$iterator->counter} เรื่อง {$s['title']}</li>{/foreach}
+        {foreach $p['sections'] as $s}
+            {if $s['type'] === 'video'}<li>วีดิทัศน์ เรื่อง {$s['title']}{if $s['url']} ({$s['url']}){/if}</li>{elseif $s['type'] === 'pdf'}<li>เอกสาร PDF เรื่อง {$s['title']}</li>{/if}
+        {/foreach}
+        {foreach $p['assignments'] as $a}<li>ใบงานที่ {$p['no']}.{$iterator->counter} เรื่อง {$a['title']}</li>{/foreach}
+        {foreach $p['tasks'] as $t}<li>ใบมอบหมายงานที่ {$p['no']}.{$iterator->counter} เรื่อง {$t['title']}</li>{/foreach}
+        {foreach $p['pretests'] as $q}<li>แบบทดสอบก่อนเรียน {$q['title']}</li>{/foreach}
+        {foreach $p['posttests'] as $q}<li>แบบทดสอบหลังเรียน {$q['title']}</li>{/foreach}
+        <li>ระบบการเรียนรู้ออนไลน์ RVC Learn {$college}</li>
+    </ol>
+
+    <h3>8. หลักฐานการเรียนรู้</h3>
+    <p class="sub"><b>8.1 หลักฐานความรู้</b> {if $p['pretests'] || $p['posttests']}ผลการทำแบบทดสอบก่อนเรียนและหลังเรียน{else}..........................................{/if}</p>
+    <p class="sub"><b>8.2 หลักฐานการปฏิบัติงาน</b> {if $p['assignments'] || $p['tasks']}ผลงานตาม{foreach $p['assignments'] as $a}ใบงาน "{$a['title']}"{sep}, {/sep}{/foreach}{if $p['assignments'] && $p['tasks']}, {/if}{foreach $p['tasks'] as $t}ใบมอบหมายงาน "{$t['title']}"{sep}, {/sep}{/foreach}{else}..........................................{/if}</p>
+
+    <h3>9. การวัดและประเมินผล</h3>
+    <p class="sub"><b>9.1 เกณฑ์การปฏิบัติงาน</b> ผ่านเกณฑ์ร้อยละ {$pass} ขึ้นไป</p>
+    <p class="sub"><b>9.2 ขอบเขตการปฏิบัติงาน</b> {if $p['assignments']}ปฏิบัติงานตามใบงานของหน่วยที่ {$p['no']} ภายในเวลาที่กำหนด{else}..........................................{/if}</p>
+    <p class="sub"><b>9.3 วิธีการประเมิน</b> {if $p['pretests'] || $p['posttests']}ทดสอบ · {/if}{if $p['assignments'] || $p['tasks']}ตรวจผลงาน · {/if}สังเกตพฤติกรรม</p>
+    <p class="sub"><b>9.4 เครื่องมือประเมิน</b> {if $p['posttests']}แบบทดสอบหลังเรียน · {/if}{if $p['assignments'] || $p['tasks']}ใบงานและเกณฑ์การให้คะแนน · {/if}แบบประเมินพฤติกรรม</p>
+
+    {* ข้อ 10 มาจากบันทึกหลังสอนในหน้าแก้ไขหน่วย (9.1/9.2/9.3 ของแบบเดิม) *}
+    <h3>10. บันทึกผลหลังการจัดการเรียนรู้</h3>
+    <p class="sub"><b>10.1 ผลการจัดการเรียนรู้ที่เกิดขึ้นกับผู้เรียน</b></p>
+    {if $r['learner'] || $r['plan']}
+        {foreach $r['learner'] as $line}<p class="indent">{$line}</p>{/foreach}
+        {foreach $r['plan'] as $line}<p class="indent">{$line}</p>{/foreach}
+    {else}{include blank, n: 2}{/if}
+    <p class="sub"><b>10.2 ปัญหา อุปสรรคที่พบ</b></p>
+    {if $r['problems']}{foreach $r['problems'] as $line}<p class="indent">{$line}</p>{/foreach}{else}{include blank, n: 2}{/if}
+    <p class="sub"><b>10.3 การแก้ไขปัญหา</b></p>
+    <p class="sub2">1) ผลการแก้ไขปัญหาที่ส่งผลลัพธ์ที่ดีต่อผู้เรียน</p>
+    {include blank, n: 1}
+    <p class="sub2">2) แนวทางแก้ปัญหาในครั้งต่อไป</p>
+    {include blank, n: 1}
+
+    <div class="sign no-break">
+        <div class="one">
+            <p>ลงชื่อ ........................................ ครูผู้สอน</p>
+            <p>({$teacherName})</p>
+            <p>{$r['date'] ? 'วันที่ ' . $r['date']['day'] . ' เดือน ' . $r['date']['month'] . ' พ.ศ. ' . $r['date']['year'] : $blankDate}</p>
+        </div>
+    </div>
+</section>
+
+{* ใบความรู้: หนึ่งใบต่อส่วนเนื้อหาแบบข้อความ *}
+{foreach $texts as $s}
+<section class="sheet know"{if $edit} contenteditable="true"{/if}>
+    {include unitHead, title: 'ใบความรู้ที่ ' . $p['no'] . '.' . $iterator->counter, p: $p, label: 'ชื่อเรื่อง', topic: $s['title']}
+    <h3>1. ผลลัพธ์การเรียนรู้ระดับหน่วยการเรียน</h3>
+    {include blank, n: 1}
+    <h3>2. อ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพ</h3>
+    {include blank, n: 1}
+    <h3>3. สมรรถนะประจำหน่วย</h3>
+    {include numbered, lines: $p['competencies'], prefix: '3.'}
+    <h3>4. จุดประสงค์เชิงพฤติกรรม</h3>
+    {include numbered, lines: $p['objectives'], prefix: '4.'}
+    <h3>5. เนื้อหาสาระ</h3>
+    {if $s['content']}
+        <div class="content">{foreach $s['content'] as $line}<p>{$line}</p>{/foreach}</div>
+    {else}{include blank, n: 4}{/if}
+    <h3>6. แบบฝึกหัด/แบบทดสอบ</h3>
+    {if $p['posttests']}
+        <p class="sub">{foreach $p['posttests'] as $q}แบบทดสอบหลังเรียน "{$q['title']}" ({$q['question_count']} ข้อ) ในระบบ RVC Learn{sep}<br>{/sep}{/foreach}</p>
+    {else}{include blank, n: 2}{/if}
+    <h3>7. เอกสารอ้างอิง</h3>
+    {include blank, n: 2}
+    <h3>8. ภาคผนวก (เฉลยแบบฝึกหัด เฉลยแบบทดสอบ ฯ)</h3>
+    {include blank, n: 2}
+</section>
+{/foreach}
+
+{* ใบงาน: หนึ่งใบต่อใบงานของหน่วย · ขั้นตอนมาจากรายละเอียดใบงาน *}
+{foreach $p['assignments'] as $a}
+<section class="sheet work"{if $edit} contenteditable="true"{/if}>
+    {include unitHead, title: 'ใบงานที่ ' . $p['no'] . '.' . $iterator->counter, p: $p, label: 'ชื่องาน', topic: $a['title']}
+    <h3>1. ผลลัพธ์การเรียนรู้จากการปฏิบัติงาน</h3>
+    {include blank, n: 1}
+    <h3>2. อ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพ</h3>
+    {include blank, n: 1}
+    <h3>3. สมรรถนะการปฏิบัติงาน</h3>
+    {include numbered, lines: $p['competencies'], prefix: '3.'}
+    <h3>4. จุดประสงค์เชิงพฤติกรรม</h3>
+    {include numbered, lines: $p['objectives'], prefix: '4.'}
+    <h3>5. เครื่องมือ วัสดุ และอุปกรณ์</h3>
+    <div class="lines-list"><p>5.1 ..........................................................</p><p>5.2 ..........................................................</p><p>5.3 ..........................................................</p></div>
+    <h3>6. คำแนะนำ/ข้อควรระวัง</h3>
+    {include blank, n: 1}
+    <h3>7. ขั้นตอนการปฏิบัติงาน</h3>
+    {if $a['lines']}
+        <div class="lines-list">{foreach $a['lines'] as $line}<p>{$line}</p>{/foreach}</div>
+    {else}{include blank, n: 3}{/if}
+    <h3>8. สรุปและวิจารณ์ผล</h3>
+    {include blank, n: 2}
+    <h3>9. การประเมินผล</h3>
+    <p class="sub">คะแนนเต็ม {number_format((float) $a['max_score'], 0)} คะแนน · ผ่านเกณฑ์ร้อยละ {$pass} ขึ้นไป</p>
+    <h3>10. เอกสารอ้างอิง/เอกสารค้นคว้าเพิ่มเติม</h3>
+    {include blank, n: 1}
+</section>
+{/foreach}
+
+{* ใบมอบหมายงาน: งานที่มอบหมายที่ผูกกับหน่วยนี้ *}
+{foreach $p['tasks'] as $t}
+<section class="sheet work"{if $edit} contenteditable="true"{/if}>
+    {include unitHead, title: 'ใบมอบหมายงานที่ ' . $p['no'] . '.' . $iterator->counter, p: $p, label: 'ชื่องาน', topic: $t['title']}
+    <h3>1. ผลงานหรือผลการปฏิบัติงาน</h3>
+    {include blank, n: 1}
+    <h3>2. อ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพ</h3>
+    {include blank, n: 1}
+    <h3>3. สมรรถนะการปฏิบัติงาน</h3>
+    {include numbered, lines: $p['competencies'], prefix: '3.'}
+    <h3>4. จุดประสงค์เชิงพฤติกรรม</h3>
+    {include numbered, lines: $p['objectives'], prefix: '4.'}
+    <h3>5. รายละเอียดของงาน</h3>
+    {if $t['lines']}
+        <div class="lines-list">{foreach $t['lines'] as $line}<p>{$line}</p>{/foreach}</div>
+    {else}{include blank, n: 3}{/if}
+    <h3>6. กำหนดเวลาส่งงาน</h3>
+    <p class="sub">{$t['due'] ?? '..........................................'}</p>
+    <h3>7. แนวทางในการปฏิบัติงาน</h3>
+    {include blank, n: 2}
+    <h3>8. แหล่งข้อมูลค้นคว้าเพิ่มเติม</h3>
+    {include blank, n: 2}
+    <h3>9. การประเมินผล</h3>
+    <p class="sub">คะแนนเต็ม {number_format((float) $t['max_score'], 0)} คะแนน · ผ่านเกณฑ์ร้อยละ {$pass} ขึ้นไป</p>
+</section>
+{/foreach}
+{/foreach}
+
+{* ───────── บรรณานุกรม (วีดิทัศน์ที่ใช้ในหน่วยต่าง ๆ + เว้นไว้ให้เติม) และภาคผนวก ───────── *}
+<section class="sheet"{if $edit} contenteditable="true"{/if}>
+    <h2>บรรณานุกรม</h2>
+    {foreach $plans as $p}
+        {foreach $p['sections'] as $s}
+            {if $s['type'] === 'video' && $s['url']}<p class="sub">{$s['title']}. (ออนไลน์). แหล่งที่มา: {$s['url']}</p>{/if}
+        {/foreach}
+    {/foreach}
+    {include blank, n: 6}
+</section>
+
+<section class="sheet"{if $edit} contenteditable="true"{/if}>
+    <h2>ภาคผนวก</h2>
+    {include blank, n: 4}
+</section>
+
+{include '_script.latte'}
+</body>
+</html>

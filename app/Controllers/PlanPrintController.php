@@ -13,6 +13,7 @@ use App\Domain\UnitRepository;
 use App\Support\Csrf;
 use App\Support\Db;
 use App\Support\Flash;
+use App\Support\PlanFormat;
 use App\Support\Semester;
 use App\Support\Thai;
 use App\Support\Url;
@@ -63,7 +64,34 @@ final class PlanPrintController
             ];
         }
 
-        return $this->renderPlan($response, $course, ['reviewing' => !$owner, 'share' => $share]);
+        return $this->renderPlan($request, $response, $course, ['reviewing' => !$owner, 'share' => $share, 'owner' => $owner]);
+    }
+
+    /** POST /courses/{id}/plan-format — ครูเจ้าของรายวิชาตั้งแบบฟอร์มแผนการสอนหลักของวิชา (ใช้กับลิงก์แชร์ด้วย) */
+    public function saveFormat(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $data = (array) $request->getParsedBody();
+        $courseId = (int) $args['id'];
+        $course = $this->courses->find($courseId);
+        if ($course === null) {
+            throw new HttpNotFoundException($request, 'ไม่พบรายวิชานี้');
+        }
+        if ((int) $course['teacher_id'] !== (int) $user['id']) {
+            throw new HttpForbiddenException($request, 'คุณไม่ได้เป็นผู้สอนรายวิชานี้');
+        }
+
+        $format = PlanFormat::clean((string) ($data['format'] ?? ''));
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
+        } elseif (!array_key_exists('plan_format', $course)) {
+            Flash::error('ระบบยังไม่พร้อมบันทึกแบบฟอร์ม กรุณาแจ้งผู้ดูแลระบบให้อัปเดตฐานข้อมูล');
+        } else {
+            $this->courses->update($courseId, ['plan_format' => $format]);
+            Flash::success('ตั้ง "' . PlanFormat::labels()[$format] . '" เป็นแบบฟอร์มหลักของรายวิชานี้แล้ว');
+        }
+
+        return $response->withHeader('Location', Url::to('/courses/' . $courseId . '/plan-print') . '?format=' . $format)->withStatus(302);
     }
 
     /** หน้าสาธารณะ /plan/{token}: แผนการสอนแบบอ่านอย่างเดียว ไม่ต้องเข้าสู่ระบบ */
@@ -83,7 +111,7 @@ final class PlanPrintController
             throw new HttpNotFoundException($request, 'ไม่พบแผนการสอนนี้ ลิงก์อาจถูกปิดหรือถูกสร้างใหม่แล้ว');
         }
 
-        return $this->renderPlan($response, $course, ['reviewing' => false, 'share' => null, 'shared' => true])
+        return $this->renderPlan($request, $response, $course, ['reviewing' => false, 'share' => null, 'shared' => true])
             ->withHeader('X-Robots-Tag', 'noindex');
     }
 
@@ -142,14 +170,18 @@ final class PlanPrintController
     }
 
     /**
-     * รวบรวมข้อมูลแผนทั้งฉบับแล้ว render plan/print
+     * รวบรวมข้อมูลแผนทั้งฉบับแล้ว render ตามแบบฟอร์มที่เลือก
+     * แบบฟอร์ม: ?format= ก่อน (ดูแบบอื่นได้โดยไม่บันทึก) แล้วจึงแบบที่ครูตั้งไว้ในรายวิชา (PlanFormat)
      *
      * @param array<string,mixed> $course
-     * @param array<string,mixed> $extra reviewing / share / shared
+     * @param array<string,mixed> $extra reviewing / share / shared / owner
      */
-    private function renderPlan(Response $response, array $course, array $extra): Response
+    private function renderPlan(Request $request, Response $response, array $course, array $extra): Response
     {
-        $term =$course['term_id'] !== null
+        $saved = PlanFormat::resolve(null, $course['plan_format'] ?? null);
+        $format = PlanFormat::resolve((string) ($request->getQueryParams()['format'] ?? ''), $saved);
+
+        $term = $course['term_id'] !== null
             ? $this->db->first('SELECT academic_year, semester FROM {academic_terms} WHERE id = ?', [$course['term_id']])
             : null;
         $teacher = $this->db->first('SELECT full_name, subject_area FROM {users} WHERE id = ?', [$course['teacher_id']]);
@@ -165,6 +197,9 @@ final class PlanPrintController
         );
         $schedule = $this->schedule($units, $weeks, $weekly);
         $totalHours = array_sum(array_column($schedule, 'hours'));
+
+        // แบ่งชั่วโมงของแต่ละหน่วยเป็น ทฤษฎี/ปฏิบัติ ตามสัดส่วน ท:ป ของรายวิชา (แบบฟอร์มหลักสูตร 2567)
+        $theoryShare = $weekly > 0 ? (int) $course['theory_hours'] / $weekly : 0.0;
 
         $reports = $this->units->reportsForCourse((int) $course['id']);
         $plans = [];
@@ -184,6 +219,8 @@ final class PlanPrintController
                 'exam'         => $exam,
                 'unit'         => $u,
                 'hours'        => $schedule[$i]['hours'],
+                'theory'       => (int) round($schedule[$i]['hours'] * $theoryShare),
+                'practice'     => $schedule[$i]['hours'] - (int) round($schedule[$i]['hours'] * $theoryShare),
                 'week_from'    => $schedule[$i]['from'],
                 'week_to'      => $schedule[$i]['to'],
                 'key_content'  => $this->lines($u['key_content']),
@@ -193,9 +230,22 @@ final class PlanPrintController
                     'type'    => $s['type'],
                     'title'   => $s['title'] !== '' ? $s['title'] : ($s['file_name'] ?? 'สื่อประกอบ'),
                     'excerpt' => $this->excerpt((string) ($s['content'] ?? '')),
+                    'content' => $this->paragraphs((string) ($s['content'] ?? '')),
                     'url'     => $s['video_url'],
                 ], $sections),
-                'assignments'  => $this->assignments->forUnit($unitId),
+                // ส่วนเนื้อหาแบบข้อความ → ใบความรู้ (แบบฟอร์มหลักสูตร 2567)
+                'texts'        => array_values(array_map(fn (array $s) => [
+                    'title'   => $s['title'] !== '' ? $s['title'] : 'ใบความรู้',
+                    'content' => $this->paragraphs((string) ($s['content'] ?? '')),
+                ], array_filter($sections, fn (array $s) => $s['type'] === 'text'))),
+                'assignments'  => array_map(fn (array $a) => $a + ['lines' => $this->paragraphs((string) ($a['description'] ?? ''))],
+                    $this->assignments->forUnit($unitId)),
+                // งานที่มอบหมายที่ผูกกับหน่วยนี้ → ใบมอบหมายงาน (แบบฟอร์มหลักสูตร 2567)
+                'tasks'        => array_map(fn (array $a) => $a + [
+                    'lines' => $this->paragraphs((string) ($a['description'] ?? '')),
+                    'due'   => $a['due_at'] ? Thai::dateTime($a['due_at']) : null,
+                ],
+                    $this->db->all('SELECT * FROM {assignments} WHERE unit_id = ? AND kind = ? ORDER BY due_at IS NULL, due_at, id', [$unitId, 'task'])),
                 'pretests'     => array_values(array_filter($quizzes, fn ($q) => $q['kind'] === 'pretest')),
                 'posttests'    => array_values(array_filter($quizzes, fn ($q) => $q['kind'] === 'posttest')),
                 // ข้อ 9 บันทึกหลังสอน: ข้อความที่ครูบันทึกไว้ และวันที่บันทึก (ไม่ใช่วันที่จัดทำแผน)
@@ -208,7 +258,28 @@ final class PlanPrintController
             ];
         }
 
-        return $this->view->render($response, 'plan/print', [
+        // ผลรวมชั่วโมง ท/ป แยกหน่วยการเรียนกับหน่วยสอบ (ตารางหน่วยการเรียนรู้ของแบบฟอร์มหลักสูตร 2567)
+        $sum = static function (array $rows): array {
+            return [
+                'theory'   => array_sum(array_column($rows, 'theory')),
+                'practice' => array_sum(array_column($rows, 'practice')),
+                'hours'    => array_sum(array_column($rows, 'hours')),
+            ];
+        };
+        $examRows = array_values(array_filter($plans, static fn (array $p): bool => $p['exam']));
+        $totals = [
+            'lesson' => $sum(array_filter($plans, static fn (array $p): bool => !$p['exam'])),
+            'exam'   => $sum($examRows) + ['names' => implode(', ', array_column($examRows, 'no'))],
+            'all'    => $sum($plans),
+        ];
+
+        return $this->view->render($response, PlanFormat::template($format), [
+            'totals'      => $totals,
+            'format'      => $format,
+            'savedFormat' => $saved,
+            'formats'     => PlanFormat::labels(),
+            // บันทึกแบบฟอร์มหลักได้เมื่อรัน migration 000134 แล้ว
+            'formatReady' => array_key_exists('plan_format', $course),
             'course'      => $course,
             'term'        => $term,
             'teacher'     => $teacher,
@@ -226,7 +297,7 @@ final class PlanPrintController
             'signers'            => ['dept_head' => $this->signers->name((int) ($course['dept_head_id'] ?? 0))]
                 + $this->signers->names(),
             'level'              => Semester::level((string) $course['code'])['label'],
-        ] + $extra + ['shared' => false]);
+        ] + $extra + ['shared' => false, 'owner' => false]);
     }
 
     /**
@@ -291,6 +362,20 @@ final class PlanPrintController
         $out = [];
         foreach (preg_split('/\R+/u', trim((string) $text)) ?: [] as $line) {
             $line = trim((string) preg_replace('/^\s*(?:[-•*]|\d+[.)]|[๑-๙]+[.)])\s*/u', '', $line));
+            if ($line !== '') {
+                $out[] = $line;
+            }
+        }
+
+        return $out;
+    }
+
+    /** @return list<string> ย่อหน้าของข้อความเต็ม (บรรทัดว่างหลายบรรทัดรวมเป็นหนึ่ง) */
+    private function paragraphs(string $text): array
+    {
+        $out = [];
+        foreach (preg_split('/\R/u', trim($text)) ?: [] as $line) {
+            $line = trim($line);
             if ($line !== '') {
                 $out[] = $line;
             }

@@ -1,0 +1,69 @@
+{*
+  แถบเครื่องมือร่วมของหน้าพิมพ์แผนการสอน: พิมพ์ · เลือกแบบฟอร์ม · ส่วนที่จะพิมพ์ ($toggles: key => ป้าย) · แชร์ (เจ้าของ)
+  ตัวเลือกแบบฟอร์มส่ง ?format= (ดูได้ทุกคน ไม่บันทึก) · เจ้าของรายวิชากด "ตั้งเป็นแบบหลัก" เพื่อบันทึกลง courses.plan_format
+*}
+<div class="toolbar">
+    <button type="button" class="primary" onclick="window.print()">🖨 พิมพ์ / บันทึกเป็น PDF</button>
+    <form method="get" action="">
+        <label for="planFormat">แบบฟอร์ม</label>
+        <select id="planFormat" name="format" onchange="this.form.submit()">
+            {foreach $formats as $key => $label}
+                <option value="{$key}" selected="{$key === $format}">{$label}{if $key === $savedFormat} (แบบหลัก){/if}</option>
+            {/foreach}
+        </select>
+        <noscript><button type="submit">เปลี่ยน</button></noscript>
+    </form>
+    {if $owner && $formatReady && $format !== $savedFormat}
+        <form method="post" action="{$base}/courses/{$course['id']}/plan-format">
+            <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="format" value="{$format}">
+            <button type="submit" title="ใช้แบบฟอร์มนี้เมื่อเปิดพิมพ์แผนและในลิงก์แชร์">ตั้งเป็นแบบหลักของวิชานี้</button>
+        </form>
+    {/if}
+    {foreach $toggles as $key => $label}
+        <label><input type="checkbox" data-toggle="{$key}" checked> {$label}</label>
+    {/foreach}
+    {if $share}
+        <button type="button" id="shareToggle" aria-expanded="false" aria-controls="sharePanel">🔗 แชร์{if $share['url']} · เปิดอยู่{/if}</button>
+    {/if}
+    {if $reviewing}<span class="warn">ดูในฐานะผู้ตรวจแผน · แผนของ {$teacherName}</span>{/if}
+    {if $shared}
+        <span class="note">แผนการจัดการเรียนรู้ของ {$teacherName} · {$college} · เผยแพร่แบบอ่านอย่างเดียว</span>
+    {else}
+        <span class="note">คลิกที่ข้อความเพื่อแก้ไข/เติมข้อมูลก่อนพิมพ์ได้ — ข้อความที่แก้บนหน้านี้จะไม่ถูกบันทึกลงระบบ · ตั้งค่ากระดาษ A4 และปิด "ส่วนหัวและท้ายกระดาษ" ในหน้าต่างพิมพ์</span>
+    {/if}
+    <span class="warn" id="fontWarn" hidden>เครื่องนี้ไม่มีฟอนต์ TH Sarabun New จึงใช้ Sarabun แทน — ติดตั้งฟอนต์ หรือวางไฟล์ THSarabunNew.ttf ไว้ที่ assets/fonts/</span>
+    {if !$shared}
+        {foreach $flash as $message}<span n:class="flash, $message['type'] === 'error' ? flash-error">{$message['message']}</span>{/foreach}
+    {/if}
+
+    {* แผงลิงก์แชร์ (เฉพาะเจ้าของรายวิชา) — ข้อความที่แก้บนหน้านี้ไม่ไปถึงลิงก์ เพราะลิงก์แสดงข้อมูลจากระบบเสมอ *}
+    {if $share}
+        <div class="share-panel" id="sharePanel" hidden>
+            {if $share['url']}
+                <p><b>ลิงก์แชร์แผนการสอน (อ่านอย่างเดียว)</b> — ใครที่มีลิงก์นี้เปิดอ่านและพิมพ์แผนได้โดยไม่ต้องเข้าสู่ระบบ แต่แก้ไขไม่ได้ · แผนที่แชร์อัปเดตตามข้อมูลในระบบเสมอ และใช้แบบฟอร์มหลักของวิชา</p>
+                <div class="share-row">
+                    <input type="text" id="shareUrl" value="{$share['url']}" readonly>
+                    <button type="button" class="primary" id="shareCopy">คัดลอกลิงก์</button>
+                    <a href="{$share['url']}" target="_blank" rel="noopener">เปิดดู</a>
+                </div>
+                <div class="share-row">
+                    <form method="post" action="{$base}/courses/{$course['id']}/plan-share" onsubmit="return confirm('สร้างลิงก์ใหม่? ลิงก์เดิมที่ส่งต่อไปแล้วจะใช้ไม่ได้อีก')">
+                        <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="regenerate">
+                        <button type="submit">สร้างลิงก์ใหม่</button>
+                    </form>
+                    <form method="post" action="{$base}/courses/{$course['id']}/plan-share" onsubmit="return confirm('ปิดลิงก์แชร์? คนที่มีลิงก์จะเปิดแผนนี้ไม่ได้อีก')">
+                        <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="revoke">
+                        <button type="submit" class="danger">ปิดการแชร์</button>
+                    </form>
+                </div>
+            {else}
+                <p><b>แชร์แผนการสอนนี้บนอินเทอร์เน็ต</b> — ระบบจะสร้างลิงก์ลับสำหรับเปิดอ่านแบบอ่านอย่างเดียว ส่งต่อให้ใครก็ได้ (ไม่ต้องเข้าสู่ระบบ) และปิดการแชร์ได้ทุกเมื่อ</p>
+                <p class="muted">แผนที่แชร์รวมบันทึกหลังการจัดการเรียนรู้และชื่อผู้ลงนามด้วย ตรวจสอบก่อนเผยแพร่</p>
+                <form method="post" action="{$base}/courses/{$course['id']}/plan-share">
+                    <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="create">
+                    <button type="submit" class="primary">สร้างลิงก์แชร์</button>
+                </form>
+            {/if}
+        </div>
+    {/if}
+</div>

@@ -1,5 +1,5 @@
 {*
-  แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ ตามแบบฟอร์ม สอศ. หลักสูตร พ.ศ. 2567 — หน้าสำหรับสั่งพิมพ์ (A4)
+  แบบฟอร์ม "แผนการจัดการเรียนรู้มุ่งเน้นสมรรถนะ" (PlanFormat competency) — หน้าสำหรับสั่งพิมพ์ (A4)
   ทั้งเอกสารแก้ไขได้ (contenteditable) เพื่อให้ครูเติมส่วนที่ระบบยังไม่มีข้อมูลก่อนพิมพ์ ข้อความที่แก้จะไม่ถูกบันทึกลงระบบ
   $shared = เปิดจากลิงก์แชร์สาธารณะ /plan/{token}: อ่านอย่างเดียว ไม่มีปุ่มแชร์ ไม่มี contenteditable
 *}
@@ -19,152 +19,11 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex" n:if="$shared">
-    <title>แผนการจัดการเรียนรู้ {$course['code']} {$course['name']}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    {* สำรองไว้กรณีเครื่องไม่มีฟอนต์ TH Sarabun New *}
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap">
-    <style>
-        /* TH Sarabun New — ใช้ฟอนต์ที่ติดตั้งในเครื่องก่อน หรือวางไฟล์ไว้ที่ public/assets/fonts/ */
-        @font-face {
-            font-family: 'PlanSarabun';
-            font-weight: 400;
-            src: local('TH Sarabun New'), local('THSarabunNew'),
-                 url('{$base}/assets/fonts/THSarabunNew.ttf') format('truetype');
-        }
-        @font-face {
-            font-family: 'PlanSarabun';
-            font-weight: 700;
-            src: local('TH Sarabun New Bold'), local('THSarabunNew-Bold'), local('THSarabunNew Bold'),
-                 url('{$base}/assets/fonts/THSarabunNew-Bold.ttf') format('truetype');
-        }
-        @page { size: A4; margin: 2.5cm 2cm 2cm 3cm; }
-        * { box-sizing: border-box; }
-        html { background: #e9e9e6; }
-        body {
-            margin: 0;
-            font-family: 'PlanSarabun', 'TH Sarabun New', 'THSarabunNew', 'Sarabun', sans-serif;
-            font-size: 16pt;
-            line-height: 1.25;
-            color: #000;
-        }
-        body.fallback { font-size: 12.5pt; } /* Sarabun จาก Google ตัวใหญ่กว่า TH Sarabun New */
-        .toolbar {
-            position: sticky; top: 0; z-index: 10;
-            display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-            padding: 10px 16px; background: #fff; border-bottom: 1px solid #ccc;
-            font-family: 'Sarabun', sans-serif; font-size: 14px;
-        }
-        .toolbar button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #999; background: #fff; cursor: pointer; }
-        .toolbar button.primary { background: #6366F1; border-color: #6366F1; color: #fff; }
-        .toolbar .note { color: #555; flex: 1 1 260px; }
-        .toolbar .warn { color: #a15c00; }
-        .toolbar button.danger { border-color: #c0392b; color: #c0392b; }
-        .toolbar .flash { color: #146c2e; font-weight: 700; }
-        .toolbar .flash-error { color: #c0392b; }
-        .share-panel { flex: 1 1 100%; padding: 10px 12px; border: 1px solid #d6d6f5; border-radius: 8px; background: #f6f6ff; }
-        .share-panel p { margin: 0 0 8px; }
-        .share-panel .muted { font-size: 13px; }
-        .share-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-        .share-row + .share-row { margin-top: 8px; }
-        .share-row input { flex: 1 1 320px; min-width: 0; font: inherit; padding: 6px 8px; border: 1px solid #999; border-radius: 6px; }
-        .sheet {
-            width: 21cm; min-height: 29.7cm; margin: 16px auto; padding: 2.5cm 2cm 2cm 3cm;
-            background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.15);
-        }
-        .sheet:focus, .sheet *:focus { outline: 1px dashed #8bb; }
-        h1, h2, h3 { margin: 0; font-weight: 700; }
-        h1 { font-size: 20pt; text-align: center; }
-        h2 { font-size: 18pt; text-align: center; margin-bottom: 12pt; }
-        h3 { font-size: 16pt; margin-top: 10pt; }
-        p { margin: 0; }
-        .center { text-align: center; }
-        .indent { text-indent: 2.5em; text-align: justify; }
-        ol, ul { margin: 0; padding-left: 2.4em; }
-        .sub { padding-left: 1.2em; }
-        .dots { border-bottom: 1px dotted #000; min-height: 1.25em; margin-left: 1.2em; }
-        table { width: 100%; border-collapse: collapse; margin: 4pt 0; }
-        th, td { border: 1px solid #000; padding: 2pt 6pt; vertical-align: top; }
-        th { font-weight: 700; text-align: center; }
-        td.num { text-align: center; width: 1%; white-space: nowrap; }
-        .head-box td { border: 1px solid #000; }
-        .muted { color: #555; }
-        .excerpt { font-size: 14pt; color: #222; }
-        .cover { display: flex; flex-direction: column; justify-content: space-between; text-align: center; }
-        .cover .logo { display: block; width: 3.4cm; height: auto; margin: 0 auto 16pt; }
-        .cover .big { font-size: 26pt; font-weight: 700; line-height: 1.3; }
-        .cover .mid { font-size: 20pt; font-weight: 700; line-height: 1.4; }
-        .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 24pt 16pt; margin-top: 24pt; text-align: center; }
-        .sign .one { grid-column: 1 / -1; }
-        .sign p + p { margin-top: 2pt; }
-        .no-break { break-inside: avoid; }
-        @media print {
-            html { background: none; }
-            .toolbar { display: none; }
-            .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
-            .sheet + .sheet { break-before: page; }
-            .cover { min-height: 24cm; }
-            .sheet:focus, .sheet *:focus { outline: none; }
-            body.no-front .front { display: none; }
-            body.no-front .front + .sheet { break-before: auto; }
-        }
-        @media screen and (max-width: 22cm) {
-            .sheet { width: auto; margin: 8px; padding: 16px; min-height: 0; }
-        }
-    </style>
+{include '_base.latte'}
 </head>
 <body>
-<div class="toolbar">
-    <button type="button" class="primary" onclick="window.print()">🖨 พิมพ์ / บันทึกเป็น PDF</button>
-    <label><input type="checkbox" id="frontToggle" checked> พิมพ์ส่วนหน้า (ปก ลักษณะรายวิชา ตารางหน่วย)</label>
-    {if $share}
-        <button type="button" id="shareToggle" aria-expanded="false" aria-controls="sharePanel">🔗 แชร์{if $share['url']} · เปิดอยู่{/if}</button>
-    {/if}
-    {if $reviewing}<span class="warn">ดูในฐานะผู้ตรวจแผน · แผนของ {$teacherName}</span>{/if}
-    {if $shared}
-        <span class="note">แผนการจัดการเรียนรู้ของ {$teacherName} · {$college} · เผยแพร่แบบอ่านอย่างเดียว</span>
-    {else}
-        <span class="note">คลิกที่ข้อความเพื่อแก้ไข/เติมข้อมูลก่อนพิมพ์ได้ — ข้อความที่แก้บนหน้านี้จะไม่ถูกบันทึกลงระบบ · ตั้งค่ากระดาษ A4 และปิด "ส่วนหัวและท้ายกระดาษ" ในหน้าต่างพิมพ์</span>
-    {/if}
-    <span class="warn" id="fontWarn" hidden>เครื่องนี้ไม่มีฟอนต์ TH Sarabun New จึงใช้ Sarabun แทน — ติดตั้งฟอนต์ หรือวางไฟล์ THSarabunNew.ttf ไว้ที่ assets/fonts/</span>
-    {if !$shared}
-        {foreach $flash as $message}<span n:class="flash, $message['type'] === 'error' ? flash-error">{$message['message']}</span>{/foreach}
-    {/if}
-
-    {* แผงลิงก์แชร์ (เฉพาะเจ้าของรายวิชา) — ข้อความที่แก้บนหน้านี้ไม่ไปถึงลิงก์ เพราะลิงก์แสดงข้อมูลจากระบบเสมอ *}
-    {if $share}
-        <div class="share-panel" id="sharePanel" hidden>
-            {if $share['url']}
-                <p><b>ลิงก์แชร์แผนการสอน (อ่านอย่างเดียว)</b> — ใครที่มีลิงก์นี้เปิดอ่านและพิมพ์แผนได้โดยไม่ต้องเข้าสู่ระบบ แต่แก้ไขไม่ได้ · แผนที่แชร์อัปเดตตามข้อมูลในระบบเสมอ</p>
-                <div class="share-row">
-                    <input type="text" id="shareUrl" value="{$share['url']}" readonly>
-                    <button type="button" class="primary" id="shareCopy">คัดลอกลิงก์</button>
-                    <a href="{$share['url']}" target="_blank" rel="noopener">เปิดดู</a>
-                </div>
-                <div class="share-row">
-                    <form method="post" action="{$base}/courses/{$course['id']}/plan-share" onsubmit="return confirm('สร้างลิงก์ใหม่? ลิงก์เดิมที่ส่งต่อไปแล้วจะใช้ไม่ได้อีก')">
-                        <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="regenerate">
-                        <button type="submit">สร้างลิงก์ใหม่</button>
-                    </form>
-                    <form method="post" action="{$base}/courses/{$course['id']}/plan-share" onsubmit="return confirm('ปิดลิงก์แชร์? คนที่มีลิงก์จะเปิดแผนนี้ไม่ได้อีก')">
-                        <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="revoke">
-                        <button type="submit" class="danger">ปิดการแชร์</button>
-                    </form>
-                </div>
-            {else}
-                <p><b>แชร์แผนการสอนนี้บนอินเทอร์เน็ต</b> — ระบบจะสร้างลิงก์ลับสำหรับเปิดอ่านแบบอ่านอย่างเดียว ส่งต่อให้ใครก็ได้ (ไม่ต้องเข้าสู่ระบบ) และปิดการแชร์ได้ทุกเมื่อ</p>
-                <p class="muted">แผนที่แชร์รวมบันทึกหลังการจัดการเรียนรู้และชื่อผู้ลงนามด้วย ตรวจสอบก่อนเผยแพร่</p>
-                <form method="post" action="{$base}/courses/{$course['id']}/plan-share">
-                    <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="create">
-                    <button type="submit" class="primary">สร้างลิงก์แชร์</button>
-                </form>
-            {/if}
-        </div>
-    {/if}
-</div>
+{* ส่ง $teacherName ไปเอง — ตัวแปร {var} ในไฟล์นี้ไม่ตามเข้าไปในไฟล์ที่ include *}
+{include '_toolbar.latte', toggles: ['front' => 'พิมพ์ส่วนหน้า (ปก ลักษณะรายวิชา ตารางหน่วย)'], teacherName: $teacherName}
 
 {* ───────── ปก ───────── *}
 <section class="sheet cover front"{if !$shared} contenteditable="true"{/if}>
@@ -422,54 +281,6 @@
     {else}<p class="dots"></p><p class="dots"></p>{/if}
 {/define}
 
-<script>
-(function () {
-    var toggle = document.getElementById('frontToggle');
-    toggle.addEventListener('change', function () {
-        document.body.classList.toggle('no-front', !toggle.checked);
-    });
-
-    // แผงลิงก์แชร์: เปิด/ปิดด้วยปุ่ม และเปิดเองเมื่อกลับมาจากการสร้าง/ปิดลิงก์ (#share)
-    var shareBtn = document.getElementById('shareToggle');
-    var panel = document.getElementById('sharePanel');
-    if (shareBtn && panel) {
-        var setOpen = function (open) {
-            panel.hidden = !open;
-            shareBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        };
-        shareBtn.addEventListener('click', function () { setOpen(panel.hidden); });
-        if (location.hash === '#share') {
-            setOpen(true);
-            history.replaceState(null, '', location.pathname + location.search);
-        }
-        var copy = document.getElementById('shareCopy');
-        var input = document.getElementById('shareUrl');
-        if (copy && input) {
-            copy.addEventListener('click', function () {
-                var done = function () {
-                    copy.textContent = 'คัดลอกแล้ว ✓';
-                    setTimeout(function () { copy.textContent = 'คัดลอกลิงก์'; }, 2000);
-                };
-                if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(input.value).then(done, function () { input.select(); });
-                } else {
-                    input.select();
-                    try { document.execCommand('copy'); done(); } catch (e) { /* ให้ผู้ใช้คัดลอกเอง */ }
-                }
-            });
-        }
-    }
-
-    // ตรวจว่ามีฟอนต์ TH Sarabun New หรือไม่ ถ้าไม่มีให้เตือนและปรับขนาดตัวอักษรของ Sarabun ให้ใกล้เคียง
-    if (document.fonts && document.fonts.load) {
-        document.fonts.load('16pt PlanSarabun', 'ก').then(function (faces) {
-            if (!faces.length) {
-                document.body.classList.add('fallback');
-                document.getElementById('fontWarn').hidden = false;
-            }
-        }).catch(function () { /* เบราว์เซอร์ไม่รองรับ — ปล่อยไว้ */ });
-    }
-})();
-</script>
+{include '_script.latte'}
 </body>
 </html>

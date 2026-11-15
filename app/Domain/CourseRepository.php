@@ -125,6 +125,23 @@ final class CourseRepository
     }
 
     /** @param array<string,mixed> $data */
+    /** @var array<string,bool> */
+    private array $columns = [];
+
+    /** มีคอลัมน์นี้ใน courses แล้วหรือยัง (ใช้ก่อน/หลังรัน migration ให้หน้าไม่พัง) */
+    public function hasColumn(string $column): bool
+    {
+        if (!isset($this->columns[$column])) {
+            try {
+                $this->columns[$column] = $this->db->first('SHOW COLUMNS FROM {courses} LIKE ?', [$column]) !== null;
+            } catch (\PDOException) {
+                $this->columns[$column] = false;
+            }
+        }
+
+        return $this->columns[$column];
+    }
+
     public function update(int $id, array $data): void
     {
         $this->db->update('courses', $data, ['id' => $id]);

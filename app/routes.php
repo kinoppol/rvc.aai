@@ -124,6 +124,8 @@ return static function (App $app): void {
             $t->get('/{id:[0-9]+}/plan-print', [PlanPrintController::class, 'show']);
             // สร้าง/สร้างใหม่/ปิด ลิงก์แชร์แผนการสอนแบบอ่านอย่างเดียว (/plan/{token})
             $t->post('/{id:[0-9]+}/plan-share', [PlanPrintController::class, 'share']);
+            // ตั้งแบบฟอร์มแผนการสอนหลักของรายวิชา (App\Support\PlanFormat)
+            $t->post('/{id:[0-9]+}/plan-format', [PlanPrintController::class, 'saveFormat']);
             $t->get('/{id:[0-9]+}/edit', [CourseController::class, 'edit']);
             $t->post('/{id:[0-9]+}', [CourseController::class, 'save']);
             $t->post('/{id:[0-9]+}/archive', [CourseController::class, 'archive']);

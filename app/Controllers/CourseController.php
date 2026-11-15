@@ -17,6 +17,7 @@ use App\Support\Cover;
 use App\Support\Csrf;
 use App\Support\Db;
 use App\Support\Flash;
+use App\Support\PlanFormat;
 use App\Support\Semester;
 use App\Support\Thai;
 use App\Support\Url;
@@ -348,6 +349,9 @@ final class CourseController
             'currentTermId' => $this->courses->currentTermId(),
             // หัวหน้าแผนกผู้ลงนามในแผนการสอน · รายวิชาใหม่ใช้คนที่ครูเลือกไว้ในรายวิชาล่าสุด
             'staff' => $this->signers->ready() ? $this->signers->staff() : null,
+            // แบบฟอร์มแผนการสอน (PlanFormat) · ก่อนรัน migration 000134 ซ่อนช่องนี้
+            'planFormats' => $this->courses->hasColumn('plan_format') ? PlanFormat::labels() : null,
+            'planFormat' => PlanFormat::resolve(null, $course['plan_format'] ?? null),
             'deptHeadId' => $course !== null
                 ? (int) ($course['dept_head_id'] ?? 0)
                 : $this->signers->lastDeptHead((int) $user['id']),
@@ -414,6 +418,9 @@ final class CourseController
         // ก่อนรันไมเกรชัน 000128 ยังไม่มีคอลัมน์นี้ — ข้ามไปให้บันทึกรายวิชาได้ตามปกติ
         if ($this->signers->ready()) {
             $fields['dept_head_id'] = $this->signers->validStaff((int) ($data['dept_head_id'] ?? 0));
+        }
+        if (isset($data['plan_format']) && $this->courses->hasColumn('plan_format')) {
+            $fields['plan_format'] = PlanFormat::clean((string) $data['plan_format']);
         }
 
         if ($course === null) {

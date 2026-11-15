@@ -1,0 +1,106 @@
+{*
+  ส่วนหัวร่วมของหน้าพิมพ์แผนการสอนทุกแบบฟอร์ม: ฟอนต์ TH Sarabun New + สไตล์กระดาษ A4 แถบเครื่องมือ และแผงแชร์
+  ใช้ใน <head> ของ plan/print.latte (มุ่งเน้นสมรรถนะ) และ plan/print-2567.latte (หลักสูตร 2567)
+*}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex" n:if="$shared">
+    <title>แผนการจัดการเรียนรู้ {$course['code']} {$course['name']}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    {* สำรองไว้กรณีเครื่องไม่มีฟอนต์ TH Sarabun New *}
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap">
+    <style>
+        /* TH Sarabun New — ใช้ฟอนต์ที่ติดตั้งในเครื่องก่อน หรือวางไฟล์ไว้ที่ public/assets/fonts/ */
+        @font-face {
+            font-family: 'PlanSarabun';
+            font-weight: 400;
+            src: local('TH Sarabun New'), local('THSarabunNew'),
+                 url('{$base}/assets/fonts/THSarabunNew.ttf') format('truetype');
+        }
+        @font-face {
+            font-family: 'PlanSarabun';
+            font-weight: 700;
+            src: local('TH Sarabun New Bold'), local('THSarabunNew-Bold'), local('THSarabunNew Bold'),
+                 url('{$base}/assets/fonts/THSarabunNew-Bold.ttf') format('truetype');
+        }
+        @page { size: A4; margin: 2.5cm 2cm 2cm 3cm; }
+        * { box-sizing: border-box; }
+        html { background: #e9e9e6; }
+        body {
+            margin: 0;
+            font-family: 'PlanSarabun', 'TH Sarabun New', 'THSarabunNew', 'Sarabun', sans-serif;
+            font-size: 16pt;
+            line-height: 1.25;
+            color: #000;
+        }
+        body.fallback { font-size: 12.5pt; } /* Sarabun จาก Google ตัวใหญ่กว่า TH Sarabun New */
+        .toolbar {
+            position: sticky; top: 0; z-index: 10;
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+            padding: 10px 16px; background: #fff; border-bottom: 1px solid #ccc;
+            font-family: 'Sarabun', sans-serif; font-size: 14px;
+        }
+        .toolbar button, .toolbar select { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #999; background: #fff; cursor: pointer; }
+        .toolbar select { padding: 6px 8px; max-width: 100%; }
+        .toolbar form { margin: 0; display: inline-flex; gap: 6px; align-items: center; }
+        .toolbar button.primary { background: #6366F1; border-color: #6366F1; color: #fff; }
+        .toolbar .note { color: #555; flex: 1 1 260px; }
+        .toolbar .warn { color: #a15c00; }
+        .toolbar button.danger { border-color: #c0392b; color: #c0392b; }
+        .toolbar .flash { color: #146c2e; font-weight: 700; }
+        .toolbar .flash-error { color: #c0392b; }
+        .share-panel { flex: 1 1 100%; padding: 10px 12px; border: 1px solid #d6d6f5; border-radius: 8px; background: #f6f6ff; }
+        .share-panel p { margin: 0 0 8px; }
+        .share-panel .muted { font-size: 13px; }
+        .share-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .share-row + .share-row { margin-top: 8px; }
+        .share-row input { flex: 1 1 320px; min-width: 0; font: inherit; padding: 6px 8px; border: 1px solid #999; border-radius: 6px; }
+        .sheet {
+            width: 21cm; min-height: 29.7cm; margin: 16px auto; padding: 2.5cm 2cm 2cm 3cm;
+            background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.15);
+        }
+        .sheet:focus, .sheet *:focus { outline: 1px dashed #8bb; }
+        h1, h2, h3 { margin: 0; font-weight: 700; }
+        h1 { font-size: 20pt; text-align: center; }
+        h2 { font-size: 18pt; text-align: center; margin-bottom: 12pt; }
+        h3 { font-size: 16pt; margin-top: 10pt; }
+        p { margin: 0; }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .indent { text-indent: 2.5em; text-align: justify; }
+        ol, ul { margin: 0; padding-left: 2.4em; }
+        .sub { padding-left: 1.2em; }
+        .sub2 { padding-left: 2.4em; }
+        .dots { border-bottom: 1px dotted #000; min-height: 1.25em; margin-left: 1.2em; }
+        table { width: 100%; border-collapse: collapse; margin: 4pt 0; }
+        th, td { border: 1px solid #000; padding: 2pt 6pt; vertical-align: top; }
+        th { font-weight: 700; text-align: center; }
+        td.num { text-align: center; width: 1%; white-space: nowrap; }
+        .head-box td { border: 1px solid #000; }
+        .muted { color: #555; }
+        .excerpt { font-size: 14pt; color: #222; }
+        .cover { display: flex; flex-direction: column; justify-content: space-between; text-align: center; }
+        .cover .logo { display: block; width: 3.4cm; height: auto; margin: 0 auto 16pt; }
+        .cover .big { font-size: 26pt; font-weight: 700; line-height: 1.3; }
+        .cover .mid { font-size: 20pt; font-weight: 700; line-height: 1.4; }
+        .sign { display: grid; grid-template-columns: 1fr 1fr; gap: 24pt 16pt; margin-top: 24pt; text-align: center; }
+        .sign .one { grid-column: 1 / -1; }
+        .sign p + p { margin-top: 2pt; }
+        .no-break { break-inside: avoid; }
+        /* ส่วนที่ครูเลือกไม่พิมพ์จากแถบเครื่องมือ (data-toggle) */
+        body.no-know .know, body.no-work .work { display: none; }
+        @media print {
+            html { background: none; }
+            .toolbar { display: none; }
+            .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+            .sheet + .sheet { break-before: page; }
+            .cover { min-height: 24cm; }
+            .sheet:focus, .sheet *:focus { outline: none; }
+            body.no-front .front { display: none; }
+            body.no-front .front + .sheet { break-before: auto; }
+        }
+        @media screen and (max-width: 22cm) {
+            .sheet { width: auto; margin: 8px; padding: 16px; min-height: 0; }
+        }
+    </style>
