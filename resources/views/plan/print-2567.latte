@@ -239,11 +239,14 @@
         <tbody>
             {foreach $plans as $p}
                 {continueIf $p['exam']}
-                <tr><td>{$p['no']}. {$p['unit']['title']}</td><td></td><td></td><td></td><td></td><td class="num">{$p['theory']}/{$p['practice']}</td><td></td></tr>
+                {var $bh = $behavior['units'][$p['unit']['id']] ?? null}
+                <tr><td>{$p['no']}. {$p['unit']['title']}</td>
+                    <td class="num">{$bh ? implode(', ', $bh['k']) : ''}</td><td class="num">{$bh['s'] ?? ''}</td><td class="num">{$bh['a'] ?? ''}</td><td class="num">{$bh['ap'] ?? ''}</td>
+                    <td class="num">{$p['theory']}/{$p['practice']}</td><td class="num">{$bh['weight'] ?? ''}</td></tr>
             {/foreach}
             <tr><th colspan="5">รวมการจัดการเรียนรู้ตลอดภาคเรียน</th><th>{$totals['lesson']['theory']}/{$totals['lesson']['practice']}</th><th></th></tr>
-            <tr><td colspan="5" class="center">ประเมินผลลัพธ์การเรียนรู้ระดับรายวิชา (เมื่อเรียนรายวิชานี้สำเร็จแล้วทำอะไรได้)</td><td class="num">{$totals['exam']['theory']}/{$totals['exam']['practice']}</td><td></td></tr>
-            <tr><th colspan="5" class="right">รวม</th><th>{$totals['all']['theory']}/{$totals['all']['practice']}</th><th>100</th></tr>
+            <tr><td colspan="5" class="center">ประเมินผลลัพธ์การเรียนรู้ระดับรายวิชา (เมื่อเรียนรายวิชานี้สำเร็จแล้วทำอะไรได้)</td><td class="num">{$totals['exam']['theory']}/{$totals['exam']['practice']}</td><td class="num">{$behavior['outcome_weight'] ?? ''}</td></tr>
+            <tr><th colspan="5" class="right">รวม</th><th>{$totals['all']['theory']}/{$totals['all']['practice']}</th><th>{$behaviorTotal ?? 100}</th></tr>
         </tbody>
     </table>
     <table class="legend no-break">

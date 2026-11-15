@@ -118,6 +118,8 @@ return static function (App $app): void {
             $t->get('/new', [CourseController::class, 'edit'])->setName('course.new');
             // ผู้ช่วยสรุปผลลัพธ์การเรียนรู้ระดับรายวิชาจากค่าบนฟอร์มรายวิชา (ตอบ JSON ยังไม่บันทึก)
             $t->post('/draft-outcomes', [CourseOutcomesController::class, 'draft']);
+            // ผู้ช่วยวิเคราะห์ระดับ K/S/A/Ap และร้อยละประเมินผลรายหน่วย (ตอบ JSON ยังไม่บันทึก)
+            $t->post('/{id:[0-9]+}/draft-behavior', [CourseOutcomesController::class, 'behavior']);
             $t->post('', [CourseController::class, 'save']);
             $t->get('/{id:[0-9]+}', [CourseController::class, 'show'])->setName('course.show');
             // พิมพ์แผนการจัดการเรียนรู้ตามแบบฟอร์ม สอศ. หลักสูตร พ.ศ. 2567

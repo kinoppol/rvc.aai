@@ -13,12 +13,14 @@ use App\Domain\PlanSignerRepository;
 use App\Domain\QuizRepository;
 use App\Domain\StudentAccountRepository;
 use App\Domain\UnitRepository;
+use App\Support\BehaviorAnalysis;
 use App\Support\CareerGroups;
 use App\Support\Cover;
 use App\Support\Csrf;
 use App\Support\Db;
 use App\Support\Flash;
 use App\Support\OccupationStandard;
+use App\Support\PlanCompleteness;
 use App\Support\PlanFormat;
 use App\Support\Semester;
 use App\Support\Thai;
@@ -337,6 +339,12 @@ final class CourseController
         $course = isset($args['id'])
             ? $this->requireOwnedCourse($request, (int) $args['id'], (int) $user['id'])
             : null;
+        $units = $course !== null ? $this->units->forCourse((int) $course['id']) : [];
+        $lessonUnits = array_values(array_filter($units, static fn (array $u): bool => !UnitRepository::isExam($u)));
+        $behaviorReady = $this->courses->hasColumn('behavior_analysis');
+        $behavior = $course !== null && $behaviorReady
+            ? BehaviorAnalysis::decode($course['behavior_analysis'] ?? null)
+            : null;
 
         return $this->view->render($response, 'courses/edit', [
             'page' => 'courses',
@@ -357,6 +365,15 @@ final class CourseController
             // กลุ่มอาชีพ ปวช. 2567 + ชื่อที่ครูคนนี้พิมพ์เองไว้ในรายวิชาของตน · null = ยังไม่รัน migration 000135
             'careerGroups' => $this->courses->hasColumn('career_group') ? CareerGroups::BY_PROGRAM : null,
             'programTypes' => CareerGroups::programs(),
+            // ตารางวิเคราะห์พฤติกรรมการเรียนรู้ (หน่วยการเรียนปกติเท่านั้น) · null = วิชาใหม่หรือยังไม่รัน migration 000137
+            'behavior' => $behavior,
+            'behaviorUnits' => $lessonUnits,
+            'behaviorLevels' => ['K' => BehaviorAnalysis::K, 'S' => BehaviorAnalysis::S, 'A' => BehaviorAnalysis::A, 'Ap' => BehaviorAnalysis::AP],
+            'aiPlanEnabled' => $course !== null && (int) ($course['ai_lesson_plan_enabled'] ?? 1) === 1,
+            // ความสมบูรณ์ของแผนการสอน (เฉพาะวิชาที่มีอยู่แล้ว)
+            'completeness' => $course !== null
+                ? PlanCompleteness::check($course, $units, $behaviorReady ? $behavior : null, Url::base())
+                : null,
             // มาตรฐานอาชีพ · null = ยังไม่รัน migration 000136 (ซ่อนแท็บ)
             'occupation' => $this->courses->hasColumn('occupation_standard')
                 ? (OccupationStandard::decode($course['occupation_standard'] ?? null)
@@ -429,6 +446,14 @@ final class CourseController
         // ก่อนรันไมเกรชัน 000128 ยังไม่มีคอลัมน์นี้ — ข้ามไปให้บันทึกรายวิชาได้ตามปกติ
         if ($this->signers->ready()) {
             $fields['dept_head_id'] = $this->signers->validStaff((int) ($data['dept_head_id'] ?? 0));
+        }
+        // ตารางวิเคราะห์พฤติกรรม — ส่ง bh_present=1 มาเมื่อฟอร์มแสดงตาราง (วิชาที่มีหน่วยการเรียนแล้ว)
+        if ($course !== null && isset($data['bh_present']) && $this->courses->hasColumn('behavior_analysis')) {
+            $unitIds = array_map(
+                static fn (array $u): int => (int) $u['id'],
+                array_filter($this->units->forCourse((int) $course['id']), static fn (array $u): bool => !UnitRepository::isExam($u))
+            );
+            $fields['behavior_analysis'] = BehaviorAnalysis::fromPost($data, array_values($unitIds));
         }
         // มาตรฐานอาชีพ — ฟอร์มส่ง os_present=1 มาเสมอเมื่อมีแท็บนี้ (ลบทุกแถว = ไม่มีมาตรฐานอาชีพ)
         if (isset($data['os_present']) && $this->courses->hasColumn('occupation_standard')) {

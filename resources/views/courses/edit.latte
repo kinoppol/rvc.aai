@@ -123,6 +123,44 @@
 
         {* ข้อมูลสำหรับแผนการจัดการเรียนรู้ (สอศ. 2567) ที่สั่งพิมพ์ *}
         <div class="course-form-grid tab-panel" data-panel="plan" role="tabpanel" hidden>
+            {* ความสมบูรณ์ของแผนการสอน (PlanCompleteness) — คำนวณจากข้อมูลที่บันทึกแล้ว *}
+            {if $completeness}
+                {var $pct = $completeness['percent']}
+                <div class="plan-score" style="grid-column:1 / -1">
+                    <div class="plan-score-top">
+                        <div class="plan-ring" style="--p:{$pct}">
+                            <span>{$pct}<small>%</small></span>
+                        </div>
+                        <div class="plan-score-text">
+                            <b>ความสมบูรณ์ของแผนการสอน</b>
+                            <span>{if $pct >= 100}ครบถ้วนแล้ว พร้อมพิมพ์และส่งตรวจ{elseif $pct >= 80}ใกล้ครบแล้ว เติมอีกไม่กี่ส่วน{elseif $pct >= 50}มาได้ครึ่งทาง ดูคำแนะนำด้านล่าง{else}ยังขาดข้อมูลหลายส่วน เริ่มจากคำแนะนำด้านล่าง{/if}
+                                · คิดจากข้อมูลที่บันทึกแล้ว</span>
+                            <div class="plan-bar"><i style="width:{$pct}%"></i></div>
+                        </div>
+                        <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/plan-print" target="_blank" rel="noopener">ดูแผนการสอน</a>
+                    </div>
+                    {var $todo = $completeness['todo']}
+                    {if $todo}
+                        <ul class="plan-todo">
+                            {foreach $todo as $i}
+                                <li>
+                                    <span class="plan-todo-pts">+{$i['gain']}%</span>
+                                    <div><b>{$i['label']}</b>{if $i['tip']} — {$i['tip']}{/if}</div>
+                                    {if $i['link']}<a href="{$i['link']}" class="plan-todo-go">ไปเติม</a>{/if}
+                                </li>
+                            {/foreach}
+                        </ul>
+                    {/if}
+                    <details class="plan-done">
+                        <summary>รายการที่ตรวจทั้งหมด ({$completeness['done']}/{count($completeness['items'])} ครบ)</summary>
+                        <ul>
+                            {foreach $completeness['items'] as $i}
+                                <li n:class="$i['done'] ? is-done">{$i['done'] ? '✓' : '○'} {$i['label']} <small>({$i['weight']}%)</small></li>
+                            {/foreach}
+                        </ul>
+                    </details>
+                </div>
+            {/if}
             <div class="field" style="grid-column:1 / -1;margin-bottom:0">
                 <div class="hint">ใช้ในแผนการจัดการเรียนรู้ (สอศ. 2567) ที่สั่งพิมพ์จากปุ่ม “พิมพ์แผนการสอน” ในหน้ารายวิชา</div>
             </div>
@@ -226,6 +264,83 @@
                     <span class="hint" id="cloStatus">ผู้ช่วยร่างให้ แล้วครูแก้ไขต่อได้ก่อนบันทึก</span>
                 </div>
             </div>
+
+            {* ตารางวิเคราะห์พฤติกรรมการเรียนรู้ (แบบที่ 2) — พิมพ์ในแผนหลักสูตร 2567 · BehaviorAnalysis *}
+            {if $behavior !== null}
+                <div class="field bh-editor" style="grid-column:1 / -1" id="behavior">
+                    <input type="hidden" name="bh_present" value="1">
+                    <div class="bh-head">
+                        <div>
+                            <label>ตารางวิเคราะห์พฤติกรรมการเรียนรู้</label>
+                            <div class="hint">ระดับความสามารถที่คาดหวังและร้อยละประเมินผลของแต่ละหน่วย · ร้อยละรวมกันต้องได้ 100</div>
+                        </div>
+                        {if $aiPlanEnabled && $behaviorUnits}
+                            <button type="button" class="btn btn-sm" id="bhDraft"
+                                    data-url="{$base}/courses/{$course['id']}/draft-behavior" data-token="{$csrf}">✦ ให้ AI วิเคราะห์</button>
+                        {/if}
+                    </div>
+                    {if $behaviorUnits}
+                        <div class="bh-wrap">
+                            <table class="bh-table">
+                                <thead>
+                                    <tr><th>หน่วยการเรียนรู้</th><th>พุทธิพิสัย (K)</th><th>ทักษะพิสัย (S)</th><th>จิตพิสัย (A)</th><th>ประยุกต์ใช้ (Ap)</th><th>ร้อยละ</th></tr>
+                                </thead>
+                                <tbody>
+                                    {foreach $behaviorUnits as $u}
+                                        {var $row = $behavior['units'][$u['id']] ?? null}
+                                        <tr data-unit="{$u['id']}">
+                                            <td class="bh-unit">{$iterator->counter}. {$u['title']}</td>
+                                            <td class="bh-k">
+                                                {foreach $behaviorLevels['K'] as $code => $label}
+                                                    <label class="bh-chip" title="{$label}"><input type="checkbox" name="bh[{$u['id']}][k][]" value="{$code}"
+                                                        checked="{$row && in_array($code, $row['k'], true)}"><span>{$code}</span></label>
+                                                {/foreach}
+                                            </td>
+                                            {foreach ['s' => 'S', 'a' => 'A', 'ap' => 'Ap'] as $field => $set}
+                                                <td>
+                                                    <select class="input" name="bh[{$u['id']}][{$field}]" aria-label="{$set}">
+                                                        <option value="">–</option>
+                                                        {foreach $behaviorLevels[$set] as $code => $label}
+                                                            <option value="{$code}" title="{$label}" selected="{$row && $row[$field] === $code}">{$code}</option>
+                                                        {/foreach}
+                                                    </select>
+                                                </td>
+                                            {/foreach}
+                                            <td><input class="input bh-weight" type="number" min="0" max="100" step="1" name="bh[{$u['id']}][weight]"
+                                                       value="{$row ? $row['weight'] : ''}" aria-label="ร้อยละประเมินผล"></td>
+                                        </tr>
+                                    {/foreach}
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="5" class="bh-unit">ประเมินผลลัพธ์การเรียนรู้ระดับรายวิชา</td>
+                                        <td><input class="input bh-weight" type="number" min="0" max="100" step="1" name="bh_outcome_weight"
+                                                   value="{$behavior['outcome_weight'] ?? ''}" aria-label="ร้อยละประเมินผลลัพธ์ระดับรายวิชา"></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="5" class="bh-unit" style="text-align:right">รวม</td>
+                                        <td><b id="bhTotal">0</b></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <details class="bh-legend">
+                            <summary>ความหมายของระดับ K / S / A / Ap</summary>
+                            <dl>
+                                {foreach ['K' => 'พุทธิพิสัย (ใส่ได้หลายระดับ)', 'S' => 'ทักษะพิสัย', 'A' => 'จิตพิสัย', 'Ap' => 'ประยุกต์ใช้และรับผิดชอบ'] as $set => $title}
+                                    <div><dt>{$title}</dt>
+                                        {foreach $behaviorLevels[$set] as $code => $label}<dd>{$code} = {$label}</dd>{/foreach}
+                                    </div>
+                                {/foreach}
+                            </dl>
+                        </details>
+                        <span class="hint" id="bhStatus">K ใส่ได้หลายระดับ · S, A และ Ap เลือกระดับเดียว · ผลจาก AI เป็นร่าง ตรวจแก้ได้แล้วกดบันทึก</span>
+                    {else}
+                        <div class="hint">ยังไม่มีหน่วยการเรียนรู้ — <a href="{$base}/courses/{$course['id']}/units/design">ออกแบบหน่วยการเรียนรู้</a> ก่อน แล้วจึงวิเคราะห์พฤติกรรมได้</div>
+                    {/if}
+                </div>
+                <script src="{$base}/assets/js/behavior-analysis.js?v={$assetVer ?? 1}" defer></script>
+            {/if}
         </div>
 
         {* มาตรฐานอาชีพที่รายวิชาอ้างอิง — ไม่มีข้อมูล = หน้าพิมพ์ข้ามหน้า "มาตรฐานอาชีพ" (OccupationStandard) *}

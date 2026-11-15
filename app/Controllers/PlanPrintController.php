@@ -13,6 +13,7 @@ use App\Domain\UnitRepository;
 use App\Support\Csrf;
 use App\Support\Db;
 use App\Support\Flash;
+use App\Support\BehaviorAnalysis;
 use App\Support\OccupationStandard;
 use App\Support\PlanFormat;
 use App\Support\Semester;
@@ -295,6 +296,9 @@ final class PlanPrintController
             'courseOutcomes'     => $this->lines($course['learning_outcomes'] ?? null),
             // มาตรฐานอาชีพ (migration 000136) · null = ไม่มี → แบบหลักสูตร 2567 ข้ามหน้านี้
             'occupation'         => $this->occupation($course),
+            // ตารางวิเคราะห์พฤติกรรมการเรียนรู้ (migration 000137) · ยังไม่วิเคราะห์ = ช่องว่าง
+            'behavior'           => BehaviorAnalysis::decode($course['behavior_analysis'] ?? null),
+            'behaviorTotal'      => $this->behaviorTotal($course),
             'planDate'           => Thai::formalDate($course['plan_date'] ?? null),
             // ชื่อผู้ลงนาม: หัวหน้าแผนกจากรายวิชา ที่เหลือจากการตั้งค่าของผู้ดูแลระบบ · ยังไม่ระบุ = null (เว้นจุด)
             'signers'            => ['dept_head' => $this->signers->name((int) ($course['dept_head_id'] ?? 0))]
@@ -374,6 +378,14 @@ final class PlanPrintController
     }
 
     /** @return list<string> ย่อหน้าของข้อความเต็ม (บรรทัดว่างหลายบรรทัดรวมเป็นหนึ่ง) */
+    /** ผลรวมร้อยละประเมินผลในตารางวิเคราะห์พฤติกรรม · ยังไม่กรอก = null (พิมพ์ 100 ตามแบบฟอร์ม) */
+    private function behaviorTotal(array $course): ?int
+    {
+        $data = BehaviorAnalysis::decode($course['behavior_analysis'] ?? null);
+
+        return $data['units'] === [] && $data['outcome_weight'] === null ? null : BehaviorAnalysis::total($data);
+    }
+
     /** @return array<string,mixed>|null */
     private function occupation(array $course): ?array
     {

@@ -2908,3 +2908,73 @@ html.is-presenting { overflow: hidden; }
 .occ-paste { margin-top: 12px; }
 .occ-paste textarea { width: 100%; font-family: inherit; }
 .occ-empty { margin: 10px 0 0; }
+
+/* ---------- ความสมบูรณ์ของแผนการสอน (แท็บแผนการสอนในฟอร์มรายวิชา) ---------- */
+.plan-score {
+    margin-bottom: 18px; padding: 16px 18px; border-radius: var(--radiusSm, 14px);
+    border: 1px solid var(--brandLine); background: var(--brandSoft);
+}
+.plan-score-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.plan-ring {
+    --p: 0; flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+    background: conic-gradient(var(--brand) calc(var(--p) * 1%), color-mix(in srgb, var(--brand) 14%, transparent) 0);
+}
+.plan-ring span {
+    width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--surface); font-family: var(--accent); font-weight: 800; font-size: 17px; color: var(--ink);
+}
+.plan-ring small { font-size: 11px; font-weight: 700; margin-left: 1px; }
+.plan-score-text { flex: 1 1 260px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.plan-score-text b { font-size: 15px; }
+.plan-score-text span { font-size: 13px; color: var(--ink3); }
+.plan-bar { height: 6px; border-radius: 99px; background: color-mix(in srgb, var(--brand) 14%, transparent); overflow: hidden; margin-top: 4px; }
+.plan-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--brand), var(--violet)); }
+.plan-todo { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 6px; }
+.plan-todo li {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; font-size: 13.5px;
+}
+.plan-todo li > div { flex: 1; min-width: 0; color: var(--ink2, var(--ink)); }
+.plan-todo-pts {
+    flex: none; min-width: 46px; text-align: center; font-family: var(--accent); font-weight: 700; font-size: 12.5px;
+    color: var(--brand); background: var(--brandSoft); border-radius: 7px; padding: 2px 6px;
+}
+.plan-todo-go { flex: none; font-size: 13px; font-weight: 600; color: var(--brand); text-decoration: none; white-space: nowrap; }
+.plan-todo-go:hover { text-decoration: underline; }
+.plan-done { margin-top: 10px; font-size: 13px; color: var(--ink3); }
+.plan-done summary { cursor: pointer; }
+.plan-done ul { list-style: none; margin: 8px 0 0; padding: 0; columns: 2 240px; }
+.plan-done li { padding: 2px 0; }
+.plan-done li.is-done { color: var(--ok); }
+
+/* ---------- ตารางวิเคราะห์พฤติกรรมการเรียนรู้ ---------- */
+.bh-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.bh-head label { margin-bottom: 2px; }
+.bh-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.bh-table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 13px; }
+.bh-table th { padding: 8px; font-weight: 700; color: var(--ink3); text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.bh-table td { padding: 6px 6px; vertical-align: middle; border-top: 1px solid var(--line); }
+.bh-table tbody tr:first-child td { border-top: 0; }
+.bh-table .bh-unit { min-width: 140px; font-weight: 600; }
+.bh-legend { margin-top: 8px; font-size: 12.5px; color: var(--ink3); }
+.bh-legend summary { cursor: pointer; }
+.bh-legend dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 18px; margin: 8px 0 0; }
+.bh-legend dt { font-weight: 700; color: var(--ink); }
+.bh-legend dd { margin: 0; }
+.bh-table select.input { width: 76px; height: 34px; padding: 0 8px; font-size: 13px; }
+.bh-table .bh-weight { width: 64px; height: 34px; padding: 0 8px; font-size: 13px; text-align: right; }
+.bh-k { white-space: nowrap; }
+.bh-table .bh-chip { display: inline-block; margin: 1px; cursor: pointer; font-weight: 400; }
+.bh-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.bh-chip span {
+    display: inline-block; min-width: 30px; padding: 3px 6px; border-radius: 7px; text-align: center;
+    font-size: 12px; font-weight: 700; color: var(--ink3); border: 1px solid var(--line); background: var(--surface);
+}
+.bh-chip input:checked + span { color: #fff; background: var(--brand); border-color: var(--brand); }
+.bh-chip input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 1px; }
+.bh-table tfoot td { background: color-mix(in srgb, var(--brand) 4%, transparent); }
+#bhTotal { font-family: var(--accent); color: var(--ok); }
+#bhTotal.is-off { color: var(--err); }
+.bh-new td { animation: bhFlash 1.2s ease; }
+@keyframes bhFlash { from { background: color-mix(in srgb, var(--brand) 18%, transparent); } }
+.bh-editor .hint.is-err { color: var(--err); }

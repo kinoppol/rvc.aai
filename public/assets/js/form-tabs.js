@@ -55,6 +55,15 @@
         try { sessionStorage.setItem(storeKey, active ? active.getAttribute('data-tab') : ''); } catch (err) { /* ไม่มีที่เก็บก็เปิดแท็บแรก */ }
     });
 
+    // ลิงก์ในหน้าเดียวกัน (#about, #plan, …) เช่นจากรายการคำแนะนำความสมบูรณ์ของแผน — สลับแท็บตาม
+    window.addEventListener('hashchange', function () {
+        var key = location.hash.slice(1);
+        if (keys.indexOf(key) !== -1) {
+            show(key);
+            bar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+
     var start = location.hash.slice(1);
     if (!start) {
         try {
