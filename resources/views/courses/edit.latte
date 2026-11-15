@@ -22,6 +22,9 @@
         'plan' => ['แผนการสอน', 'print'],
         'cover' => ['หน้าปก', 'palette'],
     ]}
+    {if $occupation !== null}
+        {do $formTabs = array_slice($formTabs, 0, 3, true) + ['occupation' => ['มาตรฐานอาชีพ', 'construction']] + array_slice($formTabs, 3, null, true)}
+    {/if}
     {if !$isNew}{do $formTabs['archive'] = ['เก็บเข้าคลัง', 'folder_open']}{/if}
     <div class="tabs form-tabs" role="tablist" data-form-tabs>
         {foreach $formTabs as $key => [$label, $icon]}
@@ -225,6 +228,63 @@
             </div>
         </div>
 
+        {* มาตรฐานอาชีพที่รายวิชาอ้างอิง — ไม่มีข้อมูล = หน้าพิมพ์ข้ามหน้า "มาตรฐานอาชีพ" (OccupationStandard) *}
+        {if $occupation !== null}
+            <div class="tab-panel occ-editor" data-panel="occupation" role="tabpanel" hidden>
+                <input type="hidden" name="os_present" value="1">
+                <div class="hint" style="margin-bottom:12px">ใช้ในหน้า “มาตรฐานอาชีพ” ของแผนการจัดการเรียนรู้หลักสูตร 2567 · มักมาพร้อมคำอธิบายรายวิชา
+                    · รายวิชาที่ไม่มีมาตรฐานอาชีพอ้างอิงเว้นว่างไว้ทั้งหมด ระบบจะข้ามหน้านี้ตอนพิมพ์</div>
+                <div class="course-form-grid">
+                    <div class="field">
+                        <label for="osAgency">หน่วยงานรับรองมาตรฐานอาชีพ</label>
+                        <input class="input" id="osAgency" name="os_agency" maxlength="255" value="{$occupation['agency']}"
+                               placeholder="เช่น สถาบันคุณวุฒิวิชาชีพ (องค์การมหาชน)">
+                    </div>
+                    <div class="field">
+                        <label for="osStandard">มาตรฐานอาชีพ</label>
+                        <input class="input" id="osStandard" name="os_standard" maxlength="255" value="{$occupation['standard']}"
+                               placeholder="ชื่อมาตรฐานอาชีพ">
+                    </div>
+                    <div class="field">
+                        <label for="osOccupation">อาชีพ</label>
+                        <input class="input" id="osOccupation" name="os_occupation" maxlength="255" value="{$occupation['occupation']}"
+                               placeholder="เช่น นักพัฒนาซอฟต์แวร์ ชั้น 4">
+                    </div>
+                </div>
+
+                <div class="occ-table-wrap">
+                    <table class="occ-table">
+                        <thead>
+                            <tr><th colspan="2">หน่วยสมรรถนะ (UoC)</th><th colspan="2">สมรรถนะย่อย (EoC)</th>
+                                <th rowspan="2">เกณฑ์การปฏิบัติงาน (PC)</th><th rowspan="2">วิธีประเมิน</th><th rowspan="2"></th></tr>
+                            <tr><th>รหัส</th><th>คำอธิบาย</th><th>รหัส</th><th>คำอธิบาย</th></tr>
+                        </thead>
+                        <tbody id="occRows">
+                            {foreach $occupation['rows'] as $r}
+                                {include occRow, r: $r}
+                            {/foreach}
+                        </tbody>
+                    </table>
+                    <template id="occRowTpl">{include occRow, r: []}</template>
+                </div>
+                <p class="hint occ-empty" id="occEmpty" n:attr="hidden: $occupation['rows'] !== []">ยังไม่มีแถว — กด “เพิ่มแถว” หรือวางตารางที่คัดลอกมา</p>
+                <div class="occ-actions">
+                    <button type="button" class="btn btn-sm" id="occAdd"><span class="msi" aria-hidden="true">add</span>เพิ่มแถว</button>
+                    <button type="button" class="btn btn-sm" data-reveal-occ>วางตารางจาก Word / Excel</button>
+                    <button type="button" class="btn btn-sm btn-ghost-danger" id="occClear">ล้างทั้งหมด</button>
+                </div>
+                <div class="occ-paste" id="occPaste" hidden>
+                    <label for="occPasteText">คัดลอกแถวของตาราง (6 คอลัมน์: รหัส UoC · คำอธิบาย UoC · รหัส EoC · คำอธิบาย EoC · เกณฑ์ PC · วิธีประเมิน) แล้ววางที่นี่</label>
+                    <textarea class="input" id="occPasteText" rows="5" placeholder="วางตารางที่นี่"></textarea>
+                    <div class="occ-actions">
+                        <button type="button" class="btn btn-sm btn-primary" id="occPasteApply">เพิ่มเป็นแถว</button>
+                        <span class="hint">ช่องที่ว่าง (เช่นรหัส UoC ที่รวมเซลล์ไว้) ระบบใช้ค่าจากแถวก่อนหน้า · กด “บันทึก” ด้านล่างเพื่อบันทึก</span>
+                    </div>
+                </div>
+            </div>
+            <script src="{$base}/assets/js/occupation-rows.js?v={$assetVer ?? 1}" defer></script>
+        {/if}
+
         {* หน้าปกรายวิชา: สีจากชุดสี / สีเอง / สุ่ม หรืออัปโหลดรูปแล้วให้ระบบเลือกสีที่เข้ากับรูป *}
         {var $coverColor = $course['cover_color'] ?? ''}
         {var $shown = $coverColor ?: $coverAuto}
@@ -295,3 +355,16 @@
 <script src="{$base}/assets/js/cover-picker.js"></script>
 <script src="{$base}/assets/js/outcomes-draft.js"></script>
 {/block}
+
+{* แถวตารางมาตรฐานอาชีพในแท็บ "มาตรฐานอาชีพ" — ใช้ทั้งแถวที่บันทึกไว้และแม่แบบแถวใหม่ (r = []) *}
+{define occRow}
+    <tr class="occ-row">
+        <td><input class="input" name="os_uoc_code[]" maxlength="50" value="{$r['uoc_code'] ?? ''}" aria-label="รหัสหน่วยสมรรถนะ"></td>
+        <td><textarea class="input" name="os_uoc[]" rows="2" aria-label="คำอธิบายหน่วยสมรรถนะ">{$r['uoc'] ?? ''}</textarea></td>
+        <td><input class="input" name="os_eoc_code[]" maxlength="50" value="{$r['eoc_code'] ?? ''}" aria-label="รหัสสมรรถนะย่อย"></td>
+        <td><textarea class="input" name="os_eoc[]" rows="2" aria-label="คำอธิบายสมรรถนะย่อย">{$r['eoc'] ?? ''}</textarea></td>
+        <td><textarea class="input" name="os_pc[]" rows="2" aria-label="เกณฑ์การปฏิบัติงาน">{$r['pc'] ?? ''}</textarea></td>
+        <td><textarea class="input" name="os_method[]" rows="2" aria-label="วิธีประเมิน">{$r['method'] ?? ''}</textarea></td>
+        <td><button type="button" class="icon-btn occ-del" title="ลบแถว" aria-label="ลบแถว"><span class="msi" aria-hidden="true">delete</span></button></td>
+    </tr>
+{/define}

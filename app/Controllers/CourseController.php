@@ -18,6 +18,7 @@ use App\Support\Cover;
 use App\Support\Csrf;
 use App\Support\Db;
 use App\Support\Flash;
+use App\Support\OccupationStandard;
 use App\Support\PlanFormat;
 use App\Support\Semester;
 use App\Support\Thai;
@@ -356,6 +357,11 @@ final class CourseController
             // กลุ่มอาชีพ ปวช. 2567 + ชื่อที่ครูคนนี้พิมพ์เองไว้ในรายวิชาของตน · null = ยังไม่รัน migration 000135
             'careerGroups' => $this->courses->hasColumn('career_group') ? CareerGroups::BY_PROGRAM : null,
             'programTypes' => CareerGroups::programs(),
+            // มาตรฐานอาชีพ · null = ยังไม่รัน migration 000136 (ซ่อนแท็บ)
+            'occupation' => $this->courses->hasColumn('occupation_standard')
+                ? (OccupationStandard::decode($course['occupation_standard'] ?? null)
+                    ?? ['agency' => '', 'standard' => '', 'occupation' => '', 'rows' => []])
+                : null,
             'myCareerGroups' => $this->courses->careerGroupsOf((int) $user['id']),
             'deptHeadId' => $course !== null
                 ? (int) ($course['dept_head_id'] ?? 0)
@@ -423,6 +429,10 @@ final class CourseController
         // ก่อนรันไมเกรชัน 000128 ยังไม่มีคอลัมน์นี้ — ข้ามไปให้บันทึกรายวิชาได้ตามปกติ
         if ($this->signers->ready()) {
             $fields['dept_head_id'] = $this->signers->validStaff((int) ($data['dept_head_id'] ?? 0));
+        }
+        // มาตรฐานอาชีพ — ฟอร์มส่ง os_present=1 มาเสมอเมื่อมีแท็บนี้ (ลบทุกแถว = ไม่มีมาตรฐานอาชีพ)
+        if (isset($data['os_present']) && $this->courses->hasColumn('occupation_standard')) {
+            $fields['occupation_standard'] = OccupationStandard::fromPost($data);
         }
         if (array_key_exists('career_group', $data) && $this->courses->hasColumn('career_group')) {
             $group = preg_replace('/\s+/u', ' ', trim((string) $data['career_group'])) ?? '';

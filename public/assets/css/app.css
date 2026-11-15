@@ -2894,3 +2894,17 @@ html.is-presenting { overflow: hidden; }
     .qr-items li { flex-wrap: wrap; }
     .qr-item-text { flex-basis: calc(100% - 40px); }
 }
+
+/* ---------- มาตรฐานอาชีพในฟอร์มรายวิชา ---------- */
+.occ-table-wrap { overflow-x: auto; margin-top: 4px; }
+.occ-table { width: 100%; min-width: 860px; border-collapse: collapse; font-size: 13px; }
+.occ-table th { padding: 6px 8px; font-weight: 700; color: var(--ink2); border-bottom: 1px solid var(--line); text-align: left; }
+.occ-table td { padding: 4px; vertical-align: top; }
+.occ-table td:nth-child(1), .occ-table td:nth-child(3) { width: 90px; }
+.occ-table td:last-child { width: 40px; text-align: center; }
+.occ-table .input { width: 100%; min-height: 0; padding: 6px 8px; font-size: 13px; }
+.occ-table textarea.input { resize: vertical; }
+.occ-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.occ-paste { margin-top: 12px; }
+.occ-paste textarea { width: 100%; font-family: inherit; }
+.occ-empty { margin: 10px 0 0; }

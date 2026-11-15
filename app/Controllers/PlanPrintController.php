@@ -13,6 +13,7 @@ use App\Domain\UnitRepository;
 use App\Support\Csrf;
 use App\Support\Db;
 use App\Support\Flash;
+use App\Support\OccupationStandard;
 use App\Support\PlanFormat;
 use App\Support\Semester;
 use App\Support\Thai;
@@ -292,6 +293,8 @@ final class PlanPrintController
             'courseObjectives'   => $this->lines($course['objectives'] ?? null),
             'courseCompetencies' => $this->lines($course['competencies'] ?? null),
             'courseOutcomes'     => $this->lines($course['learning_outcomes'] ?? null),
+            // มาตรฐานอาชีพ (migration 000136) · null = ไม่มี → แบบหลักสูตร 2567 ข้ามหน้านี้
+            'occupation'         => $this->occupation($course),
             'planDate'           => Thai::formalDate($course['plan_date'] ?? null),
             // ชื่อผู้ลงนาม: หัวหน้าแผนกจากรายวิชา ที่เหลือจากการตั้งค่าของผู้ดูแลระบบ · ยังไม่ระบุ = null (เว้นจุด)
             'signers'            => ['dept_head' => $this->signers->name((int) ($course['dept_head_id'] ?? 0))]
@@ -371,6 +374,18 @@ final class PlanPrintController
     }
 
     /** @return list<string> ย่อหน้าของข้อความเต็ม (บรรทัดว่างหลายบรรทัดรวมเป็นหนึ่ง) */
+    /** @return array<string,mixed>|null */
+    private function occupation(array $course): ?array
+    {
+        $data = OccupationStandard::decode($course['occupation_standard'] ?? null);
+        if ($data === null) {
+            return null;
+        }
+        $data['rows'] = OccupationStandard::printRows($data['rows']);
+
+        return $data;
+    }
+
     private function paragraphs(string $text): array
     {
         $out = [];
