@@ -6,7 +6,7 @@
 <div class="page-head">
     <div>
         <div class="sub"><a href="{$base}/courses/{$course['id']}?tab=units">{$course['name']}</a></div>
-        <h1>{if $unit}{$unit['title']}{elseif $isExam}{$kinds[$kind]}{else}หน่วยการเรียนใหม่{/if}</h1>
+        <h1>{if $unitNav && !$isExam}<span class="unit-no">{$unitNav['label']}</span>{/if}{if $unit}{$unit['title']}{elseif $isExam}{$kinds[$kind]}{else}หน่วยการเรียนใหม่{/if}</h1>
     </div>
     <div class="actions" style="align-items:center">
         {if $unit && $unit['review_status'] === 'published'}
@@ -25,6 +25,28 @@
         <button type="submit" form="unitForm" name="action" value="publish" class="btn btn-primary">เผยแพร่</button>
     </div>
 </div>
+
+{* หน่วยก่อนหน้า/ถัดไปตามลำดับในรายวิชา — ใช้ทั้งบนและล่างของหน้า *}
+{define unitPager}
+    {if $unitNav && ($unitNav['prev'] || $unitNav['next'])}
+        <nav class="unit-pager" aria-label="หน่วยก่อนหน้าและถัดไป">
+            {if $unitNav['prev']}
+                <a class="unit-pager-link" href="{$base}/courses/{$course['id']}/units/{$unitNav['prev']['id']}/edit" rel="prev">
+                    <span class="msi" aria-hidden="true">chevron_left</span>
+                    <span><small>{$unitNav['prev']['label']}</small>{if !$unitNav['prev']['exam']}{$unitNav['prev']['title']}{/if}</span>
+                </a>
+            {else}<span></span>{/if}
+            <span class="unit-pager-pos">{$unitNav['pos']} / {$unitNav['total']}</span>
+            {if $unitNav['next']}
+                <a class="unit-pager-link is-next" href="{$base}/courses/{$course['id']}/units/{$unitNav['next']['id']}/edit" rel="next">
+                    <span><small>{$unitNav['next']['label']}</small>{if !$unitNav['next']['exam']}{$unitNav['next']['title']}{/if}</span>
+                    <span class="msi" aria-hidden="true">chevron_right</span>
+                </a>
+            {else}<span></span>{/if}
+        </nav>
+    {/if}
+{/define}
+{include unitPager}
 
 {* ── ฟอร์มข้อมูลหน่วย ── *}
 <div class="card" style="margin-bottom:16px">
@@ -560,4 +582,5 @@
 })();
 </script>
 {if $pdfStatus}<script src="{$base}/assets/js/unit-ocr.js?v={$assetVer}" defer></script>{/if}
+{include unitPager}
 {/block}

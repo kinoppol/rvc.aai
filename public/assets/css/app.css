@@ -3055,3 +3055,17 @@ html.is-presenting { overflow: hidden; }
 .midterm-move-text { flex: 1 1 320px; min-width: 0; }
 .midterm-move-text h3 { margin: 0 0 4px; font-size: 16px; }
 .midterm-move select { width: auto; max-width: 100%; }
+
+/* หน้าแก้ไขหน่วย: เลขหน่วย + ปุ่มหน่วยก่อนหน้า/ถัดไป */
+.unit-no { display: inline-block; margin-right: 10px; padding: 2px 12px; border-radius: 999px; font-size: .55em; vertical-align: middle;
+    color: var(--brandInk); background: linear-gradient(135deg, var(--brand), var(--violet, var(--brand))); }
+.unit-pager { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; margin: 0 0 16px; }
+.unit-pager-link { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 10px 14px; border-radius: 16px; text-decoration: none;
+    color: var(--ink); background: var(--glass); border: 1px solid var(--glassBorder); box-shadow: var(--shadow); transition: box-shadow .2s, transform .2s; }
+.unit-pager-link:hover { box-shadow: var(--shadowHover); transform: translateY(-1px); }
+.unit-pager-link.is-next { justify-content: flex-end; text-align: right; }
+.unit-pager-link > span:not(.msi) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
+.unit-pager-link small { display: block; font-size: 12px; font-weight: 700; color: color-mix(in srgb, var(--brand) 55%, var(--ink)); }
+.unit-pager-link .msi { flex: none; color: color-mix(in srgb, var(--brand) 55%, var(--ink)); }
+.unit-pager-pos { font-size: 13px; color: var(--ink2); white-space: nowrap; }
+@media (max-width: 640px) { .unit-pager { grid-template-columns: 1fr 1fr; } .unit-pager-pos { display: none; } }

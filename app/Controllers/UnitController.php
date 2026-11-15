@@ -47,6 +47,36 @@ final class UnitController
     }
 
     /** แบบฟอร์มสร้าง/แก้ไขหน่วยการเรียน */
+    /**
+     * เลขหน่วยและหน่วยก่อนหน้า/ถัดไปตามลำดับในรายวิชา (หน่วยสอบไม่นับเลข แสดงเป็นชื่อสอบแทน)
+     *
+     * @return array{label:string, pos:int, total:int, lessons:int, prev:?array, next:?array}
+     */
+    private function unitNav(int $courseId, int $unitId): array
+    {
+        $list = [];
+        $no = 0;
+        foreach ($this->units->forCourse($courseId) as $u) {
+            $exam = UnitRepository::isExam($u);
+            $list[] = [
+                'id' => (int) $u['id'],
+                'title' => (string) $u['title'],
+                'label' => $exam ? UnitRepository::KINDS[$u['kind']] : 'หน่วยที่ ' . ++$no,
+                'exam' => $exam,
+            ];
+        }
+        $at = (int) array_search($unitId, array_column($list, 'id'), true);
+
+        return [
+            'label' => $list[$at]['label'] ?? '',
+            'pos' => $at + 1,
+            'total' => count($list),
+            'lessons' => $no,
+            'prev' => $list[$at - 1] ?? null,
+            'next' => $list[$at + 1] ?? null,
+        ];
+    }
+
     public function edit(Request $request, Response $response, array $args): Response
     {
         $user = $request->getAttribute('user');
@@ -72,6 +102,7 @@ final class UnitController
 
         return $this->view->render($response, 'courses/unit-edit', [
             'page' => 'courses',
+            'unitNav' => $unit ? $this->unitNav($courseId, $unitId) : null,
             'ai' => $this->drafter->picker((int) $request->getAttribute('user')['id']),
             'course' => $course,
             'unit' => $unit,
