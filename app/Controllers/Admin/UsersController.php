@@ -147,8 +147,18 @@ final class UsersController
      */
     private function adminContext(Request $request): array
     {
+        $user = $request->getAttribute('user') ?? [];
+        $isAdmin = ($user['role'] ?? '') === Roles::ADMIN;
+
         return [
-            'isAdmin' => (($request->getAttribute('user')['role'] ?? '')) === Roles::ADMIN,
+            'isAdmin' => $isAdmin,
+            // กล่อง "สวมสิทธิ์ครู" บนหัวหน้า: ครู/ผู้ดูแลครูที่ใช้งานอยู่ทุกคน ค้นด้วยชื่อแล้วเข้าใช้ในนามนั้นได้ทันที
+            'impersonable' => $isAdmin ? $this->db->all(
+                "SELECT id, full_name, username, role FROM {users}
+                 WHERE status = 'active' AND role IN ('teacher', 'supervisor') AND id <> ?
+                 ORDER BY full_name",
+                [(int) ($user['id'] ?? 0)]
+            ) : [],
             'roleOptions' => [
                 Roles::TEACHER => Roles::label(Roles::TEACHER),
                 Roles::TEACHER_CURRICULUM => Roles::label(Roles::TEACHER) . ' (หัวหน้างานพัฒนาหลักสูตร)',

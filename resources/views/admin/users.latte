@@ -3,6 +3,7 @@
 {block title}ผู้ใช้งาน{/block}
 
 {block content}
+{if $isAdmin}{include '../_partials/system-tabs.latte'}{/if}
 <div class="page-head">
     <div>
         <h1>ผู้ใช้งานระบบ</h1>
@@ -21,6 +22,34 @@
         </a>
     </div>
 </div>
+
+{if $isAdmin && $impersonable}
+    {* สวมสิทธิ์ครูได้เร็ว ๆ โดยไม่ต้องไล่หาในตาราง — ปุ่ม "สวมสิทธิ์" ในแต่ละแถวยังใช้ได้เหมือนเดิม *}
+    <form class="card imp-quick" method="post" id="impQuick" action="{$base}/admin/users" data-base="{$base}/admin/users/"
+          onchange="var s=this.querySelector('select');this.action=this.dataset.base+(s.value?s.value+'/impersonate':'');"
+          data-confirm-title="สวมสิทธิ์ครู" data-confirm-ok="เข้าใช้งานในนามนี้"
+          data-confirm="เข้าใช้งานระบบในนามครูที่เลือก · กดปุ่ม “กลับเป็นผู้ดูแล” ที่แถบด้านบนเพื่อกลับมาเป็นบัญชีของคุณ">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <span class="msi" aria-hidden="true">manage_accounts</span>
+        <div class="imp-quick-text">
+            <div style="font-weight:600;font-size:14px">สวมสิทธิ์ครู</div>
+            <div class="sub" style="font-size:12.5px">เข้าใช้งานในนามครูเพื่อตรวจหรือช่วยแก้ไขงาน · ทุกการกระทำถูกบันทึกว่าคุณเป็นผู้ทำ</div>
+        </div>
+        <select class="input" name="target" data-combo aria-label="เลือกครูที่จะสวมสิทธิ์" required>
+            <option value="">— พิมพ์ชื่อครู —</option>
+            {foreach $impersonable as $t}
+                <option value="{$t['id']}">{$t['full_name'] ?: $t['username']} ({$t['username']}){if $t['role'] === 'supervisor'} · ผู้ดูแลครู{/if}</option>
+            {/foreach}
+        </select>
+        <button type="submit" class="btn btn-primary btn-sm">สวมสิทธิ์</button>
+    </form>
+    <style>
+        .imp-quick { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+        .imp-quick > .msi { font-size: 28px; color: var(--brand); }
+        .imp-quick-text { flex: 1 1 220px; }
+        .imp-quick select, .imp-quick .combo { flex: 0 1 340px; min-width: 220px; }
+    </style>
+{/if}
 
 {if $filter === 'pending'}
     <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
