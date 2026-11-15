@@ -41,7 +41,10 @@
             <div class="field">
                 <label for="cCode">รหัสวิชา</label>
                 <input class="input mono" id="cCode" name="code" required maxlength="32"
-                       value="{$course['code'] ?? ''}" placeholder="20127-2002">
+                       value="{$course['code'] ?? ''}" placeholder="20127-2002" autocomplete="off"
+                       list="cCodeList" data-subject-lookup="{$base}/courses/subjects">
+                <datalist id="cCodeList"></datalist>
+                <div class="hint" id="cCodeStatus" aria-live="polite">พิมพ์รหัสหรือชื่อวิชา ระบบเติมข้อมูลจากคลังรายวิชา สอศ. ให้</div>
             </div>
             <div class="field" style="grid-column:span 2">
                 <label for="cName">ชื่อวิชา</label>
@@ -469,6 +472,7 @@
 <script src="{$base}/assets/js/form-tabs.js"></script>
 <script src="{$base}/assets/js/cover-picker.js"></script>
 <script src="{$base}/assets/js/outcomes-draft.js"></script>
+<script src="{$base}/assets/js/subject-lookup.js?v={$assetVer ?? 1}"></script>
 {/block}
 
 {* แถวตารางมาตรฐานอาชีพในแท็บ "มาตรฐานอาชีพ" — ใช้ทั้งแถวที่บันทึกไว้และแม่แบบแถวใหม่ (r = []) *}

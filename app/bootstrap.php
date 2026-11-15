@@ -95,6 +95,7 @@ $builder->addDefinitions([
             (int) @filemtime(Paths::root() . '/public/assets/js/quiz-editor.js'),
             (int) @filemtime(Paths::root() . '/public/assets/js/occupation-rows.js'),
             (int) @filemtime(Paths::root() . '/public/assets/js/behavior-analysis.js'),
+            (int) @filemtime(Paths::root() . '/public/assets/js/subject-lookup.js'),
             1
         ),
         'user' => null,

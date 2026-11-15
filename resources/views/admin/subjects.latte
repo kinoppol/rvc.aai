@@ -1,0 +1,157 @@
+{layout '../layout.latte'}
+
+{block title}รายวิชา สอศ.{/block}
+
+{* คลังรายวิชามาตรฐาน สอศ. (ตาราง subject_catalog) — ข้อมูลจาก ศธ.02 ออนไลน์ ใช้เติมฟอร์มรายวิชาของครูเมื่อกรอกรหัสวิชา *}
+{block content}
+{include '../_partials/system-tabs.latte'}
+<style>
+    .subj-filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+    .subj-filter input[type=search] { flex: 1 1 260px; }
+    .subj-filter select { width: auto; }
+    .subj-table td { vertical-align: top; }
+    .subj-table .code { font-family: var(--mono, monospace); white-space: nowrap; font-weight: 600; }
+    .subj-table .en { color: var(--ink2); font-size: 12.5px; }
+    .subj-table .tpn { white-space: nowrap; text-align: center; }
+    .subj-flags { display: flex; gap: 4px; flex-wrap: wrap; }
+    .subj-flag { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--brandSoft); color: var(--brandInk); }
+    .subj-flag.is-off { background: var(--surface2); color: var(--ink3, #999); text-decoration: line-through; }
+    .subj-pager { display: flex; gap: 6px; align-items: center; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+    .subj-detail h2 { margin: 0 0 4px; }
+    .subj-detail dl { display: grid; grid-template-columns: 150px 1fr; gap: 8px 14px; margin: 14px 0 0; }
+    .subj-detail dt { color: var(--ink2); font-weight: 600; }
+    .subj-detail dd { margin: 0; white-space: pre-wrap; }
+    @media (max-width: 640px) { .subj-detail dl { grid-template-columns: 1fr; } .subj-detail dt { margin-top: 6px; } }
+</style>
+
+<div class="page-head">
+    <div>
+        <h1>คลังรายวิชา สอศ.</h1>
+        <div class="sub">
+            ข้อมูลรายวิชามาตรฐานจากระบบ ศธ.02 ออนไลน์ (std2018.vec.go.th) — ครูกรอกรหัสวิชาในฟอร์มสร้างรายวิชา
+            แล้วระบบเติมชื่อวิชา ท-ป-น คำอธิบาย จุดประสงค์ และสมรรถนะให้จากคลังนี้
+        </div>
+    </div>
+    <div class="actions" n:if="$ready">
+        <form method="post" action="{$base}/admin/subjects/import"
+              onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='กำลังนำเข้า…'">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <button type="submit" class="btn" n:attr="disabled: !$files" title="อ่านไฟล์ใน database/data แล้วเพิ่ม/ปรับปรุงรายวิชาในฐานข้อมูล">
+                <span class="msi" aria-hidden="true">sync</span>นำเข้า/ปรับปรุงจากไฟล์
+            </button>
+        </form>
+    </div>
+</div>
+
+{if !$ready}
+    <div class="empty">
+        <h3>ยังไม่มีตารางคลังรายวิชา</h3>
+        <p>รัน migration <code>000138</code> ที่หน้า <a href="{$base}/admin/migrations">ฐานข้อมูล</a> ก่อน แล้วระบบจะนำเข้ารายวิชาจากไฟล์ในโปรเจกต์ให้อัตโนมัติ</p>
+    </div>
+{else}
+    <div class="metric-grid">
+        <div class="metric metric-indigo">
+            <div class="metric-top"><div class="metric-icon"><span class="msi">library_books</span></div></div>
+            <div class="metric-label">รายวิชาทั้งหมด</div>
+            <div class="metric-value">{number_format($stats['count'])}</div>
+            <div class="hint">
+                {foreach $stats['years'] as $y => $n}หลักสูตร {$y}: {number_format($n)}{sep} · {/sep}{/foreach}
+                {if !$stats['years']}ยังไม่มีข้อมูล{/if}
+            </div>
+        </div>
+        <div class="metric metric-amber">
+            <div class="metric-top"><div class="metric-icon"><span class="msi">description</span></div></div>
+            <div class="metric-label">ยังไม่มีคำอธิบายรายวิชา</div>
+            <div class="metric-value">{number_format($gaps['description'])}</div>
+            <div class="hint">จุดประสงค์ขาด {number_format($gaps['objectives'])} · สมรรถนะขาด {number_format($gaps['competencies'])}</div>
+        </div>
+        <div class="metric metric-emerald">
+            <div class="metric-top"><div class="metric-icon"><span class="msi">sync</span></div></div>
+            <div class="metric-label">นำเข้าล่าสุด</div>
+            <div class="metric-value" style="font-size: 20px">{$stats['imported_at'] ? date('j/n/Y H:i', strtotime($stats['imported_at'])) : '—'}</div>
+            <div class="hint">{if $files}ไฟล์: {implode(', ', $files)}{else}ไม่พบไฟล์ใน database/data{/if}</div>
+        </div>
+    </div>
+
+    {if $show}
+        <section class="card subj-detail" id="detail">
+            <div class="hint">
+                <a href="{$base}/admin/subjects{if $qs}?{$qs}{/if}"><span class="msi" aria-hidden="true">arrow_back</span>กลับไปที่รายการ</a>
+            </div>
+            <h2><span class="code">{$show['code']}</span> {$show['name_th']}</h2>
+            <div class="sub" n:if="$show['name_en']">{$show['name_en']}</div>
+            <dl>
+                <dt>หลักสูตร</dt><dd>{$show['curriculum_year']}</dd>
+                <dt>ท-ป-น</dt><dd>{$show['theory_hours']}-{$show['practice_hours']}-{$show['credits'] + 0}{if $show['self_study_hours']} (ศึกษาค้นคว้าด้วยตนเอง {$show['self_study_hours']} ชม.){/if}</dd>
+                <dt>หมวด/กลุ่มวิชา</dt><dd>{$show['subject_group'] ?: '—'}</dd>
+                <dt>จุดประสงค์รายวิชา</dt><dd>{$show['objectives'] ?: '—'}</dd>
+                <dt>สมรรถนะรายวิชา</dt><dd>{$show['competencies'] ?: '—'}</dd>
+                <dt>คำอธิบายรายวิชา</dt><dd>{$show['description'] ?: '—'}</dd>
+                <dt>รหัสอ้างอิงต้นทาง</dt><dd>{$show['source_id'] ?: '—'} · นำเข้าเมื่อ {$show['imported_at']}</dd>
+            </dl>
+        </section>
+    {/if}
+
+    <section class="card">
+        <form class="subj-filter" method="get" action="{$base}/admin/subjects">
+            <input type="search" name="q" value="{$filters['q']}" placeholder="ค้นรหัสวิชา ชื่อไทย หรือชื่ออังกฤษ" aria-label="ค้นหารายวิชา">
+            <select name="level" aria-label="ระดับ">
+                <option value="">ทุกระดับ</option>
+                <option value="2" n:attr="selected: $filters['level'] === '2'">ปวช. (2xxxx)</option>
+                <option value="3" n:attr="selected: $filters['level'] === '3'">ปวส. (3xxxx)</option>
+            </select>
+            <select name="year" aria-label="ปีหลักสูตร">
+                <option value="">ทุกหลักสูตร</option>
+                {foreach $stats['years'] as $y => $n}
+                    <option value="{$y}" n:attr="selected: $filters['year'] === $y">หลักสูตร {$y}</option>
+                {/foreach}
+            </select>
+            <button type="submit" class="btn btn-primary"><span class="msi" aria-hidden="true">search</span>ค้นหา</button>
+            <a n:if="$qsNoPage" class="btn" href="{$base}/admin/subjects">ล้าง</a>
+        </form>
+
+        <div class="hint">พบ {number_format($total)} รายวิชา{if $pages > 1} · หน้า {$pageNo} จาก {$pages}{/if}</div>
+
+        {if $rows}
+            <div class="table-scroll">
+                <table class="data subj-table">
+                    <thead>
+                        <tr><th>รหัสวิชา</th><th>ชื่อวิชา</th><th class="tpn">ท-ป-น</th><th>หลักสูตร</th><th>ข้อมูล</th></tr>
+                    </thead>
+                    <tbody>
+                        {foreach $rows as $r}
+                            <tr>
+                                <td class="code"><a href="{$base}/admin/subjects?{$qs ? $qs . '&' : ''}show={$r['id']}#detail">{$r['code']}</a></td>
+                                <td>
+                                    <a href="{$base}/admin/subjects?{$qs ? $qs . '&' : ''}show={$r['id']}#detail">{$r['name_th']}</a>
+                                    <div class="en" n:if="$r['name_en']">{$r['name_en']}</div>
+                                </td>
+                                <td class="tpn">{$r['theory_hours']}-{$r['practice_hours']}-{$r['credits'] + 0}</td>
+                                <td>{$r['curriculum_year']}</td>
+                                <td>
+                                    <div class="subj-flags">
+                                        <span n:class="subj-flag, !$r['has_description'] ? is-off" title="คำอธิบายรายวิชา">คำอธิบาย</span>
+                                        <span n:class="subj-flag, !$r['has_objectives'] ? is-off" title="จุดประสงค์รายวิชา">จุดประสงค์</span>
+                                        <span n:class="subj-flag, !$r['has_competencies'] ? is-off" title="สมรรถนะรายวิชา">สมรรถนะ</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        {/foreach}
+                    </tbody>
+                </table>
+            </div>
+        {else}
+            <div class="empty">
+                <h3>ไม่พบรายวิชา</h3>
+                <p>{if $stats['count'] === 0}คลังยังว่าง — วางไฟล์ <code>vec-subjects-*.json.gz</code> ใน <code>database/data</code> แล้วกด "นำเข้า/ปรับปรุงจากไฟล์"{else}ลองค้นด้วยคำอื่น หรือล้างตัวกรอง{/if}</p>
+            </div>
+        {/if}
+
+        <nav class="subj-pager" n:if="$pages > 1" aria-label="เลขหน้า">
+            <a n:if="$pageNo > 1" class="btn btn-sm" href="{$base}/admin/subjects?{$qsNoPage ? $qsNoPage . '&' : ''}page={$pageNo - 1}"><span class="msi" aria-hidden="true">chevron_left</span>ก่อนหน้า</a>
+            <span class="hint">หน้า {$pageNo} / {$pages}</span>
+            <a n:if="$pageNo < $pages" class="btn btn-sm" href="{$base}/admin/subjects?{$qsNoPage ? $qsNoPage . '&' : ''}page={$pageNo + 1}">ถัดไป<span class="msi" aria-hidden="true">chevron_right</span></a>
+        </nav>
+    </section>
+{/if}
+{/block}

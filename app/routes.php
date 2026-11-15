@@ -13,6 +13,7 @@ use App\Controllers\Admin\LogsController;
 use App\Controllers\Admin\SecurityController;
 use App\Controllers\Admin\MigrationController;
 use App\Controllers\Admin\RmsController;
+use App\Controllers\Admin\SubjectCatalogController;
 use App\Controllers\Admin\UsersController as AdminUsersController;
 use App\Controllers\AiChatController;
 use App\Controllers\AppearanceController;
@@ -44,6 +45,7 @@ use App\Controllers\ReviewController;
 use App\Controllers\SettingsController;
 use App\Controllers\SsoController;
 use App\Controllers\SsoSignupController;
+use App\Controllers\SubjectLookupController;
 use App\Controllers\SubmissionController;
 use App\Controllers\StudentController;
 use App\Controllers\Teacher\StudentsController as TeacherStudentsController;
@@ -116,6 +118,9 @@ return static function (App $app): void {
             $t->get('', [CourseController::class, 'index'])->setName('courses');
             $t->post('/{id:[0-9]+}/landing', [CourseController::class, 'landingVisibility']);
             $t->get('/new', [CourseController::class, 'edit'])->setName('course.new');
+            // คลังรายวิชา สอศ.: กรอกรหัสวิชาแล้วเติมชื่อ ท-ป-น คำอธิบาย จุดประสงค์ สมรรถนะ (ตอบ JSON)
+            $t->get('/subjects/search', [SubjectLookupController::class, 'search']);
+            $t->get('/subjects/lookup', [SubjectLookupController::class, 'lookup']);
             // ผู้ช่วยสรุปผลลัพธ์การเรียนรู้ระดับรายวิชาจากค่าบนฟอร์มรายวิชา (ตอบ JSON ยังไม่บันทึก)
             $t->post('/draft-outcomes', [CourseOutcomesController::class, 'draft']);
             // ผู้ช่วยวิเคราะห์ระดับ K/S/A/Ap และร้อยละประเมินผลรายหน่วย (ตอบ JSON ยังไม่บันทึก)
@@ -346,6 +351,8 @@ return static function (App $app): void {
             $admin->post('/rms/students/count', [RmsController::class, 'studentCount']);
             $admin->post('/rms/students/batch', [RmsController::class, 'studentBatch']);
             $admin->post('/rms/rvc-one', [RmsController::class, 'rvcOne']);
+            $admin->get('/subjects', [SubjectCatalogController::class, 'index'])->setName('admin.subjects');
+            $admin->post('/subjects/import', [SubjectCatalogController::class, 'import']);
 
             $admin->get('/overview', [DashboardController::class, 'overview'])->setName('admin.overview');
             $admin->get('/settings', [GeneralController::class, 'index'])->setName('admin.settings');
