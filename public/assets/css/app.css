@@ -870,6 +870,22 @@ dialog.modal .modal-foot {
 .btn-ai { border-color: var(--brandLine); color: var(--brand); }
 .btn-ai:hover { background: var(--brandSoft); color: var(--brand); }
 .btn-ai .caret { font-size: 10px; opacity: .7; }
+/* ปุ่มผู้ช่วย AI ที่ช่วยเติมส่วนที่ยังว่างอยู่ — เด่นกว่าปุ่มทั่วไปเพื่อชวนให้ใช้ */
+.btn.btn-ai.is-needed {
+    position: relative; overflow: hidden; isolation: isolate;
+    color: #fff; border-color: transparent;
+    background: linear-gradient(135deg, var(--brand), var(--violet));
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--brand) 35%, transparent), 0 0 0 3px color-mix(in srgb, var(--brand) 14%, transparent);
+}
+.btn.btn-ai.is-needed:hover { color: #fff; filter: brightness(1.06); transform: translateY(-1px); }
+.btn.btn-ai.is-needed::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.35) 50%, transparent 70%);
+    transform: translateX(-100%); animation: aiShine 3.2s ease-in-out infinite;
+}
+.btn.btn-ai.is-needed:disabled { filter: saturate(.6); }
+@keyframes aiShine { 0%, 55% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .btn.btn-ai.is-needed::after { animation: none; } }
 /* ปุ่มให้ AI ร่าง (ใบงาน / งานที่มอบหมาย) — ใหญ่และเด่นกว่าปุ่มทั่วไป ไล่สี brand → violet */
 .btn.btn-ai-draft { padding: 12px 22px; font-size: 15px; background: linear-gradient(135deg, var(--brand), var(--violet)); }
 .btn.btn-ai-draft .msi { font-size: 20px; }

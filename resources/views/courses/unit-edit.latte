@@ -183,7 +183,7 @@
             + เพิ่มส่วนเนื้อหา
         </button>
         {if $canDraft}
-            <button type="button" class="btn btn-ai" data-reveal="contentDraftForm" aria-expanded="false" aria-controls="contentDraftForm">
+            <button type="button" n:class="btn, btn-ai, !$sections ? is-needed" data-reveal="contentDraftForm" aria-expanded="false" aria-controls="contentDraftForm">
                 <span>✦</span> ให้ AI ช่วยร่างเนื้อหาของหน่วยนี้
             </button>
         {/if}
@@ -446,7 +446,7 @@
             </div>
             <a class="btn btn-sm" href="{$quizBase}/new?unit_id={$unit['id']}&kind={$kindKey}">+ สร้างเอง</a>
             {if $course['ai_quiz_enabled']}
-                <a class="btn btn-sm" href="{$quizBase}/create?unit_id={$unit['id']}&kind={$kindKey}">✦ สร้างด้วย AI</a>
+                <a n:class="btn, btn-sm, btn-ai, !$items ? is-needed" href="{$quizBase}/create?unit_id={$unit['id']}&kind={$kindKey}">✦ สร้างด้วย AI</a>
             {/if}
         </div>
         {foreach $items as $q}

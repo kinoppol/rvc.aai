@@ -11,6 +11,10 @@
     if (!btn || !area) return;
 
     var idle = status.textContent;
+    // ปุ่มเด่น (is-needed) เฉพาะตอนที่ช่องผลลัพธ์การเรียนรู้ยังว่าง
+    var mark = function () { btn.classList.toggle('is-needed', area.value.trim() === ''); };
+    area.addEventListener('input', mark);
+    mark();
     var val = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
 
     btn.addEventListener('click', function () {

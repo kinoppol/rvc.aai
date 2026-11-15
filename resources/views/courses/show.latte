@@ -78,7 +78,7 @@
                 <a class="btn" href="{$base}/courses/{$course['id']}/units/new?kind=midterm">+ หน่วยสอบกลางภาค</a>
                 <a class="btn" href="{$base}/courses/{$course['id']}/units/new?kind=final">+ หน่วยสอบปลายภาค</a>
                 {if $course['ai_lesson_plan_enabled']}
-                    <a class="btn" href="{$base}/courses/{$course['id']}/units/design">✦ ให้ AI ออกแบบรายชื่อหน่วย</a>
+                    <a n:class="btn, btn-ai, !$units ? is-needed" href="{$base}/courses/{$course['id']}/units/design">✦ ให้ AI ออกแบบรายชื่อหน่วย</a>
                 {/if}
             </div>
 
@@ -200,7 +200,7 @@
             <div class="list-actions">
                 <a class="btn" href="{$base}/courses/{$course['id']}/quizzes/new">+ สร้างแบบทดสอบเอง</a>
                 {if $course['ai_quiz_enabled']}
-                    <a class="btn" href="{$base}/courses/{$course['id']}/quizzes/create">✦ สร้างแบบทดสอบด้วย AI</a>
+                    <a n:class="btn, btn-ai, !$quizGroups ? is-needed" href="{$base}/courses/{$course['id']}/quizzes/create">✦ สร้างแบบทดสอบด้วย AI</a>
                 {/if}
             </div>
 

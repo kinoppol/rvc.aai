@@ -14,8 +14,21 @@
         total.textContent = n;
         total.classList.toggle('is-off', n !== 100);
         total.title = n === 100 ? 'ครบ 100 แล้ว' : 'ร้อยละรวมต้องเท่ากับ 100';
+        markNeeded(n);
+    }
+
+    // ปุ่ม "ให้ AI วิเคราะห์" เด่นเมื่อตารางยังไม่ครบ (มีแถวที่ยังว่างบางช่อง หรือร้อยละรวมไม่ใช่ 100)
+    function markNeeded(n) {
+        var btn = document.getElementById('bhDraft');
+        if (!btn) return;
+        var incomplete = Array.prototype.some.call(box.querySelectorAll('tbody tr'), function (row) {
+            return !row.querySelector('.bh-k input:checked')
+                || Array.prototype.some.call(row.querySelectorAll('select, .bh-weight'), function (el) { return el.value === ''; });
+        });
+        btn.classList.toggle('is-needed', incomplete || n !== 100);
     }
     box.addEventListener('input', function (e) { if (e.target.classList.contains('bh-weight')) sum(); });
+    box.addEventListener('change', sum);
     sum();
 
     if (!btn) return;

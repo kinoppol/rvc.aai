@@ -259,7 +259,7 @@
                 <textarea class="input" id="cClo" name="learning_outcomes" rows="4"
                           placeholder="ข้อละบรรทัด เช่น&#10;อธิบายหลักการ… ได้ถูกต้อง&#10;ปฏิบัติงาน… ได้ตามมาตรฐาน">{$course['learning_outcomes'] ?? ''}</textarea>
                 <div class="clo-ai">
-                    <button type="button" class="btn btn-sm" id="cloDraft"
+                    <button type="button" n:class="btn, btn-sm, btn-ai, trim($course['learning_outcomes'] ?? '') === '' ? is-needed" id="cloDraft"
                             data-url="{$base}/courses/draft-outcomes" data-token="{$csrf}">✦ ให้ AI สรุปจากคำอธิบาย จุดประสงค์ และสมรรถนะ</button>
                     <span class="hint" id="cloStatus">ผู้ช่วยร่างให้ แล้วครูแก้ไขต่อได้ก่อนบันทึก</span>
                 </div>
@@ -275,7 +275,7 @@
                             <div class="hint">ระดับความสามารถที่คาดหวังและร้อยละประเมินผลของแต่ละหน่วย · ร้อยละรวมกันต้องได้ 100</div>
                         </div>
                         {if $aiPlanEnabled && $behaviorUnits}
-                            <button type="button" class="btn btn-sm" id="bhDraft"
+                            <button type="button" class="btn btn-sm btn-ai" id="bhDraft"
                                     data-url="{$base}/courses/{$course['id']}/draft-behavior" data-token="{$csrf}">✦ ให้ AI วิเคราะห์</button>
                         {/if}
                     </div>
