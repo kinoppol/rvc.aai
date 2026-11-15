@@ -152,10 +152,7 @@ final class QuizWizardController
 
         // ฐานความรู้จากเนื้อหาจริงของหน่วย — PDF ถูกอ่านไว้ล่วงหน้าตอนอัปโหลด จึงไม่ช้า
         // ยาวเกินที่โมเดลรับไหวในรอบเดียว → แบ่งเป็นหลายรอบ (โมเดลใหญ่ได้รอบละมากกว่า จึงใช้รอบน้อยกว่า)
-        $budget = ModelBudget::chars($route);
-        $known = $this->knowledge->forUnits($params['unitIds'], (int) ($budget * min($params['count'], self::MAX_ROUNDS) * 0.85));
-        $rounds = ModelBudget::rounds(ModelBudget::split($known['text'], $budget), $params['count'], $budget)
-            ?: [['', $params['count']]];
+        [$known, $rounds, $budget] = $this->planRounds($params, $route);
 
         $jobId = $this->ai->createJob([
             'user_id' => (int) $user['id'],
@@ -219,49 +216,91 @@ final class QuizWizardController
     }
 
     /**
+     * วางแผนรอบออกข้อสอบ: [ฐานความรู้, รอบ [ก้อนเนื้อหา, จำนวนข้อ, หน่วย], งบตัวอักษรต่อรอบ]
+     * ข้อสอบกลางภาค/ปลายภาค (หลายหน่วย) → แบ่งจำนวนข้อให้ทุกหน่วยเท่า ๆ กัน (เศษกระจายห่าง ๆ)
+     * แล้วออกจากเนื้อหาของหน่วยนั้นเอง — หน่วยเนื้อหายาวจึงไม่กินข้อสอบของหน่วยอื่น
+     * แบบทดสอบหน่วยเดียว → แบ่งตามความยาวเนื้อหาเหมือนเดิม (หน่วย = 0)
+     *
+     * @return array{0:array<string,mixed>, 1:list<array{0:string,1:int,2:int}>, 2:int}
+     */
+    private function planRounds(array $params, AiRoute $route): array
+    {
+        $budget = ModelBudget::chars($route);
+        $count = (int) $params['count'];
+        $ids = $params['unitIds'];
+
+        if ($params['exam'] === null || count($ids) < 2) {
+            $known = $this->knowledge->forUnits($ids, (int) ($budget * min($count, self::MAX_ROUNDS) * 0.85));
+            $rounds = ModelBudget::rounds(ModelBudget::split($known['text'], $budget), $count, $budget) ?: [['', $count]];
+
+            return [$known, array_map(static fn (array $r): array => [$r[0], $r[1], 0], $rounds), $budget];
+        }
+
+        $n = count($ids);
+        $known = ['text' => '', 'units' => 0, 'pdf_ok' => 0, 'pdf_failed' => [], 'pdf_pending' => [], 'videos' => 0, 'trimmed' => false];
+        $rounds = [];
+        $shares = [];
+        foreach (array_values($ids) as $k => $unitId) {
+            // หน่วยที่ k ได้ floor((k+1)·N/n) − floor(k·N/n) ข้อ — รวมได้พอดี N และต่างกันไม่เกิน 1 ข้อ
+            $share = intdiv(($k + 1) * $count, $n) - intdiv($k * $count, $n);
+            $shares[] = $share;
+            if ($share < 1) {
+                continue;
+            }
+            $part = $this->knowledge->forUnits([$unitId], (int) ($budget * min(max(1, (int) ceil($share / self::PER_CALL)), 3) * 0.85));
+            $known['text'] .= ($known['text'] === '' ? '' : "\n\n") . $part['text'];
+            $known['units'] += $part['units'];
+            $known['pdf_ok'] += $part['pdf_ok'];
+            $known['pdf_failed'] = array_merge($known['pdf_failed'], $part['pdf_failed']);
+            $known['pdf_pending'] = array_merge($known['pdf_pending'], $part['pdf_pending'] ?? []);
+            $known['videos'] += $part['videos'];
+            $known['trimmed'] = $known['trimmed'] || $part['trimmed'];
+            foreach (ModelBudget::rounds(ModelBudget::split($part['text'], $budget), $share, $budget) ?: [['', $share]] as $r) {
+                $rounds[] = [$r[0], $r[1], (int) $unitId];
+            }
+        }
+        $known['split'] = min($shares) === max($shares)
+            ? sprintf('แบ่งข้อสอบเท่ากัน %d หน่วย หน่วยละ %d ข้อ', $n, $shares[0])
+            : sprintf('แบ่งข้อสอบเท่า ๆ กัน %d หน่วย หน่วยละ %d–%d ข้อ', $n, min($shares), max($shares));
+
+        return [$known, $rounds, $budget];
+    }
+
+    /**
      * ร่างข้อสอบทีละรอบตามก้อนเนื้อหา (ใช้ทั้ง stream() และ autoDraft())
      * ครูกดยกเลิก (ai_jobs.status = cancelled) → หยุดก่อนรอบ/ข้อถัดไป · รอบแรกล้มโดยยังไม่ได้สักข้อ → error
      * รอบหลังล้ม → เก็บข้อที่ได้ไว้แล้วทำรอบถัดไป
+     * ร่างครบทุกรอบแล้ว ตรวจจำนวนข้อของแต่ละหน่วย: ขาดเท่าไรสั่งออกเพิ่มจากเนื้อหาของหน่วยนั้นจนครบ
+     * (ส่งโจทย์ทุกข้อที่ได้แล้วไปห้ามซ้ำ และกรองข้อซ้ำอีกชั้น) แล้วตรวจยอดรวมอีกครั้ง
      *
-     * @param list<array{0:string,1:int}> $rounds
+     * @param list<array{0:string,1:int,2?:int}> $rounds [ก้อนเนื้อหา, จำนวนข้อ, หน่วย (0 = ไม่แยกหน่วย)]
      * @return array{questions:list<array<string,mixed>>, cancelled:bool, error:?string}
      */
     private function runRounds(AiRoute $route, array $course, array $params, string $quality, array $rounds, int $jobId, ?callable $send = null): array
     {
         $collected = [];
-        $short = [];
+        $byUnit = [];        // หน่วย => จำนวนข้อที่ได้แล้ว
         $cancelled = fn (): bool => ($this->ai->findJob($jobId)['status'] ?? '') === 'cancelled';
-        $stop = static fn (array $collected): array => ['questions' => $collected, 'cancelled' => true, 'error' => null];
+        $titleOf = array_combine(
+            array_map('intval', $params['unitIds']),
+            array_slice(array_pad($params['unitTitles'], count($params['unitIds']), ''), 0, count($params['unitIds']))
+        ) ?: [];
 
-        // ก้อนเนื้อหาที่ต้องออกหลายข้อ แบ่งเป็นครั้งละไม่เกิน PER_CALL ข้อ (ส่งโจทย์ที่ได้แล้วไปห้ามซ้ำทุกครั้ง)
-        $calls = [];
-        foreach ($rounds as [$chunk, $want]) {
-            for ($left = $want; $left > 0; $left -= self::PER_CALL) {
-                $calls[] = [$chunk, min($left, self::PER_CALL)];
-            }
-        }
-        $rounds = $calls;
-
-        foreach ($rounds as $i => [$chunk, $want]) {
-            if ($cancelled()) {
-                return $stop($collected);
-            }
-            if ($send !== null && count($rounds) > 1) {
-                $send('round', ['no' => $i + 1, 'of' => count($rounds), 'count' => $want]);
-            }
-
+        // สั่งโมเดลหนึ่งครั้ง: รับไม่เกิน $want ข้อที่ไม่ซ้ำ · คืนจำนวนที่ได้ หรือ null เมื่อครูยกเลิก
+        $ask = function (string $chunk, int $want, int $unit, bool $strict) use (&$collected, &$byUnit, $route, $course, $params, $quality, $cancelled, $send, $titleOf): ?int {
             $got = 0;
             try {
                 foreach ($this->generator->stream($route, [
                     'course_code' => $course['code'],
                     'course_name' => $course['name'],
-                    'lesson_titles' => $params['unitTitles'],
+                    // รอบของหน่วยเดียว → บอกชื่อหน่วยนั้น ไม่ให้โมเดลถามข้ามไปหน่วยอื่น
+                    'lesson_titles' => $unit > 0 && ($titleOf[$unit] ?? '') !== '' ? [$titleOf[$unit]] : $params['unitTitles'],
                     'count' => $want,
                     'types' => $params['types'],
                     'level' => $params['level'],
                     'source' => $chunk,
-                    // ข้อที่ได้จากรอบก่อน ๆ — กันถามซ้ำเมื่อเนื้อหาสองก้อนคาบเกี่ยวกัน
-                    'avoid' => self::avoidList($collected, 40, 100),
+                    // ข้อที่ได้แล้วทั้งหมด — กันถามซ้ำเมื่อเนื้อหาคาบเกี่ยวกัน และตอนสั่งออกเพิ่ม
+                    'avoid' => self::avoidList($collected, 60, 90),
                     // ตำแหน่งคำตอบของรอบก่อน ๆ — ให้ไม่ซ้ำติดกันเกิน 2 ข้อข้ามรอบด้วย
                     'avoid_correct' => array_values(array_map(
                         static fn (array $q): int => QuizGenerator::correctIndex($q['choices']),
@@ -269,10 +308,12 @@ final class QuizWizardController
                     )),
                 ], $quality) as $ev) {
                     if ($ev['event'] === 'question' && $cancelled()) {
-                        return $stop($collected);
+                        return null;
                     }
-                    if ($ev['event'] === 'question' && $got < $want && !self::isDuplicate($ev['data'], $collected)) {
+                    if ($ev['event'] === 'question' && $got < $want && count($collected) < (int) $params['count']
+                        && !self::isDuplicate($ev['data'], $collected)) {
                         $got++;
+                        $byUnit[$unit] = ($byUnit[$unit] ?? 0) + 1;
                         $ev['data']['no'] = count($collected) + 1;
                         $collected[] = $ev['data'];
                         if ($send !== null) {
@@ -282,63 +323,104 @@ final class QuizWizardController
                         throw new \RuntimeException($ev['message']);
                     }
                 }
+            } catch (\RuntimeException $e) {
+                if ($strict && $collected === []) {
+                    throw $e;
+                }
             } catch (Throwable $e) {
-                if ($collected === []) {
-                    return [
-                        'questions' => [],
-                        'cancelled' => false,
-                        'error' => $e instanceof \RuntimeException ? $e->getMessage() : 'ระบบขัดข้องระหว่างร่างข้อสอบ',
-                    ];
+                if ($strict && $collected === []) {
+                    throw new \RuntimeException('ระบบขัดข้องระหว่างร่างข้อสอบ', 0, $e);
                 }
             }
-            if ($got < $want) {
-                $short[] = $chunk;
+
+            return $got;
+        };
+        $stop = static fn (array $collected): array => ['questions' => $collected, 'cancelled' => true, 'error' => null];
+
+        // ก้อนเนื้อหาที่ต้องออกหลายข้อ แบ่งเป็นครั้งละไม่เกิน PER_CALL ข้อ · จำนวนข้อที่ต้องได้ของแต่ละหน่วย
+        $calls = [];
+        $need = [];
+        $chunksOf = [];
+        foreach ($rounds as $r) {
+            [$chunk, $want] = $r;
+            $unit = (int) ($r[2] ?? 0);
+            $need[$unit] = ($need[$unit] ?? 0) + $want;
+            $chunksOf[$unit][] = $chunk;
+            for ($left = $want; $left > 0; $left -= self::PER_CALL) {
+                $calls[] = [$chunk, min($left, self::PER_CALL), $unit];
             }
         }
 
-        // ตรวจหลังร่างเสร็จ: โมเดลมักหยุดก่อนครบ — สั่งออกเพิ่มเฉพาะส่วนที่ขาด โดยส่งโจทย์ทุกข้อที่ได้แล้วไปห้ามถามซ้ำ
-        // (ก้อนเนื้อหาที่ขาดก่อน แล้ววนก้อนอื่น · สูงสุด TOPUP_TRIES ครั้ง · ครั้งที่ไม่ได้ข้อใหม่เลยนับเป็นครั้งเสีย)
-        $target = (int) $params['count'];
-        $chunks = array_values(array_unique(array_merge($short, array_column($rounds, 0))));
-        $tries = self::TOPUP_TRIES + intdiv($target, 20);
-        for ($try = 0; $try < $tries && count($collected) < $target; $try++) {
+        $short = [];
+        foreach ($calls as $i => [$chunk, $want, $unit]) {
             if ($cancelled()) {
                 return $stop($collected);
             }
-            $missing = min($target - count($collected), self::PER_CALL);
-            if ($send !== null) {
-                $send('topup', ['missing' => $target - count($collected), 'try' => $try + 1, 'have' => count($collected)]);
+            if ($send !== null && count($calls) > 1) {
+                $send('round', ['no' => $i + 1, 'of' => count($calls), 'count' => $want, 'unit' => $titleOf[$unit] ?? '']);
             }
             try {
-                foreach ($this->generator->stream($route, [
-                    'course_code' => $course['code'],
-                    'course_name' => $course['name'],
-                    'lesson_titles' => $params['unitTitles'],
-                    'count' => $missing,
-                    'types' => $params['types'],
-                    'level' => $params['level'],
-                    'source' => $chunks === [] ? '' : $chunks[$try % count($chunks)],
-                    'avoid' => self::avoidList($collected, 60, 90),
-                    'avoid_correct' => array_values(array_map(
-                        static fn (array $q): int => QuizGenerator::correctIndex($q['choices']),
-                        array_filter($collected, static fn (array $q): bool => $q['type'] === 'choice')
-                    )),
-                ], $quality) as $ev) {
-                    if ($ev['event'] === 'question' && $cancelled()) {
-                        return $stop($collected);
-                    }
-                    if ($ev['event'] === 'question' && count($collected) < $target && !self::isDuplicate($ev['data'], $collected)) {
-                        $ev['data']['no'] = count($collected) + 1;
-                        $collected[] = $ev['data'];
-                        if ($send !== null) {
-                            $send('question', $ev['data']);
-                        }
-                    } elseif ($ev['event'] === 'error') {
-                        break;
-                    }
+                $got = $ask($chunk, $want, $unit, true);
+            } catch (\RuntimeException $e) {
+                return ['questions' => [], 'cancelled' => false, 'error' => $e->getMessage()];
+            }
+            if ($got === null) {
+                return $stop($collected);
+            }
+            if ($got < $want) {
+                $short[$unit][] = $chunk;   // ก้อนที่ออกไม่ครบ — เติมจากก้อนนี้ก่อน
+            }
+        }
+
+        // ตรวจหลังร่างเสร็จ: ขาดกี่ข้อในหน่วยไหน → ออกเพิ่มจากเนื้อหาของหน่วยนั้น (ไม่เกิน PER_CALL ข้อต่อครั้ง)
+        // หยุดเมื่อครบ หรือสั่งแล้วไม่ได้ข้อใหม่ติดกัน 2 ครั้ง (โมเดลออกได้แต่ข้อซ้ำ) / ครบจำนวนครั้งที่กำหนด
+        $target = (int) $params['count'];
+        $topup = function (int $unit, array $chunks, int $missing) use ($ask, $send, $cancelled, &$collected, $target, $titleOf): bool {
+            $chunks = array_values(array_unique($chunks)) ?: [''];
+            $tries = self::TOPUP_TRIES + (int) ceil($missing / self::PER_CALL);
+            $have = 0;
+            for ($try = 0, $stall = 0; $try < $tries && $stall < 2 && $have < $missing && count($collected) < $target; $try++) {
+                if ($cancelled()) {
+                    return false;
                 }
-            } catch (Throwable) {
-                // เติมไม่สำเร็จ — เก็บข้อที่ได้ไว้ ลองครั้งถัดไป
+                if ($send !== null) {
+                    $send('topup', [
+                        'missing' => $target - count($collected),
+                        'try' => $try + 1,
+                        'have' => count($collected),
+                        'unit' => $titleOf[$unit] ?? '',
+                        'unitMissing' => $missing - $have,
+                    ]);
+                }
+                $got = $ask($chunks[$try % count($chunks)], min($missing - $have, self::PER_CALL), $unit, false);
+                if ($got === null) {
+                    return false;
+                }
+                $have += $got;
+                $stall = $got > 0 ? 0 : $stall + 1;
+            }
+
+            return true;
+        };
+
+        foreach ($need as $unit => $want) {
+            $missing = $want - ($byUnit[$unit] ?? 0);
+            if ($missing > 0 && !$topup($unit, array_merge($short[$unit] ?? [], $chunksOf[$unit]), $missing)) {
+                return $stop($collected);
+            }
+        }
+
+        // หน่วยไหนเนื้อหาน้อยจนออกครบไม่ได้ → เติมยอดรวมที่ยังขาดจากหน่วยที่ได้น้อยที่สุดก่อน
+        if (count($collected) < $target && count($need) > 1) {
+            $order = array_keys($need);
+            usort($order, static fn (int $a, int $b): int => ($byUnit[$a] ?? 0) <=> ($byUnit[$b] ?? 0));
+            foreach ($order as $unit) {
+                if (count($collected) >= $target) {
+                    break;
+                }
+                if (!$topup($unit, $chunksOf[$unit], min($target - count($collected), (int) ceil($target / count($need))))) {
+                    return $stop($collected);
+                }
             }
         }
 
@@ -440,10 +522,7 @@ final class QuizWizardController
             return $this->json($response, ['ok' => false, 'stop' => true, 'error' => $e->getMessage()]);
         }
 
-        $budget = ModelBudget::chars($route);
-        $known = $this->knowledge->forUnits($params['unitIds'], (int) ($budget * min($params['count'], self::MAX_ROUNDS) * 0.85));
-        $rounds = ModelBudget::rounds(ModelBudget::split($known['text'], $budget), $params['count'], $budget)
-            ?: [['', $params['count']]];
+        [$known, $rounds, $budget] = $this->planRounds($params, $route);
 
         $jobId = $this->ai->createJob([
             'user_id' => (int) $user['id'],
@@ -1017,6 +1096,9 @@ final class QuizWizardController
         }
         if ($known['videos'] > 0) {
             $note .= ' · วีดิโอใช้แค่ชื่อเรื่อง';
+        }
+        if (($known['split'] ?? '') !== '') {
+            $note .= ' · ' . $known['split'];
         }
         if ($rounds > 1) {
             $note .= sprintf(' · แบ่งออกข้อสอบ %d รอบ (รอบละไม่เกิน %s ตัวอักษร ตามขนาดโมเดล)', $rounds, number_format($budget));
