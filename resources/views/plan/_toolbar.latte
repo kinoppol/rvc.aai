@@ -1,40 +1,85 @@
 {*
-  แถบเครื่องมือร่วมของหน้าพิมพ์แผนการสอน: พิมพ์ · เลือกแบบฟอร์ม · ส่วนที่จะพิมพ์ ($toggles: key => ป้าย) · แชร์ (เจ้าของ)
-  ตัวเลือกแบบฟอร์มส่ง ?format= (ดูได้ทุกคน ไม่บันทึก) · เจ้าของรายวิชากด "ตั้งเป็นแบบหลัก" เพื่อบันทึกลง courses.plan_format
+  แถบเครื่องมือร่วมของหน้าพิมพ์แผนการสอน — แถวเดียว: กลับ · ชื่อวิชา | แบบฟอร์ม · ส่วนที่พิมพ์ · แชร์ · คำแนะนำ · พิมพ์
+  ($toggles: key => ป้าย อยู่ในเมนู "ส่วนที่พิมพ์") · ตัวเลือกแบบฟอร์มส่ง ?format= (ดูได้ทุกคน ไม่บันทึก)
+  · เจ้าของรายวิชากด "ตั้งเป็นแบบหลัก" เพื่อบันทึกลง courses.plan_format · ข้อความแจ้งเตือน/แผงแชร์อยู่แถวที่สองเมื่อมี
 *}
-<div class="toolbar">
-    <button type="button" class="primary" onclick="window.print()">🖨 พิมพ์ / บันทึกเป็น PDF</button>
-    <form method="get" action="">
-        <label for="planFormat">แบบฟอร์ม</label>
-        <select id="planFormat" name="format" onchange="this.form.submit()">
-            {foreach $formats as $key => $label}
-                <option value="{$key}" selected="{$key === $format}">{$label}{if $key === $savedFormat} (แบบหลัก){/if}</option>
-            {/foreach}
-        </select>
-        <noscript><button type="submit">เปลี่ยน</button></noscript>
-    </form>
-    {if $owner && $formatReady && $format !== $savedFormat}
-        <form method="post" action="{$base}/courses/{$course['id']}/plan-format">
-            <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="format" value="{$format}">
-            <button type="submit" title="ใช้แบบฟอร์มนี้เมื่อเปิดพิมพ์แผนและในลิงก์แชร์">ตั้งเป็นแบบหลักของวิชานี้</button>
-        </form>
-    {/if}
-    {foreach $toggles as $key => $label}
-        <label><input type="checkbox" data-toggle="{$key}" checked> {$label}</label>
-    {/foreach}
-    {if $share}
-        <button type="button" id="shareToggle" aria-expanded="false" aria-controls="sharePanel">🔗 แชร์{if $share['url']} · เปิดอยู่{/if}</button>
-    {/if}
-    {if $reviewing}<span class="warn">ดูในฐานะผู้ตรวจแผน · แผนของ {$teacherName}</span>{/if}
-    {if $shared}
-        <span class="note">แผนการจัดการเรียนรู้ของ {$teacherName} · {$college} · เผยแพร่แบบอ่านอย่างเดียว</span>
-    {else}
-        <span class="note">คลิกที่ข้อความเพื่อแก้ไข/เติมข้อมูลก่อนพิมพ์ได้ — ข้อความที่แก้บนหน้านี้จะไม่ถูกบันทึกลงระบบ · ตั้งค่ากระดาษ A4 และปิด "ส่วนหัวและท้ายกระดาษ" ในหน้าต่างพิมพ์</span>
-    {/if}
-    <span class="warn" id="fontWarn" hidden>เครื่องนี้ไม่มีฟอนต์ TH Sarabun New จึงใช้ Sarabun แทน — ติดตั้งฟอนต์ หรือวางไฟล์ THSarabunNew.ttf ไว้ที่ assets/fonts/</span>
-    {if !$shared}
-        {foreach $flash as $message}<span n:class="flash, $message['type'] === 'error' ? flash-error">{$message['message']}</span>{/foreach}
-    {/if}
+{var $backUrl = $shared ? null : ($owner ? $base . '/courses/' . $course['id'] : $base . '/plans')}
+<header class="toolbar">
+    <div class="tb-row">
+        <div class="tb-title">
+            {if $backUrl}
+                <a class="tb-icon" href="{$backUrl}" title="{$owner ? 'กลับไปหน้ารายวิชา' : 'กลับไปหน้าตรวจแผน'}" aria-label="กลับ">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                </a>
+            {/if}
+            <div class="tb-name">
+                <b>{$course['code']} {$course['name']}</b>
+                <span>{if $shared}แผนของ {$teacherName} · อ่านอย่างเดียว{elseif $reviewing}ดูในฐานะผู้ตรวจแผน · {$teacherName}{else}แผนการจัดการเรียนรู้{/if}</span>
+            </div>
+        </div>
+
+        <div class="tb-actions">
+            <form method="get" action="" class="tb-format">
+                <select id="planFormat" name="format" onchange="this.form.submit()" aria-label="แบบฟอร์มแผนการจัดการเรียนรู้">
+                    {foreach $formats as $key => $label}
+                        <option value="{$key}" selected="{$key === $format}">{$label}{if $key === $savedFormat} · แบบหลัก{/if}</option>
+                    {/foreach}
+                </select>
+                <noscript><button type="submit" class="tb-btn">เปลี่ยน</button></noscript>
+            </form>
+            {if $owner && $formatReady && $format !== $savedFormat}
+                <form method="post" action="{$base}/courses/{$course['id']}/plan-format">
+                    <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="format" value="{$format}">
+                    <button type="submit" class="tb-btn tb-link" title="ใช้แบบฟอร์มนี้เมื่อเปิดพิมพ์แผนและในลิงก์แชร์">ตั้งเป็นแบบหลัก</button>
+                </form>
+            {/if}
+
+            <details class="tb-menu">
+                <summary class="tb-btn">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+                    ส่วนที่พิมพ์ <span class="tb-count" id="tbCount">{count($toggles)}/{count($toggles)}</span>
+                </summary>
+                <div class="tb-pop">
+                    {foreach $toggles as $key => $label}
+                        <label class="tb-check"><input type="checkbox" data-toggle="{$key}" checked> {$label}</label>
+                    {/foreach}
+                </div>
+            </details>
+
+            {if $share}
+                <button type="button" class="tb-btn" id="shareToggle" aria-expanded="false" aria-controls="sharePanel">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg>
+                    แชร์{if $share['url']}<i class="tb-dot" title="ลิงก์แชร์เปิดอยู่"></i>{/if}
+                </button>
+            {/if}
+
+            <details class="tb-menu">
+                <summary class="tb-icon" title="คำแนะนำ" aria-label="คำแนะนำ">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+                </summary>
+                <div class="tb-pop tb-help">
+                    {if $shared}
+                        <p>แผนการจัดการเรียนรู้ของ {$teacherName} · {$college} เผยแพร่แบบอ่านอย่างเดียว</p>
+                    {else}
+                        <p>คลิกที่ข้อความบนหน้าเพื่อแก้ไขหรือเติมข้อมูลก่อนพิมพ์ได้ — ข้อความที่แก้บนหน้านี้ไม่ถูกบันทึกลงระบบ</p>
+                    {/if}
+                    <p>ในหน้าต่างพิมพ์ ตั้งกระดาษ A4 และปิด “ส่วนหัวและท้ายกระดาษ”</p>
+                </div>
+            </details>
+
+            <button type="button" class="tb-btn tb-primary" onclick="window.print()">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z"/></svg>
+                พิมพ์ / PDF
+            </button>
+        </div>
+    </div>
+
+    <div class="tb-notes">
+        <span class="warn" id="fontWarn" hidden>เครื่องนี้ไม่มีฟอนต์ TH Sarabun New จึงใช้ Sarabun แทน — ติดตั้งฟอนต์ หรือวางไฟล์ THSarabunNew.ttf ไว้ที่ assets/fonts/</span>
+        {if !$shared}
+            {foreach $flash as $message}<span n:class="flash, $message['type'] === 'error' ? flash-error">{$message['message']}</span>{/foreach}
+        {/if}
+    </div>
 
     {* แผงลิงก์แชร์ (เฉพาะเจ้าของรายวิชา) — ข้อความที่แก้บนหน้านี้ไม่ไปถึงลิงก์ เพราะลิงก์แสดงข้อมูลจากระบบเสมอ *}
     {if $share}
@@ -43,17 +88,17 @@
                 <p><b>ลิงก์แชร์แผนการสอน (อ่านอย่างเดียว)</b> — ใครที่มีลิงก์นี้เปิดอ่านและพิมพ์แผนได้โดยไม่ต้องเข้าสู่ระบบ แต่แก้ไขไม่ได้ · แผนที่แชร์อัปเดตตามข้อมูลในระบบเสมอ และใช้แบบฟอร์มหลักของวิชา</p>
                 <div class="share-row">
                     <input type="text" id="shareUrl" value="{$share['url']}" readonly>
-                    <button type="button" class="primary" id="shareCopy">คัดลอกลิงก์</button>
-                    <a href="{$share['url']}" target="_blank" rel="noopener">เปิดดู</a>
+                    <button type="button" class="tb-btn tb-primary" id="shareCopy">คัดลอกลิงก์</button>
+                    <a class="tb-btn" href="{$share['url']}" target="_blank" rel="noopener">เปิดดู</a>
                 </div>
                 <div class="share-row">
                     <form method="post" action="{$base}/courses/{$course['id']}/plan-share" onsubmit="return confirm('สร้างลิงก์ใหม่? ลิงก์เดิมที่ส่งต่อไปแล้วจะใช้ไม่ได้อีก')">
                         <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="regenerate">
-                        <button type="submit">สร้างลิงก์ใหม่</button>
+                        <button type="submit" class="tb-btn">สร้างลิงก์ใหม่</button>
                     </form>
                     <form method="post" action="{$base}/courses/{$course['id']}/plan-share" onsubmit="return confirm('ปิดลิงก์แชร์? คนที่มีลิงก์จะเปิดแผนนี้ไม่ได้อีก')">
                         <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="revoke">
-                        <button type="submit" class="danger">ปิดการแชร์</button>
+                        <button type="submit" class="tb-btn tb-danger">ปิดการแชร์</button>
                     </form>
                 </div>
             {else}
@@ -61,9 +106,9 @@
                 <p class="muted">แผนที่แชร์รวมบันทึกหลังการจัดการเรียนรู้และชื่อผู้ลงนามด้วย ตรวจสอบก่อนเผยแพร่</p>
                 <form method="post" action="{$base}/courses/{$course['id']}/plan-share">
                     <input type="hidden" name="_token" value="{$csrf}"><input type="hidden" name="do" value="create">
-                    <button type="submit" class="primary">สร้างลิงก์แชร์</button>
+                    <button type="submit" class="tb-btn tb-primary">สร้างลิงก์แชร์</button>
                 </form>
             {/if}
         </div>
     {/if}
-</div>
+</header>

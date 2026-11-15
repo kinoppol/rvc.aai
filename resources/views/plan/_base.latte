@@ -35,27 +35,69 @@
             color: #000;
         }
         body.fallback { font-size: 12.5pt; } /* Sarabun จาก Google ตัวใหญ่กว่า TH Sarabun New */
+        /* แถบเครื่องมือ (ไม่พิมพ์) — แถวเดียว เรียบ กระชับ */
         .toolbar {
             position: sticky; top: 0; z-index: 10;
-            display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-            padding: 10px 16px; background: #fff; border-bottom: 1px solid #ccc;
-            font-family: 'Sarabun', sans-serif; font-size: 14px;
+            background: rgba(255,255,255,.92); backdrop-filter: saturate(1.4) blur(10px);
+            border-bottom: 1px solid #e6e6ea; box-shadow: 0 1px 12px rgba(20,20,40,.05);
+            font-family: 'Sarabun', sans-serif; font-size: 14px; color: #1d1d27; line-height: 1.4;
         }
-        .toolbar button, .toolbar select { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #999; background: #fff; cursor: pointer; }
-        .toolbar select { padding: 6px 8px; max-width: 100%; }
+        .tb-row { display: flex; align-items: center; gap: 16px; max-width: 1180px; margin: 0 auto; padding: 10px 20px; }
+        .tb-title { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto; }
+        .tb-name { display: flex; flex-direction: column; min-width: 0; }
+        .tb-name b { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tb-name span { font-size: 12.5px; color: #6b6b78; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tb-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
         .toolbar form { margin: 0; display: inline-flex; gap: 6px; align-items: center; }
-        .toolbar button.primary { background: #6366F1; border-color: #6366F1; color: #fff; }
-        .toolbar .note { color: #555; flex: 1 1 260px; }
+        .toolbar svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+        .tb-btn, .tb-format select {
+            display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px;
+            font: inherit; font-size: 13.5px; color: #1d1d27; text-decoration: none; white-space: nowrap;
+            background: #fff; border: 1px solid #dcdce3; border-radius: 9px; cursor: pointer;
+            transition: border-color .15s, background .15s;
+        }
+        .tb-btn:hover, .tb-format select:hover { border-color: #b9b9c6; background: #fafafc; }
+        .tb-format select { padding: 0 30px 0 12px; max-width: 300px; appearance: none;
+            background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6b78' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center / 14px; }
+        .tb-link { border-color: transparent; background: transparent; color: #4f46e5; padding: 0 8px; }
+        .tb-link:hover { background: #f1f0ff; border-color: transparent; }
+        .tb-primary { background: #1d1d27; border-color: #1d1d27; color: #fff; }
+        .tb-primary:hover { background: #33333f; border-color: #33333f; }
+        .tb-danger { color: #b42318; }
+        .tb-icon { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; color: #4a4a57; cursor: pointer; text-decoration: none; }
+        .tb-icon:hover { background: #f1f1f5; color: #1d1d27; }
+        .tb-icon svg { width: 18px; height: 18px; }
+        .tb-count { font-size: 12px; color: #6b6b78; background: #f1f1f5; border-radius: 6px; padding: 0 6px; }
+        .tb-dot { width: 7px; height: 7px; border-radius: 50%; background: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.15); }
+        .tb-menu { position: relative; }
+        .tb-menu summary { list-style: none; }
+        .tb-menu summary::-webkit-details-marker { display: none; }
+        .tb-menu[open] > summary { border-color: #b9b9c6; background: #f6f6f9; }
+        .tb-pop {
+            position: absolute; right: 0; top: calc(100% + 8px); z-index: 20; min-width: 260px; padding: 8px;
+            background: #fff; border: 1px solid #e6e6ea; border-radius: 12px; box-shadow: 0 12px 32px rgba(20,20,40,.14);
+        }
+        .tb-check { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+        .tb-check:hover { background: #f6f6f9; }
+        .tb-check input { margin-top: 3px; accent-color: #1d1d27; }
+        .tb-help { width: 300px; padding: 12px 14px; color: #4a4a57; font-size: 13px; }
+        .tb-help p + p { margin-top: 8px; }
+        .tb-notes { max-width: 1180px; margin: 0 auto; padding: 0 20px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; }
+        .tb-notes:has(> :not([hidden])) { padding-bottom: 8px; }
         .toolbar .warn { color: #a15c00; }
-        .toolbar button.danger { border-color: #c0392b; color: #c0392b; }
         .toolbar .flash { color: #146c2e; font-weight: 700; }
-        .toolbar .flash-error { color: #c0392b; }
-        .share-panel { flex: 1 1 100%; padding: 10px 12px; border: 1px solid #d6d6f5; border-radius: 8px; background: #f6f6ff; }
-        .share-panel p { margin: 0 0 8px; }
+        .toolbar .flash-error { color: #b42318; }
+        .share-panel { max-width: 1140px; margin: 0 auto 12px; padding: 14px 16px; border: 1px solid #e6e6ea; border-radius: 12px; background: #fafafc; }
+        .share-panel p { margin: 0 0 10px; }
         .share-panel .muted { font-size: 13px; }
         .share-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
         .share-row + .share-row { margin-top: 8px; }
-        .share-row input { flex: 1 1 320px; min-width: 0; font: inherit; padding: 6px 8px; border: 1px solid #999; border-radius: 6px; }
+        .share-row input { flex: 1 1 320px; min-width: 0; height: 34px; font: inherit; padding: 0 10px; border: 1px solid #dcdce3; border-radius: 9px; background: #fff; }
+        @media screen and (max-width: 860px) {
+            .tb-row { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
+            .tb-actions { flex-wrap: wrap; width: 100%; }
+            .tb-format select { max-width: 200px; }
+        }
         .sheet {
             width: 21cm; min-height: 29.7cm; margin: 16px auto; padding: 2.5cm 2cm 2cm 3cm;
             background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.15);

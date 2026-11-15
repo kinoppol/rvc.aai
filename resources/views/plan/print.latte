@@ -23,7 +23,7 @@
 </head>
 <body>
 {* ส่ง $teacherName ไปเอง — ตัวแปร {var} ในไฟล์นี้ไม่ตามเข้าไปในไฟล์ที่ include *}
-{include '_toolbar.latte', toggles: ['front' => 'พิมพ์ส่วนหน้า (ปก ลักษณะรายวิชา ตารางหน่วย)'], teacherName: $teacherName}
+{include '_toolbar.latte', toggles: ['front' => 'ส่วนหน้า (ปก ลักษณะรายวิชา ตารางหน่วย)'], teacherName: $teacherName}
 
 {* ───────── ปก ───────── *}
 <section class="sheet cover front"{if !$shared} contenteditable="true"{/if}>

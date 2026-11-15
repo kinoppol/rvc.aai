@@ -1,11 +1,30 @@
 {* สคริปต์ร่วมของหน้าพิมพ์แผนการสอน: ซ่อน/แสดงส่วนที่จะพิมพ์ แผงแชร์ คัดลอกลิงก์ และตรวจฟอนต์ *}
 <script>
 (function () {
-    // ช่องติ๊ก data-toggle="front|know|work" → body.no-front / no-know / no-work
-    document.querySelectorAll('[data-toggle]').forEach(function (box) {
+    // ช่องติ๊ก data-toggle="front|know|work" → body.no-front / no-know / no-work · ป้าย x/y บนปุ่ม "ส่วนที่พิมพ์"
+    var toggles = document.querySelectorAll('[data-toggle]');
+    var count = document.getElementById('tbCount');
+    toggles.forEach(function (box) {
         box.addEventListener('change', function () {
             document.body.classList.toggle('no-' + box.getAttribute('data-toggle'), !box.checked);
+            if (count) {
+                count.textContent = Array.prototype.filter.call(toggles, function (b) { return b.checked; }).length + '/' + toggles.length;
+            }
         });
+    });
+
+    // เมนูแบบ <details> ในแถบเครื่องมือ: เปิดได้ทีละอัน ปิดเมื่อคลิกนอกเมนูหรือกด Esc
+    var menus = document.querySelectorAll('.tb-menu');
+    menus.forEach(function (m) {
+        m.addEventListener('toggle', function () {
+            if (m.open) menus.forEach(function (o) { if (o !== m) o.open = false; });
+        });
+    });
+    document.addEventListener('click', function (e) {
+        menus.forEach(function (m) { if (m.open && !m.contains(e.target)) m.open = false; });
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') menus.forEach(function (m) { m.open = false; });
     });
 
     // แผงลิงก์แชร์: เปิด/ปิดด้วยปุ่ม และเปิดเองเมื่อกลับมาจากการสร้าง/ปิดลิงก์ (#share)
