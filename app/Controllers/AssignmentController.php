@@ -275,6 +275,97 @@ final class AssignmentController
         return $this->backToForm($response, $course, $unit, $args['id'] ?? null, $isTask);
     }
 
+    /**
+     * ร่างใบงานของทุกหน่วยจากแท็บใบงาน: หน้าเว็บเรียกทีละหน่วย (public/assets/js/worksheets-autodraft.js)
+     * พร้อมสิ่งที่ครูสั่งเพิ่มเติมครั้งเดียว · หน่วยที่มีใบงานแล้ว/หน่วยสอบข้าม
+     * หน่วยที่เผยแพร่อยู่กลับเป็นฉบับร่าง ให้ครูตรวจใบงานก่อนนักเรียนเห็น · ตอบ JSON
+     */
+    public function autoDraft(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [$course, $unit] = $this->context($request, $args);
+        $data = (array) $request->getParsedBody();
+
+        if (!Csrf::check($data['_token'] ?? null)) {
+            return $this->json($response, ['ok' => false, 'stop' => true, 'error' => 'เซสชันหมดอายุ กรุณารีเฟรชหน้าแล้วลองใหม่'], 419);
+        }
+        if ((int) ($course['ai_lesson_plan_enabled'] ?? 1) !== 1) {
+            return $this->json($response, ['ok' => false, 'stop' => true, 'error' => 'ผู้ดูแลระบบปิดฟังก์ชัน AI ของรายวิชานี้ไว้'], 403);
+        }
+        if (UnitRepository::isExam($unit)) {
+            return $this->json($response, ['ok' => true, 'skipped' => 'exam']);
+        }
+        if ($this->assignments->forUnit((int) $unit['id']) !== []) {
+            return $this->json($response, ['ok' => true, 'skipped' => 'has_worksheet']);
+        }
+
+        // งานยาว — ทำต่อแม้ปิดหน้า (Drafter ปลดล็อก session ระหว่างรอเอง)
+        ignore_user_abort(true);
+        @set_time_limit(0);
+
+        $maxScore = max(1, min(999, (float) ($data['max_score'] ?? 10)));
+        try {
+            $objects = $this->drafter->objects((int) $user['id'],
+                'คุณเป็นผู้ช่วยครูอาชีวศึกษา ออกแบบใบงานภาษาไทยที่สั่งงานเป็นรูปธรรม ตอบกลับเป็น JSON อ็อบเจกต์เดียว', [
+                    'task' => 'assignment',
+                    'course_code' => $course['code'],
+                    'course_name' => $course['name'],
+                    'unit' => $unit['title'],
+                    'key_content' => $unit['key_content'] ?? '',
+                    'max_score' => $maxScore,
+                    'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000),
+                ], 3, (string) ($data['ai'] ?? ''));
+            $draft = $this->firstWithTitle($objects);
+        } catch (AiUnavailableException $e) {
+            // AI ใช้ไม่ได้ (โควตาหมด/เครื่องปิด/คีย์ผิด) — หน่วยถัดไปก็จะไม่ได้เหมือนกัน หยุดทั้งชุด
+            return $this->json($response, ['ok' => false, 'stop' => true, 'error' => $e->getMessage()]);
+        } catch (Throwable $e) {
+            $this->logger->error('ร่างใบงานทุกหน่วย: หน่วยนี้ไม่สำเร็จ: ' . $e->getMessage(), ['unit_id' => (int) $unit['id']]);
+
+            return $this->json($response, ['ok' => false, 'error' => 'ผู้ช่วยร่างใบงานหน่วยนี้ไม่สำเร็จ']);
+        }
+        if ($draft === null) {
+            return $this->json($response, ['ok' => false, 'error' => 'ผู้ช่วยไม่ได้ร่างใบงานออกมา']);
+        }
+
+        // ระหว่างรอ AI อาจมีคนเพิ่มใบงานไปแล้ว (เปิดสองแท็บ) — ไม่สร้างซ้ำ
+        if ($this->assignments->forUnit((int) $unit['id']) !== []) {
+            return $this->json($response, ['ok' => true, 'skipped' => 'has_worksheet']);
+        }
+        $title = mb_substr(trim((string) $draft['title']), 0, 191);
+        $id = $this->assignments->create([
+            'title' => $title,
+            'description' => $this->describe($draft) ?: null,
+            'due_at' => null,
+            'max_score' => $maxScore,
+            'allow_late' => 0,
+            'course_id' => (int) $course['id'],
+            'unit_id' => (int) $unit['id'],
+            'kind' => 'worksheet',
+            'created_by' => (int) $user['id'],
+        ]);
+        $unpublished = ($unit['review_status'] ?? '') === 'published';
+        if ($unpublished) {
+            $this->units->update((int) $unit['id'], ['review_status' => 'draft']);
+        }
+        $this->auth->log('ai.assignment.auto', 'assignment#' . $id, ['unit' => (int) $unit['id']]);
+
+        return $this->json($response, [
+            'ok' => true,
+            'title' => $title,
+            'unpublished' => $unpublished,
+            'editUrl' => Url::to('/courses/' . $course['id'] . '/units/' . $unit['id'] . '/assignments/' . $id . '/edit'),
+        ]);
+    }
+
+    /** @param array<string,mixed> $body */
+    private function json(Response $response, array $body, int $status = 200): Response
+    {
+        $response->getBody()->write((string) json_encode($body, JSON_UNESCAPED_UNICODE));
+
+        return $response->withHeader('Content-Type', 'application/json; charset=utf-8')->withStatus($status);
+    }
+
     /** รวมส่วนต่าง ๆ ที่ผู้ช่วยร่างมาให้เป็นข้อความใบงานที่ครูอ่านและแก้ต่อได้ */
     private function describe(array $draft): string
     {

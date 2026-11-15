@@ -174,6 +174,7 @@ return static function (App $app): void {
             $t->get('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments/new', [AssignmentController::class, 'edit']);
             $t->post('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments', [AssignmentController::class, 'save']);
             $t->post('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments/draft', [AssignmentController::class, 'draft']);
+            $t->post('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments/auto', [AssignmentController::class, 'autoDraft']);
             $t->get('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments/{id:[0-9]+}/edit', [AssignmentController::class, 'edit']);
             $t->post('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments/{id:[0-9]+}', [AssignmentController::class, 'save']);
             $t->post('/{courseId:[0-9]+}/units/{unitId:[0-9]+}/assignments/{id:[0-9]+}/draft', [AssignmentController::class, 'draft']);

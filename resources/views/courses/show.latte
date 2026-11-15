@@ -335,6 +335,62 @@
                 </form>
             {/if}
 
+            {* ร่างใบงานทุกหน่วย: ครูสั่งเพิ่มเติมครั้งเดียว ผู้ช่วยร่างทีละหน่วยจนครบ (worksheets-autodraft.js)
+               หน่วยที่มีใบงานแล้ว/หน่วยสอบข้าม · หน่วยที่เผยแพร่อยู่กลับเป็นฉบับร่างให้ครูตรวจและเผยแพร่เอง *}
+            {var $wsQueue = []}
+            {foreach $lessonUnits as $u}
+                {if (int) $u['has_assignment'] === 0}{do $wsQueue[] = ['id' => $u['id'], 'label' => 'หน่วยที่ ' . $iterator->counter . ' · ' . $u['title']]}{/if}
+            {/foreach}
+            {if ($course['ai_lesson_plan_enabled'] ?? 1) && $wsQueue}
+                <form class="card autodraft" id="wsAutoDraft" data-url="{$base}/courses/{$course['id']}/units/" onsubmit="return false">
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <div class="autodraft-head">
+                        <span class="msi autodraft-icon" aria-hidden="true">auto_awesome</span>
+                        <div class="autodraft-text">
+                            <h3>ให้ผู้ช่วย AI ร่างใบงานทุกหน่วย</h3>
+                            <div class="card-sub">
+                                บอกสิ่งที่อยากให้มีในใบงานครั้งเดียว ผู้ช่วยจะร่างหน่วยละหนึ่งใบงานไปเรื่อย ๆ จนครบ จากสาระสำคัญของแต่ละหน่วย
+                                · หน่วยที่มีใบงานแล้วและหน่วยสอบจะข้ามไป · หน่วยที่เผยแพร่อยู่จะกลับเป็น <b>ฉบับร่าง</b>
+                                ให้คุณเปิดตรวจใบงานแล้วกดเผยแพร่หน่วยเอง · เปิดหน้านี้ค้างไว้จนเสร็จ
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="qad-settings">
+                        <fieldset style="flex: 1 1 360px">
+                            <legend>สั่งเพิ่มเติม (ไม่บังคับ · ใช้กับทุกหน่วย)</legend>
+                            <textarea class="input note-input" name="note" maxlength="2000" rows="3"
+                                placeholder="เช่น เน้นงานปฏิบัติจริงในห้องปฏิบัติการ ทำเป็นกลุ่ม 3–4 คน มีตารางบันทึกผล และเกณฑ์ให้คะแนนแบบรูบริก"></textarea>
+                        </fieldset>
+                        <fieldset>
+                            <legend>คะแนนเต็มต่อใบงาน</legend>
+                            <select class="input" name="max_score" aria-label="คะแนนเต็มต่อใบงาน">
+                                {foreach [5, 10, 15, 20] as $n}<option value="{$n}" n:attr="selected: $n === 10">{$n} คะแนน</option>{/foreach}
+                            </select>
+                        </fieldset>
+                    </div>
+
+                    <ul class="qad-queue">
+                        {foreach $wsQueue as $job}
+                            <li data-unit="{$job['id']}">
+                                <span class="qad-label">{$job['label']}</span>
+                                <span class="autodraft-state">รอร่าง</span>
+                            </li>
+                        {/foreach}
+                    </ul>
+
+                    <div class="autodraft-head qad-actions">
+                        <button type="button" class="btn btn-ai is-needed" id="wsAutoStart">✦ ร่างใบงานทุกหน่วย (<span id="wsAutoCount">{count($wsQueue)}</span> หน่วย)</button>
+                        <button type="button" class="btn" id="wsAutoStop" hidden>หยุดหลังหน่วยนี้</button>
+                    </div>
+                    <div class="autodraft-progress" hidden>
+                        <div class="bar"><span id="wsAutoBar" style="width: 0%"></span></div>
+                        <div class="hint" id="wsAutoStatus" aria-live="polite"></div>
+                    </div>
+                </form>
+                <script src="{$base}/assets/js/worksheets-autodraft.js?v={$assetVer ?? 1}" defer></script>
+            {/if}
+
         {elseif $tab === 'tasks'}
             {* งานที่ครูมอบหมายเพิ่มเติมนอกเหนือจากใบงานของหน่วย เช่น รายงาน โครงงาน งานค้นคว้า *}
             <div class="list">
