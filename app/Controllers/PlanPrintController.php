@@ -53,7 +53,7 @@ final class PlanPrintController
             throw new HttpForbiddenException($request, 'คุณไม่ได้เป็นผู้สอนรายวิชานี้');
         }
 
-        // ลิงก์แชร์ (เฉพาะเจ้าของ) · ก่อนรัน migration 000132 คอลัมน์ยังไม่มี = ซ่อนปุ่มแชร์
+        // ลิงก์แชร์ (เฉพาะเจ้าของ) · ก่อนรัน migration 000133 คอลัมน์ยังไม่มี = ซ่อนปุ่มแชร์
         $share = null;
         if ($owner && array_key_exists('plan_share_token', $course)) {
             $token = (string) ($course['plan_share_token'] ?? '');
@@ -75,7 +75,7 @@ final class PlanPrintController
             try {
                 $id = $this->db->value('SELECT id FROM {courses} WHERE plan_share_token = ?', [$token]);
             } catch (\PDOException) {
-                $id = null; // ยังไม่ได้รัน migration 000132
+                $id = null; // ยังไม่ได้รัน migration 000133
             }
         }
         $course = $id !== null && $id !== false ? $this->courses->find((int) $id) : null;
