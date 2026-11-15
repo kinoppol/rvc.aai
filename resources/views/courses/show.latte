@@ -61,12 +61,13 @@
             <div class="list">
                 {foreach $units as $u}
                     {* หน่วยที่นักเรียนยังมองไม่เห็น (ร่าง/รอตรวจ) แสดงแบบจาง · หน่วยที่เผยแพร่แล้วเด่นกว่า *}
-                    <div n:class="list-row, $u['review_status'] === 'published' ? is-published : is-draft, $u['is_exam'] ? is-exam">
+                    <div n:class="list-row, $u['review_status'] === 'published' ? is-published : is-draft, $u['is_exam'] ? is-exam" data-unit="{$u['id']}">
                         <div class="list-no">{$u['no']}</div>
                         <div class="list-main">
                             <div class="list-title">{$u['title']}</div>
                             <div class="list-meta">{$u['meta']}</div>
                         </div>
+                        <span class="autodraft-state" hidden></span>
                         <span class="tag tag-{$u['tag_kind']}">{$u['tag']}</span>
                         <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/units/{$u['id']}/edit">เปิดดู</a>
                     </div>
@@ -81,6 +82,34 @@
                     <a n:class="btn, btn-ai, !$units ? is-needed" href="{$base}/courses/{$course['id']}/units/design">✦ ให้ AI ออกแบบรายชื่อหน่วย</a>
                 {/if}
             </div>
+
+            {* ร่างเนื้อหาทุกหน่วยที่ยังว่าง: ผู้ช่วยทำทีละหน่วยจนครบ (units-autodraft.js) · หน่วยที่มีเนื้อหาแล้ว/หน่วยสอบข้าม *}
+            {var $emptyUnits = []}
+            {foreach $units as $u}{if !$u['is_exam'] && !(int) $u['section_count']}{do $emptyUnits[] = (int) $u['id']}{/if}{/foreach}
+            {if $course['ai_lesson_plan_enabled'] && $emptyUnits}
+                <div class="card autodraft" id="autoDraft"
+                     data-url="{$base}/courses/{$course['id']}/units/" data-token="{$csrf}"
+                     data-units="{implode(',', $emptyUnits)}">
+                    <div class="autodraft-head">
+                        <span class="msi autodraft-icon" aria-hidden="true">auto_awesome</span>
+                        <div class="autodraft-text">
+                            <h3>ให้ผู้ช่วย AI ร่างเนื้อหาทุกหน่วยที่ยังว่าง</h3>
+                            <div class="card-sub">
+                                ยังไม่มีเนื้อหา {count($emptyUnits)} หน่วย — ผู้ช่วยจะร่างทีละหน่วยไปเรื่อย ๆ จนครบ (หน่วยละประมาณ 20–90 วินาที)
+                                หน่วยที่มีเนื้อหาแล้วและหน่วยสอบจะข้ามไป · ทุกหน่วยที่ร่างจะเป็น <b>ฉบับร่าง</b>
+                                นักเรียนยังไม่เห็นจนกว่าคุณจะเปิดตรวจแล้วกด "เผยแพร่" เอง · เปิดหน้านี้ค้างไว้จนเสร็จ
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-ai is-needed" id="autoDraftStart">✦ ร่างเนื้อหาทุกหน่วย ({count($emptyUnits)})</button>
+                        <button type="button" class="btn" id="autoDraftStop" hidden>หยุดหลังหน่วยนี้</button>
+                    </div>
+                    <div class="autodraft-progress" hidden>
+                        <div class="bar"><span id="autoDraftBar" style="width: 0%"></span></div>
+                        <div class="hint" id="autoDraftStatus" aria-live="polite"></div>
+                    </div>
+                </div>
+                <script src="{$base}/assets/js/units-autodraft.js?v={$assetVer ?? 1}" defer></script>
+            {/if}
 
         {elseif $tab === 'feed'}
             {* ประกาศข่าวสารถึงนักเรียนทั้งรายวิชา (CourseFeedController) · นักเรียนเห็นที่หน้า /learn/{id} · ข้อความถึงรายคนอยู่ที่ /messages *}

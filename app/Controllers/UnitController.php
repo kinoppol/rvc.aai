@@ -554,28 +554,13 @@ final class UnitController
 
         // ค่าเริ่มต้น "auto" = ให้ผู้ช่วยแบ่งหัวข้อเองตามเนื้อหา (0 ในสเปก) · ตัวเลขคือครูกำหนดเอง
         $count = ($data['count'] ?? 'auto') === 'auto' ? 0 : max(2, min(10, (int) $data['count']));
-        $existing = array_map(
-            static fn (array $s): string => (string) $s['title'],
-            $this->units->sectionsFor((int) $unit['id'])
-        );
-
         try {
-            $objects = $this->drafter->objects(
+            $sections = $this->draftSections(
                 (int) $user['id'],
-                'คุณเป็นผู้ช่วยครูอาชีวศึกษา เขียนเนื้อหาบทเรียนภาษาไทยที่ใช้สอนได้จริง '
-                    . 'ตอบกลับเป็น NDJSON หนึ่งหัวข้อต่อหนึ่งบรรทัด',
-                [
-                    'task' => 'unit_content',
-                    'course_code' => $course['code'],
-                    'course_name' => $course['name'],
-                    'unit' => $unit['title'],
-                    'key_content' => $unit['key_content'],
-                    'objectives' => $unit['objectives'],
-                    'existing' => $existing,
-                    'count' => $count,
-                    'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000),
-                ],
-                $count ?: 10,
+                $course,
+                $unit,
+                $count,
+                mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000),
                 (string) ($data['ai'] ?? '')
             );
         } catch (AiUnavailableException $e) {
@@ -591,19 +576,6 @@ final class UnitController
             return $this->redirectToUnit($response, (int) $course['id'], (int) $unit['id']);
         }
 
-        $sections = [];
-        foreach ($objects as $obj) {
-            $content = Drafter::text($obj['content'] ?? '');
-            if ($content === '') {
-                continue;
-            }
-
-            $sections[] = [
-                'title' => mb_substr(trim((string) ($obj['title'] ?? '')) ?: 'หัวข้อย่อย', 0, 191),
-                'content' => mb_substr($content, 0, 20000),
-            ];
-        }
-
         if ($sections === []) {
             Flash::error('ผู้ช่วยไม่ได้ร่างเนื้อหาออกมา กรุณาลองใหม่อีกครั้ง');
 
@@ -613,6 +585,114 @@ final class UnitController
         $_SESSION['unit_content_draft'] = ['unit_id' => (int) $unit['id'], 'sections' => $sections];
 
         return $this->redirectToUnit($response, (int) $course['id'], (int) $unit['id']);
+    }
+
+    /**
+     * ให้ผู้ช่วยเขียนหัวข้อเนื้อหา (text) ของหน่วยหนึ่ง — ใช้ทั้งการร่างทีละหน่วยในหน้าแก้ไขหน่วย
+     * และการร่างทุกหน่วยที่ยังว่างจากหน้ารายวิชา · โยน AiUnavailableException / Throwable ต่อให้ผู้เรียกจัดการ
+     *
+     * @return list<array{title:string,content:string}>
+     */
+    private function draftSections(int $userId, array $course, array $unit, int $count, string $note, string $ai): array
+    {
+        $existing = array_map(
+            static fn (array $s): string => (string) $s['title'],
+            $this->units->sectionsFor((int) $unit['id'])
+        );
+        $objects = $this->drafter->objects(
+            $userId,
+            'คุณเป็นผู้ช่วยครูอาชีวศึกษา เขียนเนื้อหาบทเรียนภาษาไทยที่ใช้สอนได้จริง '
+                . 'ตอบกลับเป็น NDJSON หนึ่งหัวข้อต่อหนึ่งบรรทัด',
+            [
+                'task' => 'unit_content',
+                'course_code' => $course['code'],
+                'course_name' => $course['name'],
+                'unit' => $unit['title'],
+                'key_content' => $unit['key_content'],
+                'objectives' => $unit['objectives'],
+                'existing' => $existing,
+                'count' => $count,
+                'note' => $note,
+            ],
+            $count ?: 10,
+            $ai
+        );
+
+        $sections = [];
+        foreach ($objects as $obj) {
+            $content = Drafter::text($obj['content'] ?? '');
+            if ($content === '') {
+                continue;
+            }
+            $sections[] = [
+                'title' => mb_substr(trim((string) ($obj['title'] ?? '')) ?: 'หัวข้อย่อย', 0, 191),
+                'content' => mb_substr($content, 0, 20000),
+            ];
+        }
+
+        return $sections;
+    }
+
+    /**
+     * ร่างเนื้อหาทุกหน่วยจากหน้ารายวิชา: หน้าเว็บเรียกทีละหน่วยจนครบ (public/assets/js/units-autodraft.js)
+     * หน่วยที่มีเนื้อหาแล้ว/หน่วยสอบข้าม · บันทึกหัวข้อที่ร่างลงหน่วยทันที และให้หน่วยเป็น "ฉบับร่าง"
+     * นักเรียนจึงยังไม่เห็นจนกว่าครูจะตรวจแล้วกดเผยแพร่เอง · ตอบ JSON
+     */
+    public function autoDraftContent(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [$course, $unit] = $this->ownedUnit($request, $args);
+        $data = (array) $request->getParsedBody();
+
+        if (!Csrf::check($data['_token'] ?? null)) {
+            return $this->json($response, ['ok' => false, 'stop' => true, 'error' => 'เซสชันหมดอายุ กรุณารีเฟรชหน้าแล้วลองใหม่'], 419);
+        }
+        if ((int) ($course['ai_lesson_plan_enabled'] ?? 1) !== 1) {
+            return $this->json($response, ['ok' => false, 'stop' => true, 'error' => 'ผู้ดูแลระบบปิดฟังก์ชัน AI ของรายวิชานี้ไว้'], 403);
+        }
+        if (UnitRepository::isExam($unit)) {
+            return $this->json($response, ['ok' => true, 'skipped' => 'exam']);
+        }
+        if ($this->units->sectionsFor((int) $unit['id']) !== []) {
+            return $this->json($response, ['ok' => true, 'skipped' => 'has_content']);
+        }
+
+        try {
+            $sections = $this->draftSections((int) $user['id'], $course, $unit, 0, '', (string) ($data['ai'] ?? ''));
+        } catch (AiUnavailableException $e) {
+            // AI ใช้ไม่ได้ (โควตาหมด/เครื่องปิด/คีย์ผิด) — หน่วยถัดไปก็จะไม่ได้เหมือนกัน หยุดทั้งชุด
+            return $this->json($response, ['ok' => false, 'stop' => true, 'error' => $e->getMessage()]);
+        } catch (Throwable $e) {
+            $this->logger->error('ร่างเนื้อหาทุกหน่วย: หน่วยนี้ไม่สำเร็จ: ' . $e->getMessage(), ['unit_id' => (int) $unit['id']]);
+
+            return $this->json($response, ['ok' => false, 'error' => 'ผู้ช่วยร่างหน่วยนี้ไม่สำเร็จ']);
+        }
+        if ($sections === []) {
+            return $this->json($response, ['ok' => false, 'error' => 'ผู้ช่วยไม่ได้ร่างเนื้อหาออกมา']);
+        }
+
+        // ระหว่างรอ AI อาจมีคนเพิ่มเนื้อหาไปแล้ว (เปิดสองแท็บ) — ไม่ซ้อนทับ
+        if ($this->units->sectionsFor((int) $unit['id']) !== []) {
+            return $this->json($response, ['ok' => true, 'skipped' => 'has_content']);
+        }
+        $sortOrder = $this->units->nextSectionSortOrder((int) $unit['id']);
+        foreach ($sections as $section) {
+            $this->units->createSection([
+                'unit_id' => (int) $unit['id'],
+                'type' => 'text',
+                'title' => $section['title'],
+                'content' => $section['content'],
+                'sort_order' => $sortOrder++,
+            ]);
+        }
+        // หน่วยที่เผยแพร่ไว้แต่ยังว่าง: กลับเป็นฉบับร่าง ให้ครูตรวจเนื้อหาก่อนนักเรียนเห็น
+        $unpublished = ($unit['review_status'] ?? '') === 'published';
+        if ($unpublished) {
+            $this->units->update((int) $unit['id'], ['review_status' => 'draft']);
+        }
+        $this->logger->info('ร่างเนื้อหาทุกหน่วย: บันทึกแล้ว', ['unit_id' => (int) $unit['id'], 'sections' => count($sections)]);
+
+        return $this->json($response, ['ok' => true, 'sections' => count($sections), 'unpublished' => $unpublished]);
     }
 
     /** บันทึกหัวข้อที่ครูติ๊กเลือกจากที่ผู้ช่วยร่างไว้ ต่อท้ายเนื้อหาเดิมของหน่วย */

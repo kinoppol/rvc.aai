@@ -2994,3 +2994,20 @@ html.is-presenting { overflow: hidden; }
 .bh-new td { animation: bhFlash 1.2s ease; }
 @keyframes bhFlash { from { background: color-mix(in srgb, var(--brand) 18%, transparent); } }
 .bh-editor .hint.is-err { color: var(--err); }
+
+/* หน้ารายวิชา: ให้ผู้ช่วยร่างเนื้อหาทุกหน่วยที่ยังว่าง (units-autodraft.js) */
+.autodraft { margin-top: 22px; }
+.autodraft-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.autodraft-icon { font-size: 30px; color: var(--violet, var(--brand)); }
+.autodraft-text { flex: 1 1 320px; min-width: 0; }
+.autodraft-text h3 { margin: 0 0 4px; font-size: 16px; }
+.autodraft-progress { margin-top: 14px; }
+.autodraft-progress .bar { height: 8px; border-radius: 999px; background: var(--surface2); overflow: hidden; }
+.autodraft-progress .bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--brand), var(--violet, var(--brand))); transition: width .4s ease; }
+.autodraft-progress .hint { margin-top: 8px; }
+.autodraft-state { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; background: var(--surface2); color: var(--ink2); }
+.autodraft-state.is-run { background: var(--brandSoft); color: var(--brandInk); animation: autodraftPulse 1.4s ease-in-out infinite; }
+.autodraft-state.is-ok { background: var(--okSoft); color: var(--ok); }
+.autodraft-state.is-err { background: var(--errSoft, #fde8e8); color: var(--err, #b42318); white-space: normal; max-width: 260px; }
+@keyframes autodraftPulse { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .autodraft-state.is-run { animation: none; } }

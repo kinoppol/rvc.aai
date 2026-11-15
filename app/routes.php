@@ -196,6 +196,8 @@ return static function (App $app): void {
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/report', [UnitController::class, 'saveReport']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft', [UnitController::class, 'draftContent']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft/save', [UnitController::class, 'saveDraftContent']);
+            // ร่างเนื้อหาทุกหน่วยที่ยังว่างจากหน้ารายวิชา (หน้าเว็บเรียกทีละหน่วย · ตอบ JSON)
+            $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft/auto', [UnitController::class, 'autoDraftContent']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections', [UnitController::class, 'addSection']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections/{sectionId:[0-9]+}', [UnitController::class, 'updateSection']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/sections/{sectionId:[0-9]+}/delete', [UnitController::class, 'deleteSection']);
