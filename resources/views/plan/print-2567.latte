@@ -322,6 +322,19 @@
     {else}<p class="dots"></p><p class="dots"></p>{/if}
 {/define}
 
+{* ข้อ 2 อ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพ จากหน้าแก้ไขหน่วย · 2.1 จากรายวิชา · 2.3 ว่าง = กลุ่มอาชีพของรายวิชา *}
+{define stdRef}
+    <p class="sub">2.1 มาตรฐานอาชีพ {($occupation['standard'] ?? '') ?: '..............................................................................'}</p>
+    <p class="sub">2.2 หน่วยสมรรถนะ {$std['uoc'] ?: '..............................................................................'}</p>
+    {foreach $std['eoc'] as $e}
+        <p class="sub2">{$iterator->counter}) สมรรถนะย่อย {$e}</p>
+    {else}
+        <p class="sub2">1) สมรรถนะย่อย ..............................................................................</p>
+        <p class="sub2">2) สมรรถนะย่อย ..............................................................................</p>
+    {/foreach}
+    <p class="sub">2.3 บูรณาการกลุ่มอาชีพ {$std['career'] ?: (($course['career_group'] ?? '') ?: '..............................................................................')}</p>
+{/define}
+
 {define blank}
     {for $i = 0; $i < ($n ?? 2); $i++}<p class="dots"></p>{/for}
 {/define}
@@ -336,14 +349,10 @@
     {include unitHead, title: 'แผนการจัดการเรียนรู้', p: $p, label: 'ชื่อเรื่อง/งาน', topic: $u['title']}
 
     <h3>1. ผลลัพธ์การเรียนรู้ระดับหน่วยการเรียน</h3>
-    {include blank, n: 2}
+    {include numbered, lines: $p['outcome'], prefix: '1.'}
 
     <h3>2. อ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพ</h3>
-    <p class="sub">2.1 มาตรฐานอาชีพ {($occupation['standard'] ?? '') ?: '..............................................................................'}</p>
-    <p class="sub">2.2 หน่วยสมรรถนะ ..............................................................................</p>
-    <p class="sub2">1) สมรรถนะย่อย ..............................................................................</p>
-    <p class="sub2">2) สมรรถนะย่อย ..............................................................................</p>
-    <p class="sub">2.3 บูรณาการกลุ่มอาชีพ {($course['career_group'] ?? '') ?: '..............................................................................'}</p>
+    {include stdRef, std: $p['std']}
 
     <h3>3. สมรรถนะประจำหน่วย</h3>
     {include numbered, lines: $p['competencies'], prefix: '3.'}
@@ -452,9 +461,9 @@
 <section data-toc="u{$p['no']}-know" class="sheet know"{if $edit} contenteditable="true"{/if}>
     {include unitHead, title: 'ใบความรู้ที่ ' . $p['no'] . '.' . $iterator->counter, p: $p, label: 'ชื่อเรื่อง', topic: $s['title']}
     <h3>1. ผลลัพธ์การเรียนรู้ระดับหน่วยการเรียน</h3>
-    {include blank, n: 1}
+    {include numbered, lines: $p['outcome'], prefix: '1.'}
     <h3>2. อ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพ</h3>
-    {include blank, n: 1}
+    {include stdRef, std: $p['std']}
     <h3>3. สมรรถนะประจำหน่วย</h3>
     {include numbered, lines: $p['competencies'], prefix: '3.'}
     <h3>4. จุดประสงค์เชิงพฤติกรรม</h3>
@@ -478,28 +487,41 @@
 {foreach $p['assignments'] as $a}
 <section data-toc="u{$p['no']}-work" class="sheet work"{if $edit} contenteditable="true"{/if}>
     {include unitHead, title: 'ใบงานที่ ' . $p['no'] . '.' . $iterator->counter, p: $p, label: 'ชื่องาน', topic: $a['title']}
+    {var $sh = $a['sheet']}
     <h3>1. ผลลัพธ์การเรียนรู้จากการปฏิบัติงาน</h3>
-    {include blank, n: 1}
+    {include numbered, lines: $sh['outcome'] ?: $p['outcome'], prefix: '1.'}
     <h3>2. อ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพ</h3>
-    {include blank, n: 1}
+    {if $sh['standard']}
+        <div class="lines-list sub">{foreach $sh['standard'] as $line}<p>{$line}</p>{/foreach}</div>
+    {else}{include stdRef, std: $p['std']}{/if}
     <h3>3. สมรรถนะการปฏิบัติงาน</h3>
-    {include numbered, lines: $p['competencies'], prefix: '3.'}
+    {include numbered, lines: $sh['competencies'] ?: $p['competencies'], prefix: '3.'}
     <h3>4. จุดประสงค์เชิงพฤติกรรม</h3>
-    {include numbered, lines: $p['objectives'], prefix: '4.'}
+    {include numbered, lines: $sh['objectives'] ?: $p['objectives'], prefix: '4.'}
     <h3>5. เครื่องมือ วัสดุ และอุปกรณ์</h3>
-    <div class="lines-list"><p>5.1 ..........................................................</p><p>5.2 ..........................................................</p><p>5.3 ..........................................................</p></div>
+    {if $sh['tools']}
+        {include numbered, lines: $sh['tools'], prefix: '5.'}
+    {else}
+        <div class="lines-list"><p>5.1 ..........................................................</p><p>5.2 ..........................................................</p><p>5.3 ..........................................................</p></div>
+    {/if}
     <h3>6. คำแนะนำ/ข้อควรระวัง</h3>
-    {include blank, n: 1}
+    {if $sh['cautions']}
+        <div class="lines-list">{foreach $sh['cautions'] as $line}<p>{$line}</p>{/foreach}</div>
+    {else}{include blank, n: 1}{/if}
     <h3>7. ขั้นตอนการปฏิบัติงาน</h3>
     {if $a['lines']}
         <div class="lines-list">{foreach $a['lines'] as $line}<p>{$line}</p>{/foreach}</div>
     {else}{include blank, n: 3}{/if}
     <h3>8. สรุปและวิจารณ์ผล</h3>
-    {include blank, n: 2}
+    {if $sh['summary']}
+        {include numbered, lines: $sh['summary'], prefix: '8.'}
+    {else}{include blank, n: 2}{/if}
     <h3>9. การประเมินผล</h3>
     <p class="sub">คะแนนเต็ม {number_format((float) $a['max_score'], 0)} คะแนน · ผ่านเกณฑ์ร้อยละ {$pass} ขึ้นไป</p>
     <h3>10. เอกสารอ้างอิง/เอกสารค้นคว้าเพิ่มเติม</h3>
-    {include blank, n: 1}
+    {if $sh['references']}
+        <div class="lines-list">{foreach $sh['references'] as $line}<p>{$iterator->counter}) {$line}</p>{/foreach}</div>
+    {else}{include blank, n: 1}{/if}
 </section>
 {/foreach}
 
@@ -510,7 +532,7 @@
     <h3>1. ผลงานหรือผลการปฏิบัติงาน</h3>
     {include blank, n: 1}
     <h3>2. อ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพ</h3>
-    {include blank, n: 1}
+    {include stdRef, std: $p['std']}
     <h3>3. สมรรถนะการปฏิบัติงาน</h3>
     {include numbered, lines: $p['competencies'], prefix: '3.'}
     <h3>4. จุดประสงค์เชิงพฤติกรรม</h3>

@@ -42,12 +42,22 @@ final class WorksheetSheet
      */
     public static function fromPost(array $data): ?string
     {
+        return self::encode(self::posted($data));
+    }
+
+    /**
+     * ค่าจากฟอร์มใบงาน (sheet_{key}) เป็นข้อความต่อช่อง
+     * @param array<string,mixed> $data
+     * @return array<string,string>
+     */
+    public static function posted(array $data): array
+    {
         $out = [];
         foreach (array_keys(self::FIELDS) as $key) {
             $out[$key] = self::text($data['sheet_' . $key] ?? '');
         }
 
-        return self::encode($out);
+        return $out;
     }
 
     /** @param array<string,mixed> $value */

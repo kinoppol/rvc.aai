@@ -13,8 +13,10 @@ use App\Domain\UnitRepository;
 use App\Support\Csrf;
 use App\Support\Flash;
 use App\Support\Paths;
+use App\Support\UnitPlanFields;
 use App\Support\Url;
 use App\Support\View;
+use App\Support\WorksheetSheet;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Message\UploadedFileInterface;
@@ -70,6 +72,10 @@ final class AssignmentController
             'aiEnabled' => (int) ($course['ai_lesson_plan_enabled'] ?? 1) === 1,
             'files' => $assignment ? $this->assignments->files((int) $assignment['id']) : [],
             'filesReady' => $this->assignments->filesReady(),
+            // ข้อ 1-6, 8, 10 ของใบงานตามแบบฟอร์มแผน 2567 (เฉพาะใบงาน และเมื่อรัน migration 000141 แล้ว)
+            'sheetOn' => !$isTask && $this->assignments->sheetReady(),
+            'sheetBefore' => array_diff_key(WorksheetSheet::FIELDS, ['summary' => 1, 'references' => 1]),
+            'sheetAfter' => array_intersect_key(WorksheetSheet::FIELDS, ['summary' => 1, 'references' => 1]),
             'fileLimits' => ['files' => AssignmentRepository::FILE_MAX, 'mb' => (int) (AssignmentRepository::FILE_MAX_BYTES / 1048576)],
         ]);
     }
@@ -137,6 +143,8 @@ final class AssignmentController
         ];
         if ($isTask) {
             $fields['unit_id'] = $unit === null ? null : (int) $unit['id'];
+        } elseif (isset($data['sheet_present']) && $this->assignments->sheetReady()) {
+            $fields['sheet'] = WorksheetSheet::fromPost($data);
         }
 
         if ($assignment !== null) {
@@ -229,18 +237,20 @@ final class AssignmentController
         $system = 'คุณเป็นผู้ช่วยครูอาชีวศึกษา ออกแบบ' . ($isTask ? 'งานมอบหมาย' : 'ใบงาน')
             . 'ภาษาไทยที่สั่งงานเป็นรูปธรรม ตอบกลับเป็น JSON อ็อบเจกต์เดียว';
 
+        // ค่าที่กรอกอยู่บนฟอร์ม (สคริปต์ในหน้าคัดลอกมาให้) — ผู้ช่วยเติมเฉพาะส่วนที่ยังว่าง ไม่แทนที่ของเดิม
+        $sheetOn = !$isTask && $this->assignments->sheetReady();
+        $mine = [
+            'title' => mb_substr(trim((string) ($data['title'] ?? '')), 0, 191),
+            'description' => trim(str_replace("\r\n", "\n", (string) ($data['description'] ?? ''))),
+        ];
+        $mineSheet = $sheetOn ? WorksheetSheet::posted($data) : [];
+        $hadContent = implode('', $mine) !== '' || implode('', $mineSheet) !== '';
+
         try {
-            $objects = $this->drafter->objects((int) $user['id'], $system, [
-                'task' => 'assignment',
-                'course_code' => $course['code'],
-                'course_name' => $course['name'],
-                // งานที่ไม่ผูกหน่วย: ใช้คำอธิบายรายวิชาเป็นบริบทแทน
-                'unit' => $unit['title'] ?? 'ทั้งรายวิชา',
-                'key_content' => $unit['key_content'] ?? ($course['description'] ?? ''),
-                'max_score' => $maxScore,
-                'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000),
+            $objects = $this->drafter->objects((int) $user['id'], $system, $this->draftSpec($course, $unit, $maxScore, $data, $sheetOn) + [
+                'existing' => $mine + ['sheet' => $mineSheet],
             ], 3, (string) ($data['ai'] ?? ''));
-            $draft = $this->firstWithTitle($objects);
+            $draft = $this->firstDraft($objects);
         } catch (AiUnavailableException $e) {
             Flash::error($e->getMessage());
 
@@ -262,15 +272,18 @@ final class AssignmentController
         }
 
         $_SESSION['assignment_draft'] = [
-            'title' => mb_substr(trim((string) ($draft['title'] ?? '')), 0, 191),
-            'description' => $this->describe($draft),
+            'title' => $mine['title'] !== '' ? $mine['title'] : mb_substr(trim((string) ($draft['title'] ?? '')), 0, 191),
+            'description' => $mine['description'] !== '' ? $mine['description'] : $this->describe($draft),
+            'sheet' => $sheetOn ? WorksheetSheet::fill($mineSheet, WorksheetSheet::fromDraft($draft)) : null,
             'max_score' => $maxScore,
             'due_at' => (string) ($data['due_at'] ?? ''),
             'allow_late' => isset($data['allow_late']) ? '1' : '',
             'unit_id' => $unit === null ? '' : (string) $unit['id'],
         ];
         $this->auth->log('ai.assignment.draft', $unit === null ? 'course#' . $course['id'] : 'unit#' . $unit['id']);
-        Flash::success('ผู้ช่วยร่าง' . ($isTask ? 'งาน' : 'ใบงาน') . 'ให้แล้ว · ตรวจแก้ได้ตามต้องการ แล้วกดบันทึก');
+        Flash::success($hadContent
+            ? 'ผู้ช่วยเติมส่วนที่ยังว่างของ' . ($isTask ? 'งาน' : 'ใบงาน') . 'ให้แล้ว (ส่วนที่กรอกไว้เดิมไม่ถูกแก้) · ตรวจแล้วกดบันทึก'
+            : 'ผู้ช่วยร่าง' . ($isTask ? 'งาน' : 'ใบงาน') . 'ให้แล้ว · ตรวจแก้ได้ตามต้องการ แล้วกดบันทึก');
 
         return $this->backToForm($response, $course, $unit, $args['id'] ?? null, $isTask);
     }
@@ -304,17 +317,11 @@ final class AssignmentController
         @set_time_limit(0);
 
         $maxScore = max(1, min(999, (float) ($data['max_score'] ?? 10)));
+        $sheetOn = $this->assignments->sheetReady();
         try {
             $objects = $this->drafter->objects((int) $user['id'],
-                'คุณเป็นผู้ช่วยครูอาชีวศึกษา ออกแบบใบงานภาษาไทยที่สั่งงานเป็นรูปธรรม ตอบกลับเป็น JSON อ็อบเจกต์เดียว', [
-                    'task' => 'assignment',
-                    'course_code' => $course['code'],
-                    'course_name' => $course['name'],
-                    'unit' => $unit['title'],
-                    'key_content' => $unit['key_content'] ?? '',
-                    'max_score' => $maxScore,
-                    'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000),
-                ], 3, (string) ($data['ai'] ?? ''));
+                'คุณเป็นผู้ช่วยครูอาชีวศึกษา ออกแบบใบงานภาษาไทยที่สั่งงานเป็นรูปธรรม ตอบกลับเป็น JSON อ็อบเจกต์เดียว',
+                $this->draftSpec($course, $unit, $maxScore, $data, $sheetOn), 3, (string) ($data['ai'] ?? ''));
             $draft = $this->firstWithTitle($objects);
         } catch (AiUnavailableException $e) {
             // AI ใช้ไม่ได้ (โควตาหมด/เครื่องปิด/คีย์ผิด) — หน่วยถัดไปก็จะไม่ได้เหมือนกัน หยุดทั้งชุด
@@ -343,7 +350,7 @@ final class AssignmentController
             'unit_id' => (int) $unit['id'],
             'kind' => 'worksheet',
             'created_by' => (int) $user['id'],
-        ]);
+        ] + ($sheetOn ? ['sheet' => WorksheetSheet::encode(WorksheetSheet::fromDraft($draft))] : []));
         $unpublished = ($unit['review_status'] ?? '') === 'published';
         if ($unpublished) {
             $this->units->update((int) $unit['id'], ['review_status' => 'draft']);
@@ -414,6 +421,57 @@ final class AssignmentController
     }
 
     /**
+     * ข้อมูลที่ผู้ช่วยใช้ร่างใบงาน: หน่วยการเรียน (สาระสำคัญ จุดประสงค์ สมรรถนะ ผลลัพธ์ระดับหน่วย อ้างอิงมาตรฐาน)
+     * งานที่ไม่ผูกหน่วยใช้คำอธิบายรายวิชาแทน · sheet = ขอส่วนประกอบใบงานตามแบบฟอร์มแผน 2567 ด้วย
+     *
+     * @param array<string,mixed> $data
+     * @return array<string,mixed>
+     */
+    private function draftSpec(array $course, ?array $unit, float $maxScore, array $data, bool $sheet): array
+    {
+        $std = UnitPlanFields::decode($unit['standard_ref'] ?? null);
+        $standard = trim(implode("\n", array_filter([
+            $std['uoc'] !== '' ? 'หน่วยสมรรถนะ: ' . $std['uoc'] : '',
+            $std['eoc'] !== [] ? 'สมรรถนะย่อย: ' . implode(' · ', $std['eoc']) : '',
+            ($std['career'] ?: ($course['career_group'] ?? '')) !== '' ? 'กลุ่มอาชีพ: ' . ($std['career'] ?: $course['career_group']) : '',
+        ])));
+
+        return [
+            'task' => 'assignment',
+            'course_code' => $course['code'],
+            'course_name' => $course['name'],
+            'unit' => $unit['title'] ?? 'ทั้งรายวิชา',
+            'key_content' => $unit['key_content'] ?? ($course['description'] ?? ''),
+            'objectives' => (string) ($unit['objectives'] ?? ''),
+            'competencies' => (string) ($unit['competencies'] ?? ''),
+            'outcome' => (string) ($unit['learning_outcome'] ?? ''),
+            'standard' => $standard,
+            'max_score' => $maxScore,
+            'note' => mb_substr(trim((string) ($data['note'] ?? '')), 0, 2000),
+            'sheet' => $sheet,
+        ];
+    }
+
+    /**
+     * ผลร่างชิ้นแรกที่ใช้ได้ (ครูมีชื่อใบงานแล้ว โมเดลอาจไม่ส่ง title มา)
+     *
+     * @param list<array<string,mixed>> $objects
+     * @return array<string,mixed>|null
+     */
+    private function firstDraft(array $objects): ?array
+    {
+        foreach ($objects as $obj) {
+            foreach (['title', 'steps', 'objective', 'outcome', 'tools'] as $key) {
+                if (!empty($obj[$key])) {
+                    return $obj;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @param list<array<string,mixed>> $objects
      * @return array<string,mixed>|null
      */
@@ -444,11 +502,15 @@ final class AssignmentController
                 : '',
             'allow_late' => $assignment === null ? true : (bool) $assignment['allow_late'],
             'unit_id' => (string) ($assignment['unit_id'] ?? ''),
+            'sheet' => WorksheetSheet::decode($assignment['sheet'] ?? null),
         ];
 
         if ($draft === null) {
             return $base;
         }
+        // ผลร่างของผู้ช่วย (sheet) หรือฟอร์มที่ส่งไม่ผ่าน (sheet_*)
+        $sheet = is_array($draft['sheet'] ?? null) ? $draft['sheet'] + $base['sheet']
+            : (isset($draft['sheet_present']) ? WorksheetSheet::posted($draft) : $base['sheet']);
 
         return [
             'title' => (string) ($draft['title'] ?? $base['title']),
@@ -457,6 +519,7 @@ final class AssignmentController
             'due_at' => (string) ($draft['due_at'] ?? $base['due_at']),
             'allow_late' => (string) ($draft['allow_late'] ?? '') !== '',
             'unit_id' => (string) ($draft['unit_id'] ?? $base['unit_id']),
+            'sheet' => $sheet,
         ];
     }
 

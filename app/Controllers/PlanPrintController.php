@@ -18,6 +18,8 @@ use App\Support\OccupationStandard;
 use App\Support\PlanFormat;
 use App\Support\Semester;
 use App\Support\Thai;
+use App\Support\UnitPlanFields;
+use App\Support\WorksheetSheet;
 use App\Support\Url;
 use App\Support\View;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -228,6 +230,9 @@ final class PlanPrintController
                 'key_content'  => $this->lines($u['key_content']),
                 'objectives'   => $this->lines($u['objectives']),
                 'competencies' => $this->lines($u['competencies']),
+                // ข้อ 1 ผลลัพธ์การเรียนรู้ระดับหน่วย และข้อ 2 อ้างอิงมาตรฐาน (migration 000141 · ไม่มีคอลัมน์ = ว่าง)
+                'outcome'      => UnitPlanFields::lines((string) ($u['learning_outcome'] ?? '')),
+                'std'          => UnitPlanFields::decode($u['standard_ref'] ?? null),
                 'sections'     => array_map(fn (array $s) => [
                     'type'    => $s['type'],
                     'title'   => $s['title'] !== '' ? $s['title'] : ($s['file_name'] ?? 'สื่อประกอบ'),
@@ -240,7 +245,11 @@ final class PlanPrintController
                     'title'   => $s['title'] !== '' ? $s['title'] : 'ใบความรู้',
                     'content' => $this->paragraphs((string) ($s['content'] ?? '')),
                 ], array_filter($sections, fn (array $s) => $s['type'] === 'text'))),
-                'assignments'  => array_map(fn (array $a) => $a + ['lines' => $this->paragraphs((string) ($a['description'] ?? ''))],
+                // ใบงาน: ขั้นตอน = รายละเอียดใบงาน · sheet = ข้อ 1-6, 8, 10 ตามแบบฟอร์ม (ช่องว่าง = ใช้ข้อมูลของหน่วย)
+                'assignments'  => array_map(fn (array $a) => $a + [
+                    'lines' => $this->paragraphs((string) ($a['description'] ?? '')),
+                    'sheet' => array_map([WorksheetSheet::class, 'lines'], WorksheetSheet::decode($a['sheet'] ?? null)),
+                ],
                     $this->assignments->forUnit($unitId)),
                 // งานที่มอบหมายที่ผูกกับหน่วยนี้ → ใบมอบหมายงาน (แบบฟอร์มหลักสูตร 2567)
                 'tasks'        => array_map(fn (array $a) => $a + [
