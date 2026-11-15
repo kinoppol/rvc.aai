@@ -301,6 +301,7 @@
                 selected.forEach(function (m) { body.append('models[]', m); });
                 suggestBtn.disabled = true;
                 suggestBtn.textContent = 'AI กำลังพิจารณา…';
+                suggestBtn.classList.add('is-working');
                 say(true, 'กำลังให้ AI ดูคุณสมบัติของ ' + selected.length + ' โมเดล อาจใช้เวลาครึ่งนาที ');
                 if (window.rvcAiModel) { var chip = document.createElement('span'); chip.className = 'ai-model-chip'; msg.appendChild(chip); window.rvcAiModel(chip, 'model_roles', '', 'college'); }
                 fetch(opts.suggestUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
@@ -313,7 +314,7 @@
                         say(d.ok, d.message || (d.ok ? 'เรียบร้อย' : 'ไม่สำเร็จ'));
                     })
                     .catch(function () { say(false, 'ติดต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง'); })
-                    .then(function () { suggestBtn.disabled = false; suggestBtn.textContent = '✦ ให้ AI จัดบทบาทให้'; });
+                    .then(function () { suggestBtn.disabled = false; suggestBtn.classList.remove('is-working'); suggestBtn.textContent = '✦ ให้ AI จัดบทบาทให้'; });
             });
         }
 

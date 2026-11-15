@@ -81,10 +81,10 @@
     function esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
     document.getElementById('makePlanBtn').addEventListener('click', function () {
-        var btn = this; btn.disabled = true; btn.textContent = 'กำลังร่างเอกสาร…';
+        var btn = this; btn.disabled = true; btn.textContent = 'กำลังร่างเอกสาร…'; btn.classList.add('is-working');
         document.getElementById('planEmpty').hidden = true;
         var stream = document.getElementById('planStream');
-        stream.hidden = false; stream.innerHTML = '<div class="gen-headline">กำลังร่างเอกสาร…</div>';
+        stream.hidden = false; stream.innerHTML = '<div class="gen-headline is-working">กำลังร่างเอกสาร…</div>';
 
         var qs = new URLSearchParams({
             unit: document.getElementById('pUnit').value,
@@ -114,7 +114,8 @@
         });
         es.addEventListener('error', function (e) {
             es.close();
-            btn.disabled = false; btn.textContent = 'ร่างเอกสารให้ฉัน';
+            btn.disabled = false; btn.classList.remove('is-working'); btn.textContent = 'ร่างเอกสารให้ฉัน';
+            var head = stream.querySelector('.gen-headline'); if (head) head.classList.remove('is-working');
             var msg = 'ร่างเอกสารไม่สำเร็จ';
             try { msg = JSON.parse(e.data).message || msg; } catch (x) {}
             var box = document.getElementById('planError');

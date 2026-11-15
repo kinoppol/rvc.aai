@@ -72,7 +72,7 @@
         body.append('learning_outcomes', val('cClo'));
 
         btn.disabled = true;
-        status.className = 'hint';
+        status.className = 'hint is-working';
         status.textContent = 'ผู้ช่วยกำลังวิเคราะห์ทุกหน่วย… ปกติใช้เวลา 20–60 วินาที ';
         if (window.rvcAiModel) { var chip = document.createElement('span'); chip.className = 'ai-model-chip'; status.appendChild(chip); window.rvcAiModel(chip, 'behavior_analysis', ''); }
 
@@ -81,6 +81,7 @@
             .then(function (d) {
                 if (!d.ok) throw new Error(d.error || 'ผู้ช่วยวิเคราะห์ไม่สำเร็จ');
                 apply(d);
+                status.className = 'hint';
                 status.textContent = 'วิเคราะห์เสร็จแล้ว' + (d.missing > 0 ? ' (ยังขาด ' + d.missing + ' หน่วย เติมเองได้)' : '')
                     + ' · ตรวจแก้ได้ แล้วกด “บันทึกการแก้ไข”';
             })

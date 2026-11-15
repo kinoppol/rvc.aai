@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\AI\AiUnavailableException;
 use App\AI\Drafter;
 use App\AI\UnitKnowledge;
+use App\Auth\Auth;
 use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
 use App\Domain\QuizRepository;
@@ -45,6 +46,7 @@ final class UnitController
         private readonly Drafter $drafter,
         private readonly LoggerInterface $logger,
         private readonly UnitKnowledge $knowledge,
+        private readonly Auth $auth,
     ) {
     }
 

@@ -3069,3 +3069,30 @@ html.is-presenting { overflow: hidden; }
 .unit-pager-link .msi { flex: none; color: color-mix(in srgb, var(--brand) 55%, var(--ink)); }
 .unit-pager-pos { font-size: 13px; color: var(--ink2); white-space: nowrap; }
 @media (max-width: 640px) { .unit-pager { grid-template-columns: 1fr 1fr; } .unit-pager-pos { display: none; } }
+
+/* ===== ผู้ช่วย AI กำลังทำงาน: ภาพเคลื่อนไหวให้รู้ว่ายังทำงานอยู่ ===== */
+/* .is-working = ตัวหมุนเล็กนำหน้าข้อความสถานะ/ปุ่ม/ป้าย ระหว่างรอ AI */
+.is-working::before {
+    content: ''; display: inline-block; width: .9em; height: .9em; margin-right: .45em; vertical-align: -.12em; flex: none;
+    border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+    animation: rvcSpin .7s linear infinite;
+}
+.hint.is-working { color: color-mix(in srgb, var(--brand) 55%, var(--ink)); }
+/* การ์ดร่างทุกหน่วย (.is-ai-running): ไอคอน ✦ วิบวับ แถบความคืบหน้ามีแสงวิ่ง ข้อความสถานะมีตัวหมุน ขอบการ์ดเรืองแสง */
+.autodraft.is-ai-running { box-shadow: var(--shadow), 0 0 0 2px color-mix(in srgb, var(--brand) 30%, transparent); }
+.autodraft.is-ai-running .autodraft-icon { animation: busyTwinkle 1.6s ease-in-out infinite; }
+.autodraft.is-ai-running .autodraft-progress .bar { position: relative; }
+.autodraft.is-ai-running .autodraft-progress .bar::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(90deg, transparent 0, color-mix(in srgb, var(--violet, var(--brand)) 45%, transparent) 50%, transparent 100%);
+    background-size: 40% 100%; background-repeat: no-repeat; animation: aiBarSweep 1.4s ease-in-out infinite;
+}
+.autodraft.is-ai-running .autodraft-progress .hint::before {
+    content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 7px; vertical-align: -2px;
+    border: 2px solid var(--brand); border-right-color: transparent; border-radius: 50%; animation: rvcSpin .7s linear infinite;
+}
+@keyframes aiBarSweep { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .is-working::before, .autodraft.is-ai-running .autodraft-icon, .autodraft.is-ai-running .autodraft-progress .bar::after,
+    .autodraft.is-ai-running .autodraft-progress .hint::before { animation-duration: 2.4s; }
+}

@@ -60,6 +60,7 @@
     startBtn.addEventListener('click', function () {
         if (running || !ids.length) return;
         running = true;
+        box.classList.add('is-ai-running');
         stopAsked = false;
         startBtn.hidden = true;
         stopBtn.hidden = false;
@@ -75,6 +76,7 @@
 
         function finish(message) {
             running = false;
+            box.classList.remove('is-ai-running');
             stopBtn.hidden = true;
             bar.style.width = '100%';
             queue.forEach(function (id) { mark(id, 'ยังไม่ได้ร่าง', 'wait'); });

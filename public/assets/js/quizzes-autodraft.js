@@ -89,6 +89,7 @@
         if (running || !queue.length) return;
         if (!checked('types[]').length) { window.alert('เลือกรูปแบบข้อสอบอย่างน้อยหนึ่งแบบ'); return; }
         running = true;
+        form.classList.add('is-ai-running');
         stopAsked = false;
         form.querySelectorAll('.qad-settings input, .qad-settings select').forEach(function (el) { el.disabled = true; });
         startBtn.hidden = true;
@@ -103,6 +104,7 @@
 
         function finish(message) {
             running = false;
+            form.classList.remove('is-ai-running');
             stopBtn.hidden = true;
             form.querySelectorAll('.qad-settings input, .qad-settings select').forEach(function (el) { el.disabled = false; });
             queue.forEach(function (li) { mark(li, 'ยังไม่ได้ร่าง', 'wait'); });

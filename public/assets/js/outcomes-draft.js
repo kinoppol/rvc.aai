@@ -31,7 +31,7 @@
         body.append('competencies', val('cComp'));
 
         btn.disabled = true;
-        status.className = 'hint';
+        status.className = 'hint is-working';
         status.textContent = 'ผู้ช่วยกำลังสรุป… ปกติใช้เวลา 10–40 วินาที ';
         if (window.rvcAiModel) { var chip = document.createElement('span'); chip.className = 'ai-model-chip'; status.appendChild(chip); window.rvcAiModel(chip, 'course_outcomes', ''); }
 
@@ -41,6 +41,7 @@
                 if (!d.ok) throw new Error(d.error || 'ผู้ช่วยสรุปไม่สำเร็จ');
                 area.value = d.text;
                 area.dispatchEvent(new Event('input', { bubbles: true }));
+                status.className = 'hint';
                 status.textContent = 'ร่างเสร็จแล้ว · ตรวจและแก้ไขได้ แล้วกดบันทึกรายวิชา';
                 area.focus();
             })

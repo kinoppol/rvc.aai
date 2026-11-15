@@ -70,6 +70,7 @@
         var queue = pending();
         if (running || !queue.length) return;
         running = true;
+        form.classList.add('is-ai-running');
         stopAsked = false;
         lock(true);
         startBtn.hidden = true;
@@ -85,6 +86,7 @@
 
         function finish(message) {
             running = false;
+            form.classList.remove('is-ai-running');
             stopBtn.hidden = true;
             lock(false);
             queue.forEach(function (li) { mark(li, 'ยังไม่ได้ร่าง', 'wait'); });

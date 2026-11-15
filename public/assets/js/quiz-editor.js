@@ -234,6 +234,7 @@
     function regenerate(q, btn) {
         btn.disabled = true;
         btn.textContent = 'กำลังร่าง…';
+        btn.classList.add('is-working');
         /* ชื่อ AI ที่กำลังร่างข้อนี้ — ต่อท้ายปุ่ม แล้วยืนยันด้วยชื่อที่เซิร์ฟเวอร์ตอบกลับ */
         var chip = btn.parentNode.querySelector('.ai-model-chip');
         if (!chip) { chip = document.createElement('span'); chip.className = 'ai-model-chip'; btn.parentNode.insertBefore(chip, btn.nextSibling); }
@@ -244,6 +245,7 @@
             body: '_token=' + encodeURIComponent(root.dataset.token)
         }).then(function (r) { return r.json(); }).then(function (d) {
             btn.disabled = false;
+            btn.classList.remove('is-working');
             btn.textContent = 'ให้ AI ร่างข้อนี้ใหม่';
             if (d.chip && window.rvcAiModel) { window.rvcAiModel.set(chip, d.chip); }
             if (d.error) { rvcAlert({ title: 'ร่างข้อนี้ใหม่ไม่สำเร็จ', message: d.error, danger: true }); return; }
@@ -255,6 +257,7 @@
             render();
         }).catch(function () {
             btn.disabled = false;
+            btn.classList.remove('is-working');
             btn.textContent = 'ให้ AI ร่างข้อนี้ใหม่';
             rvcAlert({ title: 'ร่างข้อนี้ใหม่ไม่สำเร็จ', message: 'เชื่อมต่อไม่ได้ กรุณาลองใหม่', danger: true });
         });

@@ -40,7 +40,7 @@
 
             btn.disabled = true;
             if (status) {
-                status.className = 'hint';
+                status.className = 'hint is-working';
                 status.textContent = 'ผู้ช่วยกำลังร่าง… ปกติใช้เวลา 10–40 วินาที ';
                 if (window.rvcAiModel) {
                     var chip = document.createElement('span');
@@ -61,6 +61,7 @@
                         set('std_eoc', d.eoc);
                         if (d.career) set('std_career', d.career);
                     }
+                    if (status) status.className = 'hint';
                     if (status) status.textContent = 'ร่างเสร็จแล้ว · ตรวจและแก้ไขได้ แล้วกดบันทึกฉบับร่าง';
                 })
                 .catch(function (e) {
