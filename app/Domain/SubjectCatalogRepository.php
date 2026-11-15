@@ -136,14 +136,72 @@ final class SubjectCatalogRepository
         return ['rows' => $rows, 'total' => $total];
     }
 
-    /** @return array<string,mixed>|null */
+    /** รายวิชาหนึ่งรายการ พร้อม learning_area (กลุ่มสาระการเรียนรู้จากรหัสวิชา) @return array<string,mixed>|null */
     public function find(int $id): ?array
     {
         try {
-            return $this->db->first('SELECT * FROM {subject_catalog} WHERE id = ?', [$id]);
+            $row = $this->db->first('SELECT * FROM {subject_catalog} WHERE id = ?', [$id]);
         } catch (PDOException) {
             return null;
         }
+        if ($row !== null) {
+            $row['learning_area'] = self::learningArea((string) $row['code']);
+        }
+
+        return $row;
+    }
+
+    /**
+     * ข้อมูลหน้าค้นหา (ครูและผู้ดูแลใช้ร่วมกัน) จาก query string: q, year, level, page, show
+     * @param array<string,mixed> $query
+     * @return array<string,mixed>
+     */
+    public function listing(array $query, int $perPage = 50): array
+    {
+        $q = mb_substr(trim((string) ($query['q'] ?? '')), 0, 100);
+        $year = (int) ($query['year'] ?? 0);
+        $level = (string) ($query['level'] ?? '');
+        $level = in_array($level, ['2', '3'], true) ? $level : '';
+        $page = max(1, (int) ($query['page'] ?? 1));
+        $ready = $this->ready();
+        if ($ready) {
+            $this->ensureImported();
+        }
+        $result = $ready ? $this->browse($q, $year, $level, $page, $perPage) : ['rows' => [], 'total' => 0];
+
+        return [
+            'ready' => $ready,
+            'rows' => $result['rows'],
+            'total' => $result['total'],
+            'pages' => max(1, (int) ceil($result['total'] / $perPage)),
+            'pageNo' => $page,
+            'filters' => ['q' => $q, 'year' => $year, 'level' => $level],
+            // ส่วน query ของตัวกรองปัจจุบัน — ใช้ต่อท้ายลิงก์หน้า/รายละเอียด
+            'qs' => http_build_query(array_filter(['q' => $q, 'year' => $year ?: null, 'level' => $level, 'page' => $page > 1 ? $page : null])),
+            'qsNoPage' => http_build_query(array_filter(['q' => $q, 'year' => $year ?: null, 'level' => $level])),
+            'show' => isset($query['show']) ? $this->find((int) $query['show']) : null,
+        ];
+    }
+
+    /**
+     * กลุ่มสาระการเรียนรู้ตามโครงสร้างรหัสวิชา หลักสูตร ปวช./ปวส. 2567
+     * x0000-1Yxx = หมวดสมรรถนะแกนกลาง (Y: 1 ภาษาไทย 2 ภาษาต่างประเทศ 3 วิทยาศาสตร์ 4 คณิตศาสตร์ 5 สังคมศึกษา 6 สุขศึกษาและพลศึกษา)
+     * x0000-2xxx = กิจกรรมเสริมหลักสูตร · รหัสอื่น (วิชาชีพ/เลือกเสรี) = กลุ่มสาระการเรียนรู้การงานอาชีพ ตามใบรายวิชาของ ศธ.02
+     */
+    public static function learningArea(string $code): string
+    {
+        $areas = [
+            '1' => 'ภาษาไทย', '2' => 'ภาษาต่างประเทศ', '3' => 'วิทยาศาสตร์',
+            '4' => 'คณิตศาสตร์', '5' => 'สังคมศึกษา', '6' => 'สุขศึกษาและพลศึกษา',
+        ];
+        if (preg_match('/^\d0000[-*]1(\d)/', $code, $m) === 1 && isset($areas[$m[1]])) {
+            return 'กลุ่มสาระการเรียนรู้' . $areas[$m[1]];
+        }
+        if (preg_match('/^\d0000[-*]20/', $code) === 1) {
+            return 'กิจกรรมเสริมหลักสูตร';
+        }
+
+        return 'กลุ่มสาระการเรียนรู้การงานอาชีพ';
     }
 
     /** จำนวนรายวิชาที่ยังขาดคำอธิบาย/จุดประสงค์/สมรรถนะ — ให้ผู้ดูแลเห็นคุณภาพข้อมูล @return array<string,int> */

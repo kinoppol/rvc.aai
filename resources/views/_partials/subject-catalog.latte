@@ -1,0 +1,138 @@
+{*
+    ค้นคลังรายวิชา สอศ. + รายละเอียดทีละวิชา — ใช้ทั้งหน้าครู (/subjects) และหน้าผู้ดูแล (/admin/subjects)
+    ส่งค่ามาเอง: catalogUrl (เช่น '/subjects'), adminView (true = แสดงคอลัมน์ข้อมูลที่ครูจะได้และรหัสต้นทาง)
+    พร้อม rows, total, pages, pageNo, filters, qs, qsNoPage, show, years, count
+*}
+<style>
+    .subj-block + .subj-block { margin-top: 22px; }
+    .subj-block .hint { margin-bottom: 8px; }
+    .subj-filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+    .subj-filter input[type=search] { flex: 1 1 260px; }
+    .subj-filter select { width: auto; flex: 0 0 auto; }
+    .subj-table td { padding-top: 10px; padding-bottom: 10px; vertical-align: top; }
+    .subj-table .code { font-family: var(--mono, monospace); white-space: nowrap; font-weight: 600; }
+    .subj-table .en { color: var(--ink2); font-size: 12.5px; }
+    .subj-table .tpn { white-space: nowrap; text-align: center; }
+    .subj-table .act { text-align: right; white-space: nowrap; }
+    .subj-flags { display: flex; gap: 4px; flex-wrap: wrap; }
+    .subj-flags .chip, .subj-block .hint .chip { font-size: 11.5px; }
+    .subj-miss { opacity: .75; }
+    .subj-pager { display: flex; gap: 6px; align-items: center; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+    .subj-detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .subj-detail h2 { margin: 0 0 4px; }
+    .subj-detail dl { display: grid; grid-template-columns: 150px 1fr; gap: 8px 14px; margin: 14px 0 0; }
+    .subj-detail dt { color: var(--ink2); font-weight: 600; }
+    .subj-detail dd { margin: 0; white-space: pre-wrap; }
+    @media (max-width: 640px) { .subj-detail dl { grid-template-columns: 1fr; } .subj-detail dt { margin-top: 6px; } }
+</style>
+
+{if $show}
+    <section class="card subj-detail subj-block" id="detail">
+        <div class="subj-detail-head">
+            <a class="hint" href="{$base}{$catalogUrl}{if $qs}?{$qs}{/if}"><span class="msi" aria-hidden="true">arrow_back</span>กลับไปที่รายการ</a>
+            <a class="btn btn-primary btn-sm" href="{$base}/subjects/{$show['id']}/print" target="_blank" rel="noopener">
+                <span class="msi" aria-hidden="true">print</span>พิมพ์ใบข้อมูลรายวิชา
+            </a>
+        </div>
+        <h2><span class="code">{$show['code']}</span> {$show['name_th']}</h2>
+        <div class="sub" n:if="$show['name_en']">{$show['name_en']}</div>
+        <dl>
+            <dt>กลุ่มสาระการเรียนรู้</dt><dd>{$show['learning_area']}</dd>
+            <dt>หลักสูตร</dt><dd>{$show['curriculum_year']}</dd>
+            <dt>ท-ป-น</dt><dd>{$show['theory_hours']}-{$show['practice_hours']}-{$show['credits'] + 0}{if $show['self_study_hours']} (ศึกษาค้นคว้าด้วยตนเอง {$show['self_study_hours']} ชม.){/if}</dd>
+            <dt n:if="!empty($show['tpn_variants'])">ท-ป-น แบบอื่น</dt><dd n:if="!empty($show['tpn_variants'])">{$show['tpn_variants']} <span class="hint">(รหัสเดียวกันแต่บางสาขากำหนดชั่วโมงต่างกัน)</span></dd>
+            <dt>จุดประสงค์รายวิชา</dt><dd>{$show['objectives'] ?: '—'}</dd>
+            <dt>สมรรถนะรายวิชา</dt><dd>{$show['competencies'] ?: '—'}</dd>
+            <dt>คำอธิบายรายวิชา</dt><dd>{$show['description'] ?: '—'}</dd>
+            {if $adminView}
+                <dt>ประเภทวิชา (ศธ.02)</dt><dd>{$show['subject_group'] ?: '—'}</dd>
+                <dt>รหัสอ้างอิงต้นทาง</dt><dd>{$show['source_id'] ?: '—'} · นำเข้าเมื่อ {$show['imported_at']}</dd>
+            {/if}
+        </dl>
+    </section>
+{/if}
+
+<section class="card subj-block">
+    <form class="subj-filter" method="get" action="{$base}{$catalogUrl}">
+        <input class="input" type="search" name="q" value="{$filters['q']}" placeholder="ค้นรหัสวิชา ชื่อไทย หรือชื่ออังกฤษ" aria-label="ค้นหารายวิชา">
+        <select class="input" name="level" aria-label="ระดับ">
+            <option value="">ทุกระดับ</option>
+            <option value="2" n:attr="selected: $filters['level'] === '2'">ปวช. (2xxxx)</option>
+            <option value="3" n:attr="selected: $filters['level'] === '3'">ปวส. (3xxxx)</option>
+        </select>
+        <select class="input" name="year" aria-label="ปีหลักสูตร" n:if="count($years) > 1">
+            <option value="">ทุกหลักสูตร</option>
+            {foreach $years as $y => $n}
+                <option value="{$y}" n:attr="selected: $filters['year'] === $y">หลักสูตร {$y}</option>
+            {/foreach}
+        </select>
+        <button type="submit" class="btn btn-primary"><span class="msi" aria-hidden="true">search</span>ค้นหา</button>
+        <a n:if="$qsNoPage" class="btn" href="{$base}{$catalogUrl}">ล้าง</a>
+    </form>
+
+    <div class="hint">
+        พบ {number_format($total)} รายวิชา{if $pages > 1} · หน้า {$pageNo} จาก {$pages}{/if}
+        {if $adminView}
+            · คอลัมน์สุดท้ายบอกว่าวิชานั้นมีข้อมูลอะไรในคลัง: <span class="chip chip-ok">✓ มีแล้ว</span> ครูได้อัตโนมัติ
+            <span class="chip chip-muted subj-miss">✗ ยังไม่มี</span> ครูต้องกรอกเอง
+        {else}
+            · กดชื่อวิชาเพื่อดูคำอธิบาย จุดประสงค์ สมรรถนะ และพิมพ์ใบข้อมูลรายวิชา
+        {/if}
+    </div>
+
+    {if $rows}
+        <div class="table-scroll">
+            <table class="data subj-table">
+                <thead>
+                    <tr>
+                        <th>รหัสวิชา</th><th>ชื่อวิชา</th><th class="tpn">ท-ป-น</th><th>หลักสูตร</th>
+                        {if $adminView}<th>ข้อมูลที่ครูจะได้</th>{else}<th></th>{/if}
+                    </tr>
+                </thead>
+                <tbody>
+                    {foreach $rows as $r}
+                        <tr>
+                            <td class="code"><a href="{$base}{$catalogUrl}?{$qs ? $qs . '&' : ''}show={$r['id']}#detail">{$r['code']}</a></td>
+                            <td>
+                                <a href="{$base}{$catalogUrl}?{$qs ? $qs . '&' : ''}show={$r['id']}#detail">{$r['name_th']}</a>
+                                <div class="en" n:if="$r['name_en']">{$r['name_en']}</div>
+                            </td>
+                            <td class="tpn">{$r['theory_hours']}-{$r['practice_hours']}-{$r['credits'] + 0}</td>
+                            <td>{$r['curriculum_year']}</td>
+                            {if $adminView}
+                                <td>
+                                    <div class="subj-flags">
+                                        {foreach ['has_description' => 'คำอธิบาย', 'has_objectives' => 'จุดประสงค์', 'has_competencies' => 'สมรรถนะ'] as $key => $label}
+                                            {if $r[$key]}
+                                                <span class="chip chip-ok" title="มี{$label}รายวิชาในคลังแล้ว — ครูได้ข้อมูลนี้อัตโนมัติ">✓ {$label}</span>
+                                            {else}
+                                                <span class="chip chip-muted subj-miss" title="คลังยังไม่มี{$label}รายวิชา — ครูต้องกรอกเอง">✗ {$label}</span>
+                                            {/if}
+                                        {/foreach}
+                                    </div>
+                                </td>
+                            {else}
+                                <td class="act">
+                                    <a class="btn btn-sm" href="{$base}/subjects/{$r['id']}/print" target="_blank" rel="noopener" title="พิมพ์ใบข้อมูลรายวิชา {$r['code']}">
+                                        <span class="msi" aria-hidden="true">print</span>พิมพ์
+                                    </a>
+                                </td>
+                            {/if}
+                        </tr>
+                    {/foreach}
+                </tbody>
+            </table>
+        </div>
+    {else}
+        <div class="empty">
+            <h3>ไม่พบรายวิชา</h3>
+            <p>{if $count === 0}คลังรายวิชายังว่าง{if $adminView} — วางไฟล์ <code>vec-subjects-*.json.gz</code> ใน <code>database/data</code> แล้วกด "นำเข้า/ปรับปรุงจากไฟล์"{/if}{else}ลองค้นด้วยคำอื่น หรือล้างตัวกรอง{/if}</p>
+        </div>
+    {/if}
+
+    <nav class="subj-pager" n:if="$pages > 1" aria-label="เลขหน้า">
+        <a n:if="$pageNo > 1" class="btn btn-sm" href="{$base}{$catalogUrl}?{$qsNoPage ? $qsNoPage . '&' : ''}page={$pageNo - 1}"><span class="msi" aria-hidden="true">chevron_left</span>ก่อนหน้า</a>
+        <span class="hint">หน้า {$pageNo} / {$pages}</span>
+        <a n:if="$pageNo < $pages" class="btn btn-sm" href="{$base}{$catalogUrl}?{$qsNoPage ? $qsNoPage . '&' : ''}page={$pageNo + 1}">ถัดไป<span class="msi" aria-hidden="true">chevron_right</span></a>
+    </nav>
+</section>

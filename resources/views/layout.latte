@@ -101,6 +101,8 @@
                 <div class="nav-set" data-set="teach">
                 {if $teaches}
                     <a href="{$base}/courses" n:class="$page === 'courses' ? is-active" title="รายวิชาของฉัน"><span class="msi">class</span><span class="nav-label">รายวิชาของฉัน</span></a>
+                    <a href="{$base}/subjects" n:class="$page === 'subjects' ? is-active" title="สืบค้นรายวิชาตามหลักสูตร สอศ. และพิมพ์ใบข้อมูลรายวิชา"
+                       data-keywords="คลังรายวิชา รหัสวิชา คำอธิบายรายวิชา หลักสูตร 2567 ศธ.02"><span class="msi">library_books</span><span class="nav-label">รายวิชา สอศ.</span></a>
                     <a href="{$base}/students" n:class="$page === 'students' ? is-active" title="นักเรียนของฉัน"><span class="msi">group</span><span class="nav-label">นักเรียนของฉัน</span></a>
                     <a href="{$base}/review" n:class="$page === 'review' ? is-active" title="รอตรวจก่อนเผยแพร่">
                         <span class="msi">fact_check</span><span class="nav-label">รอตรวจก่อนเผยแพร่</span>

@@ -33,34 +33,14 @@ final class SubjectCatalogController
 
     public function index(Request $request, Response $response): Response
     {
-        $query = $request->getQueryParams();
-        $q = mb_substr(trim((string) ($query['q'] ?? '')), 0, 100);
-        $year = (int) ($query['year'] ?? 0);
-        $level = (string) ($query['level'] ?? '');
-        $page = max(1, (int) ($query['page'] ?? 1));
-        $ready = $this->catalog->ready();
-        if ($ready) {
-            $this->catalog->ensureImported();
-        }
-        $result = $ready ? $this->catalog->browse($q, $year, $level, $page, self::PER_PAGE) : ['rows' => [], 'total' => 0];
-        $show = isset($query['show']) ? $this->catalog->find((int) $query['show']) : null;
+        $listing = $this->catalog->listing($request->getQueryParams(), self::PER_PAGE);
 
         return $this->view->render($response, 'admin/subjects', [
             'page' => 'admin-subjects',
-            'ready' => $ready,
             'stats' => $this->catalog->stats(),
-            'gaps' => $ready ? $this->catalog->gaps() : [],
+            'gaps' => $listing['ready'] ? $this->catalog->gaps() : [],
             'files' => array_map('basename', SubjectCatalogRepository::bundledFiles()),
-            'rows' => $result['rows'],
-            'total' => $result['total'],
-            'pages' => max(1, (int) ceil($result['total'] / self::PER_PAGE)),
-            'pageNo' => $page,
-            'filters' => ['q' => $q, 'year' => $year, 'level' => $level],
-            // ส่วน query ของตัวกรองปัจจุบัน — ใช้ต่อท้ายลิงก์หน้า/รายละเอียด
-            'qs' => http_build_query(array_filter(['q' => $q, 'year' => $year ?: null, 'level' => $level, 'page' => $page > 1 ? $page : null])),
-            'qsNoPage' => http_build_query(array_filter(['q' => $q, 'year' => $year ?: null, 'level' => $level])),
-            'show' => $show,
-        ]);
+        ] + $listing);
     }
 
     /** นำเข้า/ปรับปรุงจากไฟล์ database/data/vec-subjects-*.json.gz อีกครั้ง */

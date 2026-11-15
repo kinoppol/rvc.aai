@@ -1,0 +1,30 @@
+{layout '../layout.latte'}
+
+{block title}รายวิชา สอศ.{/block}
+
+{* สืบค้นคลังรายวิชามาตรฐาน สอศ. — ครูและบุคลากรทุกคนเปิดได้ (หน้าผู้ดูแลอยู่ที่ /admin/subjects) *}
+{block content}
+<div class="page-head">
+    <div>
+        <h1>รายวิชา สอศ.</h1>
+        <div class="sub">
+            สืบค้นรายวิชาตามหลักสูตรของ สอศ. ({number_format($stats['count'])} รายวิชา{if $stats['years']} · หลักสูตร {implode(', ', array_keys($stats['years']))}{/if})
+            ดูคำอธิบายรายวิชา จุดประสงค์ สมรรถนะ และพิมพ์ใบข้อมูลรายวิชาได้ — ข้อมูลจากระบบ ศธ.02 ออนไลน์
+        </div>
+    </div>
+    <div class="actions" n:if="$userTeaches ?? false">
+        <a class="btn" href="{$base}/courses/new"><span class="msi" aria-hidden="true">add</span>สร้างรายวิชาของฉัน</a>
+    </div>
+</div>
+
+{if !$ready}
+    <div class="empty">
+        <h3>คลังรายวิชายังไม่พร้อมใช้งาน</h3>
+        <p>ผู้ดูแลระบบต้องเปิดใช้คลังรายวิชาก่อน (รัน migration ที่หน้าฐานข้อมูล)</p>
+    </div>
+{else}
+    {include '../_partials/subject-catalog.latte', catalogUrl: '/subjects', adminView: false,
+        rows: $rows, total: $total, pages: $pages, pageNo: $pageNo, filters: $filters, qs: $qs, qsNoPage: $qsNoPage,
+        show: $show, years: $stats['years'], count: $stats['count']}
+{/if}
+{/block}

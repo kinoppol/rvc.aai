@@ -45,6 +45,7 @@ use App\Controllers\ReviewController;
 use App\Controllers\SettingsController;
 use App\Controllers\SsoController;
 use App\Controllers\SsoSignupController;
+use App\Controllers\SubjectBrowseController;
 use App\Controllers\SubjectLookupController;
 use App\Controllers\SubmissionController;
 use App\Controllers\StudentController;
@@ -113,6 +114,12 @@ return static function (App $app): void {
         // แท็บเครื่องมือในหน้าต่างผู้ช่วย: รายชื่อนักเรียนของรายวิชาให้วงล้อสุ่มชื่อ
         $group->get('/tools/roster', [ClassToolsController::class, 'roster'])
             ->add(new RoleMiddleware(Roles::TEACHING));
+
+        // คลังรายวิชา สอศ.: ครูและบุคลากรทุกคนสืบค้นและพิมพ์ใบข้อมูลรายวิชาได้
+        $group->group('/subjects', function (RouteCollectorProxy $s): void {
+            $s->get('', [SubjectBrowseController::class, 'index'])->setName('subjects');
+            $s->get('/{id:[0-9]+}/print', [SubjectBrowseController::class, 'print']);
+        })->add(new RoleMiddleware(Roles::STAFF));
 
         $group->group('/courses', function (RouteCollectorProxy $t): void {
             $t->get('', [CourseController::class, 'index'])->setName('courses');
