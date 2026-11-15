@@ -15,6 +15,9 @@ use App\Domain\SettingsRepository;
  */
 final class Drafter
 {
+    /** เส้นทาง AI ของการร่างครั้งล่าสุด — ให้ controller ตอบชื่อโมเดลที่ใช้จริงกลับไปแสดง */
+    public ?AiRoute $lastRoute = null;
+
     public function __construct(
         private readonly AiRouter $router,
         private readonly AiRepository $ai,
@@ -96,6 +99,7 @@ final class Drafter
         }
 
         $route = $this->router->route($userId, $quality, $prefer !== null, real: true, target: $target, task: (string) ($spec['task'] ?? ''), prefer: $prefer);
+        $this->lastRoute = $route;
         if ($prefer !== null && $route->countsQuota) {
             $this->ai->consumeQuota($userId, sprintf('%04d-%02d', $this->settings->int('academic_year', (int) date('Y')), (int) date('n')), $this->settings->int('ai_monthly_quota', 60));
         }

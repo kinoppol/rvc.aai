@@ -96,6 +96,11 @@
         });
         var es = new EventSource(base + '/courses/' + cid + '/lesson-plan/stream?' + qs.toString());
 
+        es.addEventListener('meta', function (e) {
+            var d = JSON.parse(e.data);
+            var head = stream.querySelector('.gen-headline');
+            if (head && d.chip) { head.textContent = 'กำลังร่างเอกสาร… · ใช้ ' + d.chip; }
+        });
         es.addEventListener('section', function (e) {
             var s = JSON.parse(e.data);
             var el = document.createElement('div');

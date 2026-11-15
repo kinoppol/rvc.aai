@@ -8,7 +8,7 @@
 {var $published = $quiz['review_status'] === 'published'}
 <div class="wizard-page mid" id="reviewRoot"
      data-base="{$base}" data-course="{$course['id']}" data-quiz="{$quiz['id']}" data-token="{$csrf}"
-     data-regen="{$aiOn && $attemptCount === 0 ? 1 : 0}"
+     data-regen="{$aiOn && $attemptCount === 0 ? 1 : 0}" data-ai="{$regenAi}"
      data-editor="{json_encode($editorData, \JSON_UNESCAPED_UNICODE)}">
 
     <a class="back-link" href="{$base}/courses/{$course['id']}{$quiz['unit_id'] ? '/units/' . $quiz['unit_id'] . '/edit' : '?tab=quizzes'}">← กลับ</a>

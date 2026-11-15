@@ -78,6 +78,30 @@ final class AiChatController
         }
     }
 
+    /**
+     * GET /ai/route?task=…&ai=…&prefer=college — AI ตัวไหนจะทำงานนี้ (ไม่เรียกโมเดล ไม่ตัดโควตา)
+     * ทุกหน้าที่ให้ผู้ช่วยสร้างงานใช้แสดงชื่อโมเดลระหว่างรอ (ui.js rvcAiModel) · งานที่ตรวจโควตา (ข้อสอบ แผน OCR
+     * หรือ prefer) ตรวจเหมือนตอนทำจริง จึงเห็นตัวที่ระบบจะสลับไปใช้เมื่อโควตาหมด
+     */
+    public function routeInfo(Request $request, Response $response): Response
+    {
+        $user = $request->getAttribute('user');
+        $uid = (int) $user['id'];
+        $q = $request->getQueryParams();
+        $task = preg_replace('/[^a-z_]/', '', (string) ($q['task'] ?? '')) ?? '';
+        $prefer = ($q['prefer'] ?? '') === 'college' ? 'college' : null;
+        $quota = $prefer !== null || in_array($task, ['quiz', 'lesson_plan', 'ocr'], true);
+
+        try {
+            $route = $this->router->route($uid, $this->settings->userQualityPref($uid), $quota, real: true,
+                target: trim((string) ($q['ai'] ?? '')), task: $task, prefer: $prefer);
+
+            return $this->json($response, ['ok' => true, 'chip' => $route->chip, 'model' => $route->model, 'source' => $route->source]);
+        } catch (AiUnavailableException $e) {
+            return $this->json($response, ['ok' => false, 'reason' => $e->reason, 'message' => $e->getMessage()]);
+        }
+    }
+
     public function stream(Request $request, Response $response): Response
     {
         $user = $request->getAttribute('user');

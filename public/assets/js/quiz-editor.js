@@ -234,6 +234,10 @@
     function regenerate(q, btn) {
         btn.disabled = true;
         btn.textContent = 'กำลังร่าง…';
+        /* ชื่อ AI ที่กำลังร่างข้อนี้ — ต่อท้ายปุ่ม แล้วยืนยันด้วยชื่อที่เซิร์ฟเวอร์ตอบกลับ */
+        var chip = btn.parentNode.querySelector('.ai-model-chip');
+        if (!chip) { chip = document.createElement('span'); chip.className = 'ai-model-chip'; btn.parentNode.insertBefore(chip, btn.nextSibling); }
+        if (window.rvcAiModel) { window.rvcAiModel(chip, 'quiz', root.dataset.ai || ''); }
         fetch(root.dataset.base + '/courses/' + root.dataset.course + '/quizzes/' + root.dataset.quiz + '/questions/' + q.id + '/regenerate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -241,6 +245,7 @@
         }).then(function (r) { return r.json(); }).then(function (d) {
             btn.disabled = false;
             btn.textContent = 'ให้ AI ร่างข้อนี้ใหม่';
+            if (d.chip && window.rvcAiModel) { window.rvcAiModel.set(chip, d.chip); }
             if (d.error) { rvcAlert({ title: 'ร่างข้อนี้ใหม่ไม่สำเร็จ', message: d.error, danger: true }); return; }
             var n = d.question;
             q.type = n.type;

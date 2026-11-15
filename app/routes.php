@@ -100,6 +100,8 @@ return static function (App $app): void {
             $c->post('/prepare', [AiChatController::class, 'prepare']);
             $c->post('/attach', [AiChatController::class, 'attach']);
         })->add(new RoleMiddleware(Roles::STAFF));
+        // AI ตัวไหนจะทำงานนี้ — ใช้แสดงชื่อโมเดลระหว่างที่ผู้ช่วยกำลังสร้าง
+        $group->get('/ai/route', [AiChatController::class, 'routeInfo'])->add(new RoleMiddleware(Roles::STAFF));
 
         // ผู้ช่วยสร้างรายวิชา/หน่วยการเรียนให้ตามคำขอ — ครูต้องกดยืนยันจากการ์ดในช่องสนทนาก่อนเสมอ
         $group->post('/ai/chat/create-course', [AiChatController::class, 'createCourse'])

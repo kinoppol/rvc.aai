@@ -134,8 +134,8 @@ final class UnitKnowledge
             $pages = PdfPages::render($pdf, self::OCR_PAGES);
             self::writeState($ocr, ['state' => 'running', 'page' => 0, 'pages' => count($pages)]);
 
-            $read = $this->scans->read($userId, $pages, static function (int $done, int $all) use ($ocr): void {
-                self::writeState($ocr, ['state' => 'running', 'page' => $done, 'pages' => $all]);
+            $read = $this->scans->read($userId, $pages, static function (int $done, int $all, string $chip = '') use ($ocr): void {
+                self::writeState($ocr, ['state' => 'running', 'page' => $done, 'pages' => $all, 'model' => $chip]);
             });
 
             $text = $read['text'];
@@ -314,7 +314,7 @@ final class UnitKnowledge
             $state === 'failed' ? (string) ($s['message'] ?? '') : 'ไฟล์สแกนเป็นรูป — ต้องให้ AI อ่าน (OCR) ก่อน',
             page: (int) ($s['page'] ?? 0),
             pages: (int) ($s['pages'] ?? 0),
-        );
+        ) + ($state === 'running' ? ['model' => (string) ($s['model'] ?? '')] : []);
     }
 
     /** @param array<string,mixed> $state */

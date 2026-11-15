@@ -301,7 +301,8 @@
                 selected.forEach(function (m) { body.append('models[]', m); });
                 suggestBtn.disabled = true;
                 suggestBtn.textContent = 'AI กำลังพิจารณา…';
-                say(true, 'กำลังให้ AI ดูคุณสมบัติของ ' + selected.length + ' โมเดล อาจใช้เวลาครึ่งนาที');
+                say(true, 'กำลังให้ AI ดูคุณสมบัติของ ' + selected.length + ' โมเดล อาจใช้เวลาครึ่งนาที ');
+                if (window.rvcAiModel) { var chip = document.createElement('span'); chip.className = 'ai-model-chip'; msg.appendChild(chip); window.rvcAiModel(chip, 'model_roles', '', 'college'); }
                 fetch(opts.suggestUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
                     .then(function (r) { return r.json(); })
                     .then(function (d) {

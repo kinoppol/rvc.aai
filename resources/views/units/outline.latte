@@ -28,7 +28,7 @@
     </div>
 
     <form method="post" action="{$base}/courses/{$course['id']}/units/design" class="card"
-          data-busy="กำลังร่างรายชื่อหน่วย…">
+          data-busy="กำลังร่างรายชื่อหน่วย…" data-ai-task="unit_outline">
         <input type="hidden" name="_token" value="{$csrf}">
 
         {* ตารางภาคเรียน: ระบบวางสัปดาห์ของแต่ละหน่วยและสัปดาห์สอบเอง (App\Support\Semester · ตัวอย่างสดใน semester-plan.js) *}

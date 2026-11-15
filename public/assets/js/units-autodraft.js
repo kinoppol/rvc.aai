@@ -11,6 +11,7 @@
     var status = document.getElementById('autoDraftStatus');
     var ids = (box.dataset.units || '').split(',').filter(Boolean);
     var running = false;
+    var modelChip = box.querySelector('.ai-model-chip');
     var stopAsked = false;
 
     function row(id) { return document.querySelector('.list-row[data-unit="' + id + '"]'); }
@@ -65,6 +66,7 @@
         stopBtn.disabled = false;
         stopBtn.textContent = 'หยุดหลังหน่วยนี้';
         progress.hidden = false;
+        if (window.rvcAiModel) { window.rvcAiModel(modelChip, 'unit_content', ''); }
         ids.forEach(function (id) { mark(id, 'รอคิว', 'wait'); });
 
         var done = 0, made = 0, failed = [], skipped = 0;
@@ -106,6 +108,7 @@
             mark(id, 'กำลังร่าง…', 'run');
             draftOne(id).then(function (d) {
                 done++;
+                if (d.chip && window.rvcAiModel) { window.rvcAiModel.set(modelChip, d.chip); }
                 bar.style.width = Math.round(done / total * 100) + '%';
                 if (d.ok && d.skipped) {
                     skipped++;

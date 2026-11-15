@@ -354,6 +354,7 @@ final class AssignmentController
             'ok' => true,
             'title' => $title,
             'unpublished' => $unpublished,
+            'chip' => $this->drafter->lastRoute?->chip,
             'editUrl' => Url::to('/courses/' . $course['id'] . '/units/' . $unit['id'] . '/assignments/' . $id . '/edit'),
         ]);
     }

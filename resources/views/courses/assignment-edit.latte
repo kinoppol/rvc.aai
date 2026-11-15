@@ -14,7 +14,7 @@
 
     {if $aiEnabled}
         <form method="post" action="{$formUrl}/{if $assignment}{$assignment['id']}/draft{else}draft{/if}"
-              class="card" style="margin-top:20px" data-busy="กำลังร่าง{$noun}…">
+              class="card" style="margin-top:20px" data-busy="กำลังร่าง{$noun}…" data-ai-task="assignment">
             <input type="hidden" name="_token" value="{$csrf}">
             <input type="hidden" name="max_score" value="{$form['max_score']}">
             {if $isTask}<input type="hidden" name="unit_id" value="{$form['unit_id']}" data-unit-mirror>{/if}

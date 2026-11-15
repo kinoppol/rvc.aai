@@ -121,8 +121,45 @@
         if (note) {
             dressBusyNote(note);
             note.hidden = false;
+            /* ฟอร์มให้ AI ร่าง (data-ai-task): บอกว่าโมเดลไหนกำลังทำงาน */
+            if (form.dataset.aiTask && !note.querySelector('.ai-model-chip')) {
+                var chip = document.createElement('span');
+                chip.className = 'ai-model-chip';
+                note.appendChild(chip);
+                window.rvcAiModel(chip, form.dataset.aiTask, form.elements.ai ? form.elements.ai.value : '');
+            }
         }
     });
+
+    /* ชื่อ AI ที่กำลังทำงาน: rvcAiModel(el, task, ai, prefer) ถาม GET /ai/route แล้วเขียน "ใช้ AI …" ลงใน el
+       (task = งานเดียวกับที่ฝั่งเซิร์ฟเวอร์ส่งให้ AiRouter, ai = ตัวที่ครูเลือก, prefer = 'college' ถ้างานนั้นใช้ส่วนกลางก่อน)
+       rvcAiModel.set(el, chip) = เขียนชื่อที่เซิร์ฟเวอร์ตอบมาหลังทำงานจริง */
+    window.rvcAiModel = function (el, task, ai, prefer) {
+        if (!el) { return; }
+        var meta = document.querySelector('meta[name="rvc-base"]');
+        var qs = new URLSearchParams();
+        qs.set('task', task || '');
+        if (ai) { qs.set('ai', ai); }
+        if (prefer) { qs.set('prefer', prefer); }
+        el.hidden = false;
+        el.classList.remove('is-off');
+        el.textContent = 'กำลังเลือก AI…';
+        fetch((meta ? meta.content : '') + '/ai/route?' + qs.toString(), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (d.ok) { window.rvcAiModel.set(el, d.chip); return; }
+                el.textContent = d.message || 'ยังไม่มี AI ที่ใช้ได้';
+                el.classList.add('is-off');
+            })
+            .catch(function () { el.hidden = true; });
+    };
+    window.rvcAiModel.set = function (el, chip) {
+        if (!el || !chip) { return; }
+        el.hidden = false;
+        el.classList.remove('is-off');
+        el.textContent = 'ใช้ ' + chip;
+        el.title = 'AI ที่กำลังทำงานนี้';
+    };
 
     /* กล่อง "ผู้ช่วยกำลังเขียน…" — แทนวงกลมหมุนด้วยลูกแก้ว ✦ เติมเส้นข้อความจำลองที่ค่อย ๆ ถูกเขียน
        และนับเวลาที่ผ่านไป (งานร่างของ AI ใช้ 15–60 วินาที ผู้ใช้จะได้เห็นว่ายังทำงานอยู่) */

@@ -12,6 +12,7 @@
     var status = document.getElementById('wsAutoStatus');
     var items = Array.prototype.slice.call(form.querySelectorAll('.qad-queue li'));
     var running = false;
+    var modelChip = form.querySelector('.ai-model-chip');
     var stopAsked = false;
 
     // การ์ดซ่อนไว้ก่อน · ปุ่ม [data-autodraft-open] เปิด/ปิด (ระหว่างร่างปิดไม่ได้)
@@ -76,6 +77,7 @@
         stopBtn.disabled = false;
         stopBtn.textContent = 'หยุดหลังหน่วยนี้';
         progress.hidden = false;
+        if (window.rvcAiModel) { window.rvcAiModel(modelChip, 'assignment', ''); }
         bar.style.width = '0%';
         queue.forEach(function (li) { mark(li, 'รอคิว', 'wait'); });
 
@@ -118,6 +120,7 @@
             mark(li, 'กำลังร่าง…', 'run');
             draftOne(li).then(function (d) {
                 done++;
+                if (d.chip && window.rvcAiModel) { window.rvcAiModel.set(modelChip, d.chip); }
                 bar.style.width = Math.round(done / total * 100) + '%';
                 if (d.ok && d.skipped) {
                     skipped++;

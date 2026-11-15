@@ -692,7 +692,7 @@ final class UnitController
         }
         $this->logger->info('ร่างเนื้อหาทุกหน่วย: บันทึกแล้ว', ['unit_id' => (int) $unit['id'], 'sections' => count($sections)]);
 
-        return $this->json($response, ['ok' => true, 'sections' => count($sections), 'unpublished' => $unpublished]);
+        return $this->json($response, ['ok' => true, 'sections' => count($sections), 'unpublished' => $unpublished, 'chip' => $this->drafter->lastRoute?->chip]);
     }
 
     /** บันทึกหัวข้อที่ครูติ๊กเลือกจากที่ผู้ช่วยร่างไว้ ต่อท้ายเนื้อหาเดิมของหน่วย */

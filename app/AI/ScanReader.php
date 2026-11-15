@@ -42,6 +42,9 @@ final class ScanReader
         if (!$provider instanceof VisionProvider) {
             throw new AiUnavailableException('no_model', 'AI ที่เลือกได้ส่งภาพให้อ่านไม่ได้');
         }
+        if ($progress !== null) {
+            $progress(0, count($pages), $route->chip);
+        }
         if ($route->countsQuota) {
             $this->ai->consumeQuota($userId, sprintf('%04d-%02d', $this->settings->int('academic_year', (int) date('Y')), (int) date('n')), $this->settings->int('ai_monthly_quota', 60));
         }
@@ -72,7 +75,7 @@ final class ScanReader
             $text = self::clean($text);
             $out[] = '<!-- หน้า ' . ($i + 1) . ' -->' . "\n" . ($text !== '' ? $text : '[หน้านี้อ่านข้อความไม่ได้]');
             if ($progress !== null) {
-                $progress($i + 1, $total);
+                $progress($i + 1, $total, $route->chip);
             }
         }
 

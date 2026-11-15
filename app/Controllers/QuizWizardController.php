@@ -485,6 +485,7 @@ final class QuizWizardController
         return $this->json($response, [
             'ok' => true,
             'questions' => count($result['questions']),
+            'chip' => $route->chip,
             'reviewUrl' => Url::to("/courses/{$course['id']}/quizzes/$quizId/review"),
         ]);
     }
@@ -564,6 +565,8 @@ final class QuizWizardController
             'aiChip' => $quiz['source'] === 'manual' ? 'สร้างเอง' : $this->sourceChip($generation),
             'createdAgo' => Thai::ago($quiz['created_at']),
             'regenQuery' => $aiOn ? $regenQuery : '',
+            // AI ที่ใช้ร่างชุดนี้ — "ร่างข้อนี้ใหม่" ใช้ตัวเดิม และแสดงชื่อระหว่างรอ
+            'regenAi' => (string) ($genPayload['params']['ai'] ?? ''),
             'attemptCount' => $this->quizzes->submittedCount((int) $quiz['id']),
             'editorData' => [
                 'questions' => array_map(static fn (array $q): array => [
@@ -676,6 +679,7 @@ final class QuizWizardController
 
         try {
             $route = $this->router->route((int) $user['id'], $this->settings->userQualityPref((int) $user['id']), real: true, target: (string) ($params['ai'] ?? ''), task: 'quiz');
+            $chip = $route->chip;
         } catch (AiUnavailableException $e) {
             return $this->json($response, ['error' => $e->getMessage()], 503);
         }
@@ -714,7 +718,7 @@ final class QuizWizardController
         $this->quizzes->replaceQuestion((int) $question['id'], $fresh);
         $this->ai->logUsage((int) $user['id'], null, $route->source, $route->model, true, 'quiz');
 
-        return $this->json($response, ['question' => $this->quizzes->getQuestion((int) $question['id'])]);
+        return $this->json($response, ['question' => $this->quizzes->getQuestion((int) $question['id']), 'chip' => $chip]);
     }
 
     /**

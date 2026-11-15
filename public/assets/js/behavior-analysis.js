@@ -73,7 +73,8 @@
 
         btn.disabled = true;
         status.className = 'hint';
-        status.textContent = 'ผู้ช่วยกำลังวิเคราะห์ทุกหน่วย… ปกติใช้เวลา 20–60 วินาที';
+        status.textContent = 'ผู้ช่วยกำลังวิเคราะห์ทุกหน่วย… ปกติใช้เวลา 20–60 วินาที ';
+        if (window.rvcAiModel) { var chip = document.createElement('span'); chip.className = 'ai-model-chip'; status.appendChild(chip); window.rvcAiModel(chip, 'behavior_analysis', ''); }
 
         fetch(btn.dataset.url, { method: 'POST', body: body, credentials: 'same-origin', headers: { Accept: 'application/json' } })
             .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (' + r.status + ')' }; }); })

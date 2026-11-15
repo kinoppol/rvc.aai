@@ -12,6 +12,7 @@
     var status = document.getElementById('quizAutoStatus');
     var items = Array.prototype.slice.call(form.querySelectorAll('.qad-queue li'));
     var running = false;
+    var modelChip = form.querySelector('.ai-model-chip');
     var stopAsked = false;
 
     // การ์ดซ่อนไว้ก่อน · ปุ่ม [data-autodraft-open] เปิด/ปิด (ระหว่างร่างปิดไม่ได้)
@@ -95,6 +96,7 @@
         stopBtn.disabled = false;
         stopBtn.textContent = 'หยุดหลังชุดนี้';
         progress.hidden = false;
+        if (window.rvcAiModel) { window.rvcAiModel(modelChip, 'quiz', ''); }
         queue.forEach(function (li) { mark(li, 'รอคิว', 'wait'); });
 
         var total = queue.length, done = 0, made = 0, skipped = 0, failed = 0;
@@ -135,6 +137,7 @@
             mark(li, 'กำลังร่าง…', 'run');
             draftOne(li).then(function (d) {
                 done++;
+                if (d.chip && window.rvcAiModel) { window.rvcAiModel.set(modelChip, d.chip); }
                 bar.style.width = Math.round(done / total * 100) + '%';
                 if (d.ok && d.skipped) {
                     skipped++;

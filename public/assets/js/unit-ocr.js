@@ -22,7 +22,7 @@
         row.setAttribute('data-state', s.state);
         chip.className = 'chip ' + (s.state === 'ready' ? 'chip-ok' : (s.state === 'failed' ? 'chip-err' : 'chip-warn'));
         chip.textContent = s.state === 'ready' ? 'AI ใช้ได้ · ' + fmt(s.chars) + ' ตัวอักษร'
-            : s.state === 'running' ? 'กำลังให้ AI อ่านไฟล์สแกน…' + (s.pages ? ' หน้า ' + s.page + '/' + s.pages : '')
+            : s.state === 'running' ? 'กำลังให้ AI อ่านไฟล์สแกน…' + (s.pages ? ' หน้า ' + s.page + '/' + s.pages : '') + (s.model ? ' · ' + s.model : '')
             : s.state === 'pending' ? 'ไฟล์สแกน · รอ AI อ่าน (OCR)'
             : 'AI อ่านไฟล์นี้ไม่ได้';
         msg.textContent = s.state === 'failed' ? (s.message || s.error || '') : '';

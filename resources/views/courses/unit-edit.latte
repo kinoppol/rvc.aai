@@ -219,7 +219,7 @@
         {else}
             <form method="post" action="{$base}/courses/{$course['id']}/units/{$unit['id']}/content-draft"
                   id="contentDraftForm" class="ai-draft-form reveal-panel" hidden
-                  data-busy="กำลังร่างเนื้อหา…">
+                  data-busy="กำลังร่างเนื้อหา…" data-ai-task="unit_content">
                 <input type="hidden" name="_token" value="{$csrf}">
                 <div class="ai-draft-form-head">
                     <div class="step-label">ให้ AI ช่วยร่างเนื้อหาของหน่วยนี้</div>
