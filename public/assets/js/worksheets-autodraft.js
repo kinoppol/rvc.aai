@@ -14,6 +14,17 @@
     var running = false;
     var stopAsked = false;
 
+    // การ์ดซ่อนไว้ก่อน · ปุ่ม [data-autodraft-open] เปิด/ปิด (ระหว่างร่างปิดไม่ได้)
+    var opener = document.querySelector('[data-autodraft-open="' + form.id + '"]');
+    if (opener) {
+        opener.addEventListener('click', function () {
+            if (running && !form.hidden) return;
+            form.hidden = !form.hidden;
+            opener.setAttribute('aria-expanded', String(!form.hidden));
+            if (!form.hidden) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
+
     function pending() {
         return items.filter(function (li) { return !li.dataset.done; });
     }

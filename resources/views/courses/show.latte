@@ -230,13 +230,16 @@
                 <a class="btn" href="{$base}/courses/{$course['id']}/quizzes/new">+ สร้างแบบทดสอบเอง</a>
                 {if $course['ai_quiz_enabled']}
                     <a n:class="btn, btn-ai, !$quizGroups ? is-needed" href="{$base}/courses/{$course['id']}/quizzes/create">✦ สร้างแบบทดสอบด้วย AI</a>
+                    {if $quizQueue}
+                        <button type="button" class="btn btn-ai" data-autodraft-open="quizAutoDraft" aria-expanded="false" aria-controls="quizAutoDraft">✦ ร่างทุกหน่วยที่ยังไม่มี ({count($quizQueue)} ชุด)</button>
+                    {/if}
                 {/if}
             </div>
 
             {* ร่างแบบทดสอบก่อน/หลังเรียนทุกหน่วย: ตั้งค่าครั้งเดียว ผู้ช่วยร่างทีละหน่วยจนครบ (quizzes-autodraft.js)
                หน่วยที่มีแบบทดสอบชนิดนั้นแล้ว/หน่วยสอบข้าม · ทุกชุดเป็นฉบับร่างรอครูตรวจและเผยแพร่เอง *}
             {if $course['ai_quiz_enabled'] && $quizQueue}
-                <form class="card autodraft" id="quizAutoDraft" data-url="{$base}/courses/{$course['id']}/quizzes/auto" onsubmit="return false">
+                <form class="card autodraft" id="quizAutoDraft" hidden data-url="{$base}/courses/{$course['id']}/quizzes/auto" onsubmit="return false">
                     <input type="hidden" name="_token" value="{$csrf}">
                     <div class="autodraft-head">
                         <span class="msi autodraft-icon" aria-hidden="true">auto_awesome</span>
@@ -342,7 +345,10 @@
                 {if (int) $u['has_assignment'] === 0}{do $wsQueue[] = ['id' => $u['id'], 'label' => 'หน่วยที่ ' . $iterator->counter . ' · ' . $u['title']]}{/if}
             {/foreach}
             {if ($course['ai_lesson_plan_enabled'] ?? 1) && $wsQueue}
-                <form class="card autodraft" id="wsAutoDraft" data-url="{$base}/courses/{$course['id']}/units/" onsubmit="return false">
+                <div class="list-actions">
+                    <button type="button" class="btn btn-ai" data-autodraft-open="wsAutoDraft" aria-expanded="false" aria-controls="wsAutoDraft">✦ ร่างใบงานทุกหน่วยที่ยังไม่มี ({count($wsQueue)} หน่วย)</button>
+                </div>
+                <form class="card autodraft" id="wsAutoDraft" hidden data-url="{$base}/courses/{$course['id']}/units/" onsubmit="return false">
                     <input type="hidden" name="_token" value="{$csrf}">
                     <div class="autodraft-head">
                         <span class="msi autodraft-icon" aria-hidden="true">auto_awesome</span>
