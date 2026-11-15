@@ -19,9 +19,8 @@
     .subj-table .en { color: var(--ink2); font-size: 12.5px; }
     .subj-table .tpn { white-space: nowrap; text-align: center; }
     .subj-flags { display: flex; gap: 4px; flex-wrap: wrap; }
-    .subj-flag { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--brandSoft); color: var(--brandInk); }
-    .subj-flag { font-weight: 600; }
-    .subj-flag.is-off { background: transparent; border: 1px dashed var(--line); color: var(--ink2); text-decoration: line-through; }
+    .subj-flags .chip, .subj-block .hint .chip { font-size: 11.5px; }
+    .subj-miss { opacity: .75; }
     .subj-pager { display: flex; gap: 6px; align-items: center; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
     .subj-detail h2 { margin: 0 0 4px; }
     .subj-detail dl { display: grid; grid-template-columns: 150px 1fr; gap: 8px 14px; margin: 14px 0 0; }
@@ -117,13 +116,17 @@
             <a n:if="$qsNoPage" class="btn" href="{$base}/admin/subjects">ล้าง</a>
         </form>
 
-        <div class="hint">พบ {number_format($total)} รายวิชา{if $pages > 1} · หน้า {$pageNo} จาก {$pages}{/if}</div>
+        <div class="hint">
+            พบ {number_format($total)} รายวิชา{if $pages > 1} · หน้า {$pageNo} จาก {$pages}{/if}
+            · คอลัมน์สุดท้ายบอกว่าวิชานั้นมีข้อมูลอะไรในคลัง: <span class="chip chip-ok">✓ มีแล้ว</span> ครูได้อัตโนมัติ
+            <span class="chip chip-muted subj-miss">✗ ยังไม่มี</span> ครูต้องกรอกเอง
+        </div>
 
         {if $rows}
             <div class="table-scroll">
                 <table class="data subj-table">
                     <thead>
-                        <tr><th>รหัสวิชา</th><th>ชื่อวิชา</th><th class="tpn">ท-ป-น</th><th>หลักสูตร</th><th>ข้อมูล</th></tr>
+                        <tr><th>รหัสวิชา</th><th>ชื่อวิชา</th><th class="tpn">ท-ป-น</th><th>หลักสูตร</th><th>ข้อมูลที่ครูจะได้</th></tr>
                     </thead>
                     <tbody>
                         {foreach $rows as $r}
@@ -137,9 +140,13 @@
                                 <td>{$r['curriculum_year']}</td>
                                 <td>
                                     <div class="subj-flags">
-                                        <span n:class="subj-flag, !$r['has_description'] ? is-off" title="คำอธิบายรายวิชา">คำอธิบาย</span>
-                                        <span n:class="subj-flag, !$r['has_objectives'] ? is-off" title="จุดประสงค์รายวิชา">จุดประสงค์</span>
-                                        <span n:class="subj-flag, !$r['has_competencies'] ? is-off" title="สมรรถนะรายวิชา">สมรรถนะ</span>
+                                        {foreach ['has_description' => 'คำอธิบาย', 'has_objectives' => 'จุดประสงค์', 'has_competencies' => 'สมรรถนะ'] as $key => $label}
+                                            {if $r[$key]}
+                                                <span class="chip chip-ok" title="มี{$label}รายวิชาในคลังแล้ว — ครูได้ข้อมูลนี้อัตโนมัติ">✓ {$label}</span>
+                                            {else}
+                                                <span class="chip chip-muted subj-miss" title="คลังยังไม่มี{$label}รายวิชา — ครูต้องกรอกเอง">✗ {$label}</span>
+                                            {/if}
+                                        {/foreach}
                                     </div>
                                 </td>
                             </tr>
