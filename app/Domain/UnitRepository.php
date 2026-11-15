@@ -92,6 +92,21 @@ final class UnitRepository
         return $this->db->first('SELECT * FROM {unit_sections} WHERE id = ?', [$id]);
     }
 
+    /** มีคอลัมน์ผลลัพธ์การเรียนรู้/อ้างอิงมาตรฐานของหน่วยแล้วหรือยัง (migration 000141) */
+    public function planReady(): bool
+    {
+        static $ready = null;
+        if ($ready === null) {
+            try {
+                $ready = $this->db->first("SHOW COLUMNS FROM {units} LIKE 'standard_ref'") !== null;
+            } catch (\PDOException) {
+                $ready = false;
+            }
+        }
+
+        return $ready;
+    }
+
     /** @param array<string,mixed> $data */
     public function create(array $data): int
     {

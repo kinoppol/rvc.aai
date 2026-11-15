@@ -12,6 +12,8 @@ use App\Domain\CourseRepository;
 use App\Domain\QuizRepository;
 use App\Domain\UnitRepository;
 use App\Support\Csrf;
+use App\Support\OccupationStandard;
+use App\Support\UnitPlanFields;
 use App\Support\Flash;
 use App\Support\Paths;
 use App\Support\Thai;
@@ -103,6 +105,11 @@ final class UnitController
         return $this->view->render($response, 'courses/unit-edit', [
             'page' => 'courses',
             'unitNav' => $unit ? $this->unitNav($courseId, $unitId) : null,
+            'planReady' => $this->units->planReady(),
+            'stdRef' => UnitPlanFields::decode($unit['standard_ref'] ?? null),
+            // มาตรฐานอาชีพ/กลุ่มอาชีพของรายวิชา — มีอย่างใดอย่างหนึ่งจึงให้ AI วิเคราะห์อ้างอิงมาตรฐานของหน่วยได้
+            'occupation' => OccupationStandard::decode($course['occupation_standard'] ?? null),
+            'careerGroup' => trim((string) ($course['career_group'] ?? '')),
             'ai' => $this->drafter->picker((int) $request->getAttribute('user')['id']),
             'course' => $course,
             'unit' => $unit,
@@ -324,6 +331,11 @@ final class UnitController
             'competencies' => trim((string) ($data['competencies'] ?? '')) ?: null,
             'review_status' => ($data['action'] ?? '') === 'publish' ? 'published' : 'draft',
         ];
+        // ผลลัพธ์การเรียนรู้/อ้างอิงมาตรฐานของหน่วย (แผนการสอน 2567 ข้อ 1–2) — บันทึกเมื่อมีคอลัมน์แล้วและฟอร์มส่งมา
+        if ($this->units->planReady() && isset($data['plan_present'])) {
+            $fields['learning_outcome'] = trim((string) ($data['learning_outcome'] ?? '')) ?: null;
+            $fields['standard_ref'] = UnitPlanFields::fromPost($data);
+        }
         // หน่วยสอบใช้ 1 สัปดาห์เสมอ · หน่วยการเรียนเว้นว่าง = แผนการสอนแบ่งให้เอง
         $weeks = (int) ($data['weeks'] ?? 0);
         $fields['weeks'] = $fields['kind'] === 'lesson' && $weeks > 0 ? min(30, $weeks) : null;
@@ -778,6 +790,105 @@ final class UnitController
      *
      * @return array{0:array<string,mixed>,1:array<string,mixed>}
      */
+    /**
+     * ให้ผู้ช่วย AI ร่างข้อมูลแผนการสอนของหน่วย (ยังไม่บันทึก — เติมลงฟอร์มให้ครูแก้แล้วกดบันทึกเอง) ตอบ JSON
+     * what=outcome  → ผลลัพธ์การเรียนรู้ระดับหน่วย จากสาระสำคัญ/จุดประสงค์/สมรรถนะ (ค่าบนฟอร์มที่ยังไม่บันทึกมาก่อน)
+     * what=standard → หน่วยสมรรถนะ/สมรรถนะย่อยจากมาตรฐานอาชีพของรายวิชาที่ตรงกับหน่วยนี้ + บูรณาการกลุ่มอาชีพ
+     */
+    public function draftPlan(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [$course, $unit] = $this->ownedUnit($request, $args);
+        $data = (array) $request->getParsedBody();
+
+        if (!Csrf::check($data['_token'] ?? null)) {
+            return $this->json($response, ['ok' => false, 'error' => 'เซสชันหมดอายุ กรุณารีเฟรชหน้าแล้วลองใหม่'], 419);
+        }
+        if ((int) ($course['ai_lesson_plan_enabled'] ?? 1) !== 1) {
+            return $this->json($response, ['ok' => false, 'error' => 'ผู้ดูแลระบบปิดฟังก์ชัน AI ของรายวิชานี้ไว้'], 403);
+        }
+
+        $field = static fn (string $k, int $max = 6000): string => mb_substr(trim((string) ($data[$k] ?? '')), 0, $max);
+        $unitId = (int) $unit['id'];
+        $spec = [
+            'course_code' => $course['code'],
+            'course_name' => $course['name'],
+            'unit' => $field('title', 191) ?: $unit['title'],
+            'key_content' => $field('key_content'),
+            'objectives' => $field('objectives'),
+            'competencies' => $field('competencies'),
+            'outcome' => $field('learning_outcome'),
+            'topics' => implode(', ', array_filter(array_column($this->units->sectionsFor($unitId), 'title'))),
+            'worksheets' => implode(', ', array_column($this->assignments->forUnit($unitId), 'title')),
+        ];
+        $what = (string) ($data['what'] ?? '');
+
+        try {
+            if ($what === 'standard') {
+                $occupation = OccupationStandard::decode($course['occupation_standard'] ?? null);
+                $career = trim((string) ($course['career_group'] ?? ''));
+                if ($occupation === null && $career === '') {
+                    return $this->json($response, ['ok' => false, 'error' => 'รายวิชายังไม่ได้ระบุมาตรฐานอาชีพหรือกลุ่มอาชีพ'], 422);
+                }
+                $objects = $this->drafter->objects((int) $user['id'],
+                    'คุณเป็นผู้เชี่ยวชาญหลักสูตรอาชีวศึกษา สอศ. และมาตรฐานอาชีพ วิเคราะห์ความเชื่อมโยงของหน่วยการเรียนกับมาตรฐานอาชีพ ตอบกลับเป็น JSON อ็อบเจกต์เดียว',
+                    $spec + [
+                        'task' => 'unit_standard',
+                        'standard' => $occupation['standard'] ?? '',
+                        'occupation' => $occupation['occupation'] ?? '',
+                        'rows' => array_slice($occupation['rows'] ?? [], 0, OccupationStandard::MAX_ROWS),
+                        'career_group' => $career,
+                        'program_type' => (string) ($course['program_type'] ?? ''),
+                    ], 2);
+                $found = null;
+                foreach ($objects as $o) {
+                    if (isset($o['uoc']) || isset($o['eoc']) || isset($o['career'])) {
+                        $found = $o;
+                        break;
+                    }
+                }
+                if ($found === null) {
+                    return $this->json($response, ['ok' => false, 'error' => 'ผู้ช่วยไม่ได้วิเคราะห์ออกมา กรุณาลองใหม่']);
+                }
+                $ref = UnitPlanFields::decode(UnitPlanFields::encode([
+                    'uoc' => Drafter::text($found['uoc'] ?? ''),
+                    'eoc' => $found['eoc'] ?? [],
+                    'career' => Drafter::text($found['career'] ?? ''),
+                ]));
+                $this->auth->log('ai.unit.standard', 'unit#' . $unitId);
+
+                return $this->json($response, ['ok' => true, 'uoc' => $ref['uoc'], 'eoc' => implode("\n", $ref['eoc']), 'career' => $ref['career'],
+                    'chip' => $this->drafter->lastRoute?->chip]);
+            }
+
+            if ($spec['key_content'] === '' && $spec['objectives'] === '' && $spec['competencies'] === '' && $spec['topics'] === '') {
+                return $this->json($response, ['ok' => false, 'error' => 'กรอกสาระสำคัญ จุดประสงค์ หรือสมรรถนะของหน่วยก่อน ผู้ช่วยจึงสรุปได้'], 422);
+            }
+            $objects = $this->drafter->objects((int) $user['id'],
+                'คุณเป็นผู้เชี่ยวชาญหลักสูตรอาชีวศึกษา สอศ. เขียนผลลัพธ์การเรียนรู้ระดับหน่วยการเรียนเป็นภาษาไทย ตอบกลับเป็น NDJSON หนึ่งข้อต่อหนึ่งบรรทัด',
+                $spec + ['task' => 'unit_outcomes', 'count' => 3], 6);
+            $lines = [];
+            foreach ($objects as $o) {
+                $text = Drafter::text($o['outcome'] ?? '');
+                if ($text !== '') {
+                    $lines[] = $text;
+                }
+            }
+            if ($lines === []) {
+                return $this->json($response, ['ok' => false, 'error' => 'ผู้ช่วยไม่ได้สรุปออกมา กรุณาลองใหม่']);
+            }
+            $this->auth->log('ai.unit.outcome', 'unit#' . $unitId);
+
+            return $this->json($response, ['ok' => true, 'text' => implode("\n", $lines), 'chip' => $this->drafter->lastRoute?->chip]);
+        } catch (AiUnavailableException $e) {
+            return $this->json($response, ['ok' => false, 'error' => $e->getMessage()], 503);
+        } catch (Throwable $e) {
+            $this->logger->error('ร่างข้อมูลแผนของหน่วยไม่สำเร็จ: ' . $e->getMessage(), ['unit_id' => $unitId, 'what' => $what]);
+
+            return $this->json($response, ['ok' => false, 'error' => 'ผู้ช่วยร่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'], 500);
+        }
+    }
+
     private function ownedUnit(Request $request, array $args): array
     {
         $user = $request->getAttribute('user');

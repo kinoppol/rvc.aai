@@ -95,6 +95,60 @@
                       placeholder="ระบุสมรรถนะที่คาดหวังให้ผู้เรียนมีหลังเรียนจบหน่วยนี้...">{$unit['competencies'] ?? ''}</textarea>
         </div>
 
+        {* แผนการสอน 2567 ข้อ 1–2: ผลลัพธ์การเรียนรู้ระดับหน่วย และอ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพ *}
+        {if $planReady}
+            <input type="hidden" name="plan_present" value="1">
+            <div class="field" data-lesson-only n:attr="hidden: $isExam">
+                <label for="learning_outcome">ผลลัพธ์การเรียนรู้ระดับหน่วยการเรียน</label>
+                <textarea class="input" id="learning_outcome" name="learning_outcome" rows="3"
+                          placeholder="ข้อละบรรทัด เช่น ติดตั้งและตั้งค่าระบบจัดการฐานข้อมูลได้ตามคู่มือ">{$unit['learning_outcome'] ?? ''}</textarea>
+                {if $unit && $course['ai_lesson_plan_enabled']}
+                    <div class="clo-ai">
+                        <button type="button" n:class="btn, btn-sm, btn-ai, trim($unit['learning_outcome'] ?? '') === '' ? is-needed"
+                                data-unit-plan-ai="outcome" data-target="learning_outcome"
+                                data-url="{$base}/courses/{$course['id']}/units/{$unit['id']}/draft-plan" data-token="{$csrf}">✦ ให้ AI สรุปจากสาระสำคัญ จุดประสงค์ และสมรรถนะ</button>
+                        <span class="hint" data-status>ผู้ช่วยร่างให้ แล้วครูแก้ไขต่อได้ก่อนบันทึก</span>
+                    </div>
+                {/if}
+            </div>
+
+            <fieldset class="std-ref" data-lesson-only n:attr="hidden: $isExam">
+                <legend>อ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพ</legend>
+                <div class="hint">
+                    2.1 มาตรฐานอาชีพ:
+                    {if $occupation && $occupation['standard'] !== ''}<b>{$occupation['standard']}</b>{if $occupation['rows']} · มี {count($occupation['rows'])} สมรรถนะย่อยให้เลือก{/if}
+                    {else}รายวิชายังไม่ได้ระบุ — กรอกได้ที่ <a href="{$base}/courses/{$course['id']}/edit#occupation">แท็บมาตรฐานอาชีพของรายวิชา</a>{/if}
+                </div>
+                <div class="field">
+                    <label for="std_uoc">2.2 หน่วยสมรรถนะ</label>
+                    <input class="input" type="text" id="std_uoc" name="std_uoc" maxlength="500" value="{$stdRef['uoc']}"
+                           placeholder="รหัสและชื่อหน่วยสมรรถนะของมาตรฐานอาชีพที่หน่วยนี้ฝึก">
+                </div>
+                <div class="field">
+                    <label for="std_eoc">สมรรถนะย่อย</label>
+                    <textarea class="input" id="std_eoc" name="std_eoc" rows="3"
+                              placeholder="ข้อละบรรทัด">{implode("\n", $stdRef['eoc'])}</textarea>
+                </div>
+                <div class="field">
+                    <label for="std_career">2.3 บูรณาการกลุ่มอาชีพ</label>
+                    <input class="input" type="text" id="std_career" name="std_career" maxlength="1000" value="{$stdRef['career']}"
+                           placeholder="{$careerGroup !== '' ? 'เว้นว่าง = ' . $careerGroup . ' (กลุ่มอาชีพของรายวิชา)' : 'เช่น กลุ่มอาชีพที่หน่วยนี้เชื่อมโยง'}">
+                </div>
+                {if $unit && $course['ai_lesson_plan_enabled']}
+                    <div class="clo-ai">
+                        {if $occupation || $careerGroup !== ''}
+                            <button type="button" n:class="btn, btn-sm, btn-ai, $stdRef['uoc'] === '' && !$stdRef['eoc'] ? is-needed"
+                                    data-unit-plan-ai="standard"
+                                    data-url="{$base}/courses/{$course['id']}/units/{$unit['id']}/draft-plan" data-token="{$csrf}">✦ ให้ AI วิเคราะห์จากมาตรฐานอาชีพของรายวิชา</button>
+                            <span class="hint" data-status>เลือกหน่วยสมรรถนะ/สมรรถนะย่อยที่ตรงกับหน่วยนี้ให้ แล้วครูแก้ต่อได้</span>
+                        {else}
+                            <span class="hint">ระบุมาตรฐานอาชีพหรือกลุ่มอาชีพในหน้าแก้ไขรายวิชาก่อน ผู้ช่วย AI จึงวิเคราะห์ให้ได้</span>
+                        {/if}
+                    </div>
+                {/if}
+            </fieldset>
+        {/if}
+
         <div class="hint" data-exam-only n:attr="hidden: !$isExam">หน่วยสอบไม่มีเนื้อหา · บันทึกแล้วสร้างแบบทดสอบของหน่วยนี้ได้ด้านล่าง</div>
 
         <div style="display:flex;gap:8px;margin-top:8px">
@@ -582,5 +636,6 @@
 })();
 </script>
 {if $pdfStatus}<script src="{$base}/assets/js/unit-ocr.js?v={$assetVer}" defer></script>{/if}
+{if $unit && $course['ai_lesson_plan_enabled']}<script src="{$base}/assets/js/unit-plan-draft.js?v={$assetVer}" defer></script>{/if}
 {include unitPager}
 {/block}

@@ -119,6 +119,21 @@ final class AssignmentRepository
     /** ชนิดที่เปิดในเบราว์เซอร์ได้ (inline) */
     public const FILE_INLINE = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+    /** มีคอลัมน์ส่วนประกอบใบงานตามแบบฟอร์มแล้วหรือยัง (migration 000141) */
+    public function sheetReady(): bool
+    {
+        static $ready = null;
+        if ($ready === null) {
+            try {
+                $ready = $this->db->first("SHOW COLUMNS FROM {assignments} LIKE 'sheet'") !== null;
+            } catch (PDOException) {
+                $ready = false;
+            }
+        }
+
+        return $ready;
+    }
+
     /** มีตารางไฟล์แนบแล้วหรือยัง — ก่อนรัน migration ทุกเมธอดไฟล์คืนค่าว่าง */
     public function filesReady(): bool
     {

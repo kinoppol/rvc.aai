@@ -24,7 +24,7 @@
         <div class="bar" style="margin-top:16px"><span id="genBar" style="width:0%"></span></div>
         <div class="gen-status-foot">
             <span class="ai-chip" id="genChip">{$aiChip}</span>
-            <span class="hint">ปิดหน้านี้ได้ งานจะทำต่อและอยู่ในรายการรอตรวจ</span>
+            <span class="hint"><b>เปิดหน้านี้ไว้จนกว่าจะร่างเสร็จ</b> · ถ้าปิดหรือออกจากหน้า ผู้ช่วยอาจหยุดออกข้อสอบกลางคัน</span>
         </div>
     </div>
 
@@ -45,7 +45,7 @@
     var skeleton = document.getElementById('genSkeleton');
     var bar = document.getElementById('genBar');
     var headline = document.getElementById('genHeadline');
-    var total = 0, got = 0, es, jobId = 0, cancelWanted = false;
+    var total = 0, got = 0, es, jobId = 0, cancelWanted = false; var running = true; window.addEventListener('beforeunload', function (ev) { if (running) { ev.preventDefault(); ev.returnValue = ''; } });
 
     function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
 
@@ -91,7 +91,7 @@
         qWrap.appendChild(card);
     });
 
-    es.addEventListener('done', function (e) {
+    es.addEventListener('done', function (e) { running = false;
         var d = JSON.parse(e.data);
         es.close();
         skeleton.hidden = true;
@@ -99,7 +99,7 @@
         window.location = d.reviewUrl;
     });
 
-    es.addEventListener('error', function (e) {
+    es.addEventListener('error', function (e) { running = false;
         es.close();
         skeleton.hidden = true;
         document.getElementById('genStatus').hidden = true;
@@ -115,7 +115,7 @@
     });
 
     /* ถูกยกเลิก (เช่นจากอีกแท็บ) — เซิร์ฟเวอร์หยุดแล้ว ไม่บันทึกร่าง */
-    es.addEventListener('cancelled', function () {
+    es.addEventListener('cancelled', function () { running = false;
         es.close();
         window.location = root.dataset.create;
     });

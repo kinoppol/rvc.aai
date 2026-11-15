@@ -51,7 +51,7 @@ final class ModelRoles
             'chat' => 'chat',
             'quiz' => 'quiz',
             'lesson_plan', 'plan' => 'plan',
-            'unit_outline', 'unit_content', 'assignment', 'course_outcomes', 'model_roles', 'content' => 'content',
+            'unit_outline', 'unit_content', 'assignment', 'course_outcomes', 'unit_outcomes', 'unit_standard', 'model_roles', 'content' => 'content',
             'ocr' => 'ocr',
             default => '',
         };

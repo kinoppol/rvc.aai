@@ -34,6 +34,8 @@ final class Prompt
             'assignment' => self::assignment($spec),
             'unit_content' => self::unitContent($spec),
             'course_outcomes' => self::courseOutcomes($spec),
+            'unit_outcomes' => self::unitOutcomes($spec),
+            'unit_standard' => self::unitStandard($spec),
             'behavior_analysis' => self::behaviorAnalysis($spec),
             'model_roles' => self::modelRoles($spec),
             default => $userPrompt,
@@ -236,6 +238,91 @@ final class Prompt
             4. กระชับ ข้อละหนึ่งประโยค ยาวไม่เกินประมาณ 30 คำ ไม่ยกตัวอย่างยาว ๆ ในวงเล็บหรือหลังคำว่า "เช่น"
             5. ครอบคลุมทั้งด้านความรู้ ทักษะ และคุณลักษณะที่พึงประสงค์ ไม่ลอกจุดประสงค์หรือสมรรถนะมาตรง ๆ ไม่ใส่เลขข้อ
             6. ต้องครบ {$count} ข้อ แล้วปิดท้ายด้วยบรรทัด {"done":true,"total":{$count}}
+            TXT;
+    }
+
+    /** ข้อมูลหน่วยการเรียนที่ใช้ร่วมกันในคำสั่งระดับหน่วย @param array<string,mixed> $spec */
+    private static function unitBrief(array $spec): string
+    {
+        $or = static fn (string $k): string => trim((string) ($spec[$k] ?? '')) ?: '(ไม่ได้ระบุ)';
+        $extra = '';
+        if (trim((string) ($spec['topics'] ?? '')) !== '') {
+            $extra .= "\nหัวข้อเนื้อหา: " . $spec['topics'];
+        }
+        if (trim((string) ($spec['worksheets'] ?? '')) !== '') {
+            $extra .= "\nใบงาน: " . $spec['worksheets'];
+        }
+
+        return "หน่วยการเรียน: {$or('unit')}\nสาระสำคัญ:\n{$or('key_content')}\n\nจุดประสงค์การเรียนรู้:\n{$or('objectives')}\n\nสมรรถนะประจำหน่วย:\n{$or('competencies')}{$extra}";
+    }
+
+    /**
+     * ผลลัพธ์การเรียนรู้ระดับหน่วยการเรียน (ข้อ 1 ของแผนการจัดการเรียนรู้หลักสูตร 2567)
+     *
+     * @param array<string,mixed> $spec
+     */
+    private static function unitOutcomes(array $spec): string
+    {
+        $count = max(1, min(5, (int) ($spec['count'] ?? 3)));
+        $brief = self::unitBrief($spec);
+
+        return <<<TXT
+            สรุปผลลัพธ์การเรียนรู้ระดับหน่วยการเรียน {$count} ข้อ ของรายวิชา {$spec['course_code']} {$spec['course_name']}
+            ตามแบบฟอร์มแผนการจัดการเรียนรู้หลักสูตร สอศ. พ.ศ. 2567
+
+            {$brief}
+
+            ข้อกำหนดของคำตอบ — สำคัญมาก ห้ามผิดรูปแบบ:
+            1. ตอบเป็น NDJSON เท่านั้น หนึ่งข้อต่อหนึ่งบรรทัด ห้ามครอบด้วย ``` ห้ามมีคำอธิบายนอก JSON
+            2. แต่ละบรรทัดใช้รูปแบบนี้ {"outcome":"ผลลัพธ์การเรียนรู้หนึ่งข้อ"}
+            3. ผลลัพธ์การเรียนรู้คือสิ่งที่ผู้เรียนทำได้จริงเมื่อจบหน่วยนี้ (ความรู้และทักษะรวมกันเป็นผลงานหรือการปฏิบัติ) ขึ้นต้นด้วยคำกริยาที่วัดได้ ระบุเงื่อนไขหรือเกณฑ์ตามบริบทงานอาชีพ
+            4. กระชับ ข้อละหนึ่งประโยค ไม่ลอกจุดประสงค์หรือสมรรถนะมาตรง ๆ ไม่ใส่เลขข้อ
+            5. ต้องครบ {$count} ข้อ แล้วปิดท้ายด้วยบรรทัด {"done":true,"total":{$count}}
+            TXT;
+    }
+
+    /**
+     * อ้างอิงมาตรฐาน/เชื่อมโยงกลุ่มอาชีพของหน่วยการเรียน (ข้อ 2 ของแผนการจัดการเรียนรู้หลักสูตร 2567)
+     * เลือกหน่วยสมรรถนะ (UoC) และสมรรถนะย่อย (EoC) จากตารางมาตรฐานอาชีพของรายวิชาเท่านั้น
+     *
+     * @param array<string,mixed> $spec
+     */
+    private static function unitStandard(array $spec): string
+    {
+        $brief = self::unitBrief($spec);
+        $rows = [];
+        foreach ((array) ($spec['rows'] ?? []) as $r) {
+            $uoc = trim(($r['uoc_code'] ?? '') . ' ' . ($r['uoc'] ?? ''));
+            $eoc = trim(($r['eoc_code'] ?? '') . ' ' . ($r['eoc'] ?? ''));
+            if ($uoc !== '' || $eoc !== '') {
+                $rows[] = '- หน่วยสมรรถนะ: ' . ($uoc ?: '(ตามแถวก่อนหน้า)') . ' | สมรรถนะย่อย: ' . ($eoc ?: '-');
+            }
+        }
+        $standard = trim((string) ($spec['standard'] ?? ''));
+        $standardText = $standard === '' && $rows === []
+            ? 'รายวิชานี้ยังไม่ได้ระบุมาตรฐานอาชีพ — ให้ uoc เป็น "" และ eoc เป็น [] แล้ววิเคราะห์เฉพาะ career'
+            : 'มาตรฐานอาชีพที่รายวิชาอ้างอิง: ' . ($standard ?: '(ไม่ได้ระบุชื่อ)')
+                . (trim((string) ($spec['occupation'] ?? '')) !== '' ? "\nอาชีพ: " . $spec['occupation'] : '')
+                . ($rows === []
+                    ? "\n(ไม่มีตารางหน่วยสมรรถนะ — ให้ uoc เป็น \"\" และ eoc เป็น [])"
+                    : "\nหน่วยสมรรถนะและสมรรถนะย่อยที่เลือกได้:\n" . implode("\n", $rows));
+        $career = trim((string) ($spec['career_group'] ?? '')) ?: '(ไม่ได้ระบุ)';
+        $program = trim((string) ($spec['program_type'] ?? '')) ?: '(ไม่ได้ระบุ)';
+
+        return <<<TXT
+            วิเคราะห์การอ้างอิงมาตรฐานอาชีพและการเชื่อมโยงกลุ่มอาชีพของหน่วยการเรียนหนึ่งหน่วย
+            รายวิชา {$spec['course_code']} {$spec['course_name']} · ประเภทวิชา {$program} · กลุ่มอาชีพของรายวิชา {$career}
+
+            {$brief}
+
+            {$standardText}
+
+            ข้อกำหนดของคำตอบ — สำคัญมาก ห้ามผิดรูปแบบ:
+            1. ตอบเป็น JSON อ็อบเจกต์เดียว ห้ามครอบด้วย ``` ห้ามมีคำอธิบายนอก JSON
+            2. ใช้รูปแบบนี้ {"uoc":"รหัสและชื่อหน่วยสมรรถนะ","eoc":["รหัสและชื่อสมรรถนะย่อย"],"career":"บูรณาการกลุ่มอาชีพ"}
+            3. uoc ให้เลือกหน่วยสมรรถนะเดียวที่ตรงกับเนื้อหาของหน่วยการเรียนนี้มากที่สุด คัดลอกรหัสและชื่อจากรายการข้างต้นตรงตัว ห้ามแต่งขึ้นเอง
+            4. eoc ให้เลือก 1-4 สมรรถนะย่อยที่หน่วยการเรียนนี้ฝึกจริง คัดลอกจากรายการข้างต้นตรงตัว
+            5. career เขียน 1 ประโยคว่าหน่วยนี้เชื่อมโยงกับกลุ่มอาชีพ {$career} อย่างไร (ขึ้นต้นด้วยชื่อกลุ่มอาชีพ)
             TXT;
     }
 
