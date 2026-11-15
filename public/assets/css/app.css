@@ -3035,7 +3035,9 @@ html.is-presenting { overflow: hidden; }
 
 /* ชื่อ AI ที่กำลังทำงาน (ui.js rvcAiModel) — ใต้ข้อความ "ผู้ช่วยกำลัง…" ทุกจุดที่ AI สร้างงาน */
 .ai-model-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; margin-top: 6px; padding: 3px 10px; border-radius: 999px;
-    font-size: 12px; font-weight: 600; line-height: 1.5; color: var(--brandInk); background: var(--brandSoft); border: 1px solid var(--brandLine);
+    font-size: 12.5px; font-weight: 700; line-height: 1.5;
+    /* --brandInk คือสีตัวอักษรบนปุ่มสีหลัก (ขาว) — ใช้ไม่ได้บนพื้นอ่อน; ผสมสีหลักกับสีตัวอักษรให้อ่านชัดทั้งโหมดสว่าง/มืด */
+    color: color-mix(in srgb, var(--brand) 55%, var(--ink)); background: var(--brandSoft); border: 1px solid var(--brandLine);
     overflow-wrap: anywhere; }
 .ai-model-chip::before { content: "✦"; }
 .ai-model-chip.is-off { color: var(--ink2); background: transparent; border-style: dashed; }
