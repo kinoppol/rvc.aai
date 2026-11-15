@@ -72,7 +72,7 @@
 </section>
 
 {* ───────── คำนำ ───────── *}
-<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+<section data-toc="preface" class="sheet front"{if $edit} contenteditable="true"{/if}>
     <h2>คำนำ</h2>
     <p class="indent">แผนการจัดการเรียนรู้รายวิชา{$course['name']} รหัสวิชา {$course['code']} ฉบับนี้ จัดทำขึ้นตามหลักสูตร{$levelText} พุทธศักราช 2567 ของสำนักงานคณะกรรมการการอาชีวศึกษา เพื่อใช้เป็นแนวทางในการจัดการเรียนรู้ให้ผู้เรียนบรรลุผลลัพธ์การเรียนรู้และสมรรถนะรายวิชา ประกอบด้วยหลักสูตรรายวิชา ตารางวิเคราะห์หน่วยการเรียนรู้ ตารางวิเคราะห์พฤติกรรมการเรียนรู้ แผนการจัดการเรียนรู้รายหน่วย ใบความรู้ ใบงาน และใบมอบหมายงาน</p>
     <p class="indent">ผู้จัดทำหวังเป็นอย่างยิ่งว่าแผนการจัดการเรียนรู้ฉบับนี้จะเป็นประโยชน์ต่อการจัดการเรียนการสอน และการพัฒนาผู้เรียนให้มีสมรรถนะตามมาตรฐานวิชาชีพ หากมีข้อเสนอแนะประการใด ผู้จัดทำยินดีรับไว้เพื่อปรับปรุงต่อไป</p>
@@ -82,34 +82,33 @@
     </div>
 </section>
 
-{* ───────── สารบัญ (เลขหน้าเว้นไว้ให้เติมหลังพิมพ์) ───────── *}
-<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+{* ───────── สารบัญ — เลขหน้าคำนวณในเบราว์เซอร์ (tocPages ท้ายไฟล์): ส่วนหน้า ก ข ค … ตั้งแต่หน่วยที่ 1 เป็น 1 2 3 … ───────── *}
+<section data-toc="toc" class="sheet front"{if $edit} contenteditable="true"{/if}>
     <h2>สารบัญ</h2>
     <table class="toc">
         <tr><td></td><td class="pg"><b>หน้า</b></td></tr>
-        <tr><td>คำนำ</td><td class="pg">....</td></tr>
-        <tr><td>สารบัญ</td><td class="pg">....</td></tr>
-        <tr><td>หลักสูตรรายวิชา</td><td class="pg">....</td></tr>
-        {if $occupation}<tr><td>มาตรฐานอาชีพ</td><td class="pg">....</td></tr>{/if}
-        <tr><td>ตารางวิเคราะห์หน่วยการเรียนรู้</td><td class="pg">....</td></tr>
-        <tr><td>ตารางวิเคราะห์พฤติกรรมการเรียนรู้</td><td class="pg">....</td></tr>
-        <tr><td>หน่วยการเรียนรู้</td><td class="pg">....</td></tr>
+        <tr><td>คำนำ</td><td class="pg" data-pg="preface">....</td></tr>
+        <tr><td>สารบัญ</td><td class="pg" data-pg="toc">....</td></tr>
+        <tr><td>หลักสูตรรายวิชา</td><td class="pg" data-pg="course">....</td></tr>
+        {if $occupation}<tr><td>มาตรฐานอาชีพ</td><td class="pg" data-pg="occupation">....</td></tr>{/if}
+        <tr><td>ตารางวิเคราะห์หน่วยการเรียนรู้</td><td class="pg" data-pg="unitAnalysis">....</td></tr>
+        <tr><td>ตารางวิเคราะห์พฤติกรรมการเรียนรู้</td><td class="pg" data-pg="behavior">....</td></tr>
         {foreach $plans as $p}
             {continueIf $p['exam']}
             <tr><td class="u">หน่วยที่ {$p['no']} {$p['unit']['title']}</td><td class="pg"></td></tr>
-            <tr><td class="d">แผนการจัดการเรียนรู้</td><td class="pg">....</td></tr>
-            {if $p['texts']}<tr class="know"><td class="d">ใบความรู้</td><td class="pg">....</td></tr>{/if}
-            {if $p['assignments']}<tr class="work"><td class="d">ใบงาน</td><td class="pg">....</td></tr>{/if}
-            {if $p['tasks']}<tr class="work"><td class="d">ใบมอบหมายงาน</td><td class="pg">....</td></tr>{/if}
+            <tr><td class="d">แผนการจัดการเรียนรู้</td><td class="pg" data-pg="u{$p['no']}-plan">....</td></tr>
+            {if $p['texts']}<tr class="know"><td class="d">ใบความรู้</td><td class="pg" data-pg="u{$p['no']}-know">....</td></tr>{/if}
+            {if $p['assignments']}<tr class="work"><td class="d">ใบงาน</td><td class="pg" data-pg="u{$p['no']}-work">....</td></tr>{/if}
+            {if $p['tasks']}<tr class="work"><td class="d">ใบมอบหมายงาน</td><td class="pg" data-pg="u{$p['no']}-task">....</td></tr>{/if}
             <tr><td class="d">แบบประเมินความสามารถในการปฏิบัติงาน/ผลลัพธ์การเรียนรู้/สมรรถนะ</td><td class="pg">....</td></tr>
         {/foreach}
-        <tr><td>บรรณานุกรม</td><td class="pg">....</td></tr>
-        <tr><td>ภาคผนวก</td><td class="pg">....</td></tr>
+        <tr><td>บรรณานุกรม</td><td class="pg" data-pg="biblio">....</td></tr>
+        <tr><td>ภาคผนวก</td><td class="pg" data-pg="appendix">....</td></tr>
     </table>
 </section>
 
 {* ───────── หลักสูตรรายวิชา ───────── *}
-<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+<section data-toc="course" class="sheet front"{if $edit} contenteditable="true"{/if}>
     <h2>หลักสูตรรายวิชา</h2>
     <p class="center">หลักสูตร{$levelText} พุทธศักราช 2567</p>
     <p class="center">ประเภทวิชา{$programType} กลุ่มอาชีพ{$careerGroup} สาขาวิชา{$major}</p>
@@ -174,7 +173,7 @@
 
 {* ───────── มาตรฐานอาชีพ — จากแท็บ "มาตรฐานอาชีพ" ในฟอร์มรายวิชา · ไม่มีข้อมูล = ข้ามหน้านี้ ───────── *}
 {if $occupation}
-<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+<section data-toc="occupation" class="sheet front"{if $edit} contenteditable="true"{/if}>
     <h2>มาตรฐานอาชีพ</h2>
     <p class="center">หน่วยงานรับรองมาตรฐานอาชีพ {$occupation['agency'] ?: '........................................................'}</p>
     <p class="center">มาตรฐานอาชีพ {$occupation['standard'] ?: '........................................................'}</p>
@@ -203,7 +202,7 @@
 {/if}
 
 {* ───────── ตารางวิเคราะห์หน่วยการเรียนรู้ ───────── *}
-<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+<section data-toc="unitAnalysis" class="sheet front"{if $edit} contenteditable="true"{/if}>
     <h2>ตารางวิเคราะห์หน่วยการเรียนรู้</h2>
     <table class="grid-table">
         <thead>
@@ -228,7 +227,7 @@
 </section>
 
 {* ───────── ตารางวิเคราะห์พฤติกรรมการเรียนรู้ (แบบที่ 2) — ระดับที่คาดหวังครูเติมเอง ───────── *}
-<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+<section data-toc="behavior" class="sheet front"{if $edit} contenteditable="true"{/if}>
     <h2>ตารางวิเคราะห์พฤติกรรมการเรียนรู้</h2>
     <p class="center">รหัส {$course['code']} ชื่อวิชา {$course['name']}</p>
     <p class="center" style="margin-bottom:8pt">ทฤษฎี {$course['theory_hours']} ชั่วโมง/สัปดาห์ ปฏิบัติ {$course['practice_hours']} ชั่วโมง/สัปดาห์ จำนวน {$credits} หน่วยกิต</p>
@@ -268,7 +267,7 @@
 </section>
 
 {* ───────── หน่วยการเรียนรู้ (ชั่วโมง ท/ป แบ่งตามสัดส่วน ท:ป ของวิชา) ───────── *}
-<section class="sheet front"{if $edit} contenteditable="true"{/if}>
+<section data-toc="hours" class="sheet front"{if $edit} contenteditable="true"{/if}>
     <h2>หน่วยการเรียนรู้</h2>
     <p class="center">รหัส {$course['code']} ชื่อวิชา {$course['name']}</p>
     <p class="center" style="margin-bottom:8pt">ทฤษฎี {$course['theory_hours']} ชั่วโมง/สัปดาห์ ปฏิบัติ {$course['practice_hours']} ชั่วโมง/สัปดาห์ จำนวน {$credits} หน่วยกิต</p>
@@ -330,7 +329,7 @@
 {var $u = $p['unit']}
 {var $texts = $p['texts']}
 {var $r = $p['report']}
-<section class="sheet"{if $edit} contenteditable="true"{/if}>
+<section data-toc="u{$p['no']}-plan" class="sheet"{if $edit} contenteditable="true"{/if}>
     {include unitHead, title: 'แผนการจัดการเรียนรู้', p: $p, label: 'ชื่อเรื่อง/งาน', topic: $u['title']}
 
     <h3>1. ผลลัพธ์การเรียนรู้ระดับหน่วยการเรียน</h3>
@@ -447,7 +446,7 @@
 
 {* ใบความรู้: หนึ่งใบต่อส่วนเนื้อหาแบบข้อความ *}
 {foreach $texts as $s}
-<section class="sheet know"{if $edit} contenteditable="true"{/if}>
+<section data-toc="u{$p['no']}-know" class="sheet know"{if $edit} contenteditable="true"{/if}>
     {include unitHead, title: 'ใบความรู้ที่ ' . $p['no'] . '.' . $iterator->counter, p: $p, label: 'ชื่อเรื่อง', topic: $s['title']}
     <h3>1. ผลลัพธ์การเรียนรู้ระดับหน่วยการเรียน</h3>
     {include blank, n: 1}
@@ -474,7 +473,7 @@
 
 {* ใบงาน: หนึ่งใบต่อใบงานของหน่วย · ขั้นตอนมาจากรายละเอียดใบงาน *}
 {foreach $p['assignments'] as $a}
-<section class="sheet work"{if $edit} contenteditable="true"{/if}>
+<section data-toc="u{$p['no']}-work" class="sheet work"{if $edit} contenteditable="true"{/if}>
     {include unitHead, title: 'ใบงานที่ ' . $p['no'] . '.' . $iterator->counter, p: $p, label: 'ชื่องาน', topic: $a['title']}
     <h3>1. ผลลัพธ์การเรียนรู้จากการปฏิบัติงาน</h3>
     {include blank, n: 1}
@@ -503,7 +502,7 @@
 
 {* ใบมอบหมายงาน: งานที่มอบหมายที่ผูกกับหน่วยนี้ *}
 {foreach $p['tasks'] as $t}
-<section class="sheet work"{if $edit} contenteditable="true"{/if}>
+<section data-toc="u{$p['no']}-task" class="sheet work"{if $edit} contenteditable="true"{/if}>
     {include unitHead, title: 'ใบมอบหมายงานที่ ' . $p['no'] . '.' . $iterator->counter, p: $p, label: 'ชื่องาน', topic: $t['title']}
     <h3>1. ผลงานหรือผลการปฏิบัติงาน</h3>
     {include blank, n: 1}
@@ -530,7 +529,7 @@
 {/foreach}
 
 {* ───────── บรรณานุกรม (วีดิทัศน์ที่ใช้ในหน่วยต่าง ๆ + เว้นไว้ให้เติม) และภาคผนวก ───────── *}
-<section class="sheet"{if $edit} contenteditable="true"{/if}>
+<section data-toc="biblio" class="sheet"{if $edit} contenteditable="true"{/if}>
     <h2>บรรณานุกรม</h2>
     {foreach $plans as $p}
         {foreach $p['sections'] as $s}
@@ -540,11 +539,59 @@
     {include blank, n: 6}
 </section>
 
-<section class="sheet"{if $edit} contenteditable="true"{/if}>
+<section data-toc="appendix" class="sheet"{if $edit} contenteditable="true"{/if}>
     <h2>ภาคผนวก</h2>
     {include blank, n: 4}
 </section>
 
 {include '_script.latte'}
+{* เลขหน้าในสารบัญ: วัดความสูงของแต่ละแผ่นในขนาดพื้นที่พิมพ์ A4 (16 × 25.2 ซม.) แล้วนับหน้า
+   ส่วนหน้า (คำนำ … หน่วยการเรียนรู้) ใช้ ก ข ค … ไม่นับปก · ตั้งแต่หน่วยที่ 1 ใช้ 1 2 3 …
+   เป็นค่าประมาณ (ตัดหน้าจริงขึ้นกับเบราว์เซอร์) ครูแก้ตัวเลขบนหน้าได้ก่อนพิมพ์ *}
+<style>
+    body.toc-measure .sheet { width: 21cm !important; min-height: 0 !important; padding: 2.5cm 2cm 2cm 3cm !important; }
+</style>
+<script n:syntax="off">
+(function () {
+    var THAI = 'กขคงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ';
+    function compute() {
+        var probe = document.createElement('div');
+        probe.style.cssText = 'position:absolute;visibility:hidden;width:10cm;height:0';
+        document.body.appendChild(probe);
+        var cm = probe.getBoundingClientRect().width / 10;
+        probe.remove();
+        if (!cm) return;
+        var pageH = 25.2 * cm, pad = 4.5 * cm;
+        document.body.classList.add('toc-measure');
+        var sheets = Array.prototype.filter.call(document.querySelectorAll('.sheet'), function (el) {
+            return el.getClientRects().length > 0;
+        });
+        var sizes = sheets.map(function (el) {
+            if (el.classList.contains('cover')) return 1;
+            return Math.max(1, Math.ceil((el.getBoundingClientRect().height - pad - 2) / pageH));
+        });
+        document.body.classList.remove('toc-measure');
+
+        var map = {}, front = 0, main = 0;
+        sheets.forEach(function (el, i) {
+            if (el.classList.contains('cover')) return;
+            var isFront = el.classList.contains('front');
+            var label = isFront ? (THAI[front] || String(front + 1)) : String(main + 1);
+            var key = el.getAttribute('data-toc');
+            if (key && !(key in map)) map[key] = label;
+            if (isFront) front += sizes[i]; else main += sizes[i];
+        });
+        document.querySelectorAll('[data-pg]').forEach(function (td) {
+            td.textContent = map[td.getAttribute('data-pg')] || '....';
+        });
+    }
+    compute();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(compute);
+    window.addEventListener('load', function () { setTimeout(compute, 300); });
+    document.querySelectorAll('[data-toggle]').forEach(function (box) {
+        box.addEventListener('change', compute);
+    });
+})();
+</script>
 </body>
 </html>
