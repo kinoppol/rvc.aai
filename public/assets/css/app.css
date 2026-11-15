@@ -3026,3 +3026,9 @@ html.is-presenting { overflow: hidden; }
 /* วิซาร์ดออกข้อสอบ: ช่องกำหนดจำนวนข้อเอง ต่อท้ายปุ่มจำนวน */
 .count-custom { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink2); margin-left: 4px; }
 .count-custom .input { width: 96px; height: 40px; text-align: center; }
+
+/* แท็บนักเรียน: แถบเลือกหลายคนเพื่อถอนรายชื่อ */
+.bulk-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 10px; padding: 10px 16px; border-radius: 16px; background: var(--glass); border: 1px solid var(--glassBorder); }
+.bulk-bar .grow { flex: 1; }
+.bulk-pick { width: 18px; height: 18px; flex: none; accent-color: var(--brand); cursor: pointer; }
+.list-row.is-picked { background: var(--brandSoft); }

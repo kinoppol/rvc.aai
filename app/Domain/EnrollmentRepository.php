@@ -20,9 +20,12 @@ final class EnrollmentRepository
     public function studentsInCourse(int $courseId): array
     {
         return $this->db->all(
-            'SELECT u.id, u.username, u.full_name, u.email, e.status AS enrollment_status
+            'SELECT u.id, u.username, u.full_name, u.email, e.status AS enrollment_status,
+                    COALESCE(cr.name, NULLIF(sp.group_name, \'\'), NULLIF(sp.grade_name, \'\')) AS group_name
              FROM {enrollments} e
              JOIN {users} u ON u.id = e.student_id
+             LEFT JOIN {classrooms} cr ON cr.id = u.classroom_id
+             LEFT JOIN {student_profiles} sp ON sp.user_id = u.id
              WHERE e.course_id = ? AND e.status = \'active\'
              ORDER BY u.username',
             [$courseId]

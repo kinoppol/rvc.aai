@@ -579,13 +579,26 @@
                 </div>
             </form>
 
+            {* ติ๊กหลายคนแล้วถอนพร้อมกัน: checkbox อยู่ในแถว (มีฟอร์มถอนทีละคนซ้อนไม่ได้) จึงผูกกับฟอร์มนี้ด้วย form="bulkDrop" *}
+            {if $students}
+                <form method="post" action="{$base}/courses/{$course['id']}/students/drop" id="bulkDrop" class="bulk-bar"
+                      data-confirm-title="ถอนรายชื่อนักเรียนที่เลือก" data-confirm-ok="ถอนรายชื่อ" data-confirm-danger
+                      data-confirm="นักเรียนที่เลือกจะไม่เห็นรายวิชานี้อีก · คะแนน ผลสอบ และงานที่ส่งยังเก็บไว้ ถ้าเพิ่มกลับเข้ามาจะได้คืนทั้งหมด">
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <label class="check-row"><input type="checkbox" id="bulkAll"> เลือกทั้งหมด ({count($students)} คน)</label>
+                    <span class="hint" id="bulkCount">ยังไม่ได้เลือก</span>
+                    <span class="grow"></span>
+                    <button class="btn btn-sm btn-danger" type="submit" id="bulkDropBtn" disabled><span class="msi" aria-hidden="true">person_remove</span>ถอนรายชื่อที่เลือก</button>
+                </form>
+            {/if}
             <div class="list">
                 {foreach $students as $s}
                     <div class="list-row">
+                        <input type="checkbox" class="bulk-pick" name="ids[]" value="{$s['id']}" form="bulkDrop" aria-label="เลือก {$s['full_name']}">
                         <div class="mini-avatar">{mb_substr($s['full_name'], 0, 2)}</div>
                         <div class="mono list-id">{$s['username']}</div>
                         <div class="list-main">
-                            <div class="list-title">{$s['full_name']}</div>
+                            <div class="list-title">{$s['full_name']}{if $s['group_name']} <span class="chip chip-muted">{$s['group_name']}</span>{/if}</div>
                             {if $s['email']}<div class="hint mono">{$s['email']}</div>{/if}
                         </div>
                         <a class="btn btn-sm" href="{$base}/messages/{$course['id']}/{$s['id']}" title="ส่งข้อความส่วนตัวถึง {$s['full_name']}"><span class="msi" aria-hidden="true">chat</span>ส่งข้อความ</a>
@@ -597,6 +610,25 @@
                         </form>
                     </div>
                 {/foreach}
+                {if $students}
+                    <script n:syntax="off">
+                    (function () {
+                        var all = document.getElementById('bulkAll'), btn = document.getElementById('bulkDropBtn'), out = document.getElementById('bulkCount');
+                        var picks = Array.prototype.slice.call(document.querySelectorAll('.bulk-pick'));
+                        function sync() {
+                            var n = picks.filter(function (p) { return p.checked; }).length;
+                            btn.disabled = n === 0;
+                            out.textContent = n ? 'เลือกแล้ว ' + n + ' คน' : 'ยังไม่ได้เลือก';
+                            all.checked = n > 0 && n === picks.length;
+                            all.indeterminate = n > 0 && n < picks.length;
+                            picks.forEach(function (p) { p.closest('.list-row').classList.toggle('is-picked', p.checked); });
+                        }
+                        all.addEventListener('change', function () { picks.forEach(function (p) { p.checked = all.checked; }); sync(); });
+                        picks.forEach(function (p) { p.addEventListener('change', sync); });
+                        sync();
+                    })();
+                    </script>
+                {/if}
                 {if !$students}<div class="empty"><h3>ยังไม่มีนักเรียนในรายวิชานี้</h3><p>แจกรหัสหรือลิงก์เข้าร่วมด้านบนให้นักเรียน รายชื่อจะขึ้นที่นี่เมื่อนักเรียนเข้าร่วมแล้ว</p></div>{/if}
             </div>
 

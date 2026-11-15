@@ -165,6 +165,39 @@ final class CourseController
         return $back;
     }
 
+    /** ถอนนักเรียนที่ครูติ๊กเลือกหลายคนพร้อมกัน — เหมือน dropStudent() ทีละคน (คะแนนยังเก็บไว้) */
+    public function dropStudents(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $data = (array) $request->getParsedBody();
+        $back = $response->withHeader('Location', Url::to('/courses/' . (int) $args['id'] . '?tab=students'))->withStatus(302);
+
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
+
+            return $back;
+        }
+        $course = $this->requireOwnedCourse($request, (int) $args['id'], (int) $user['id']);
+        $picked = array_values(array_intersect(
+            array_unique(array_map('intval', (array) ($data['ids'] ?? []))),
+            $this->enrollments->studentIds((int) $course['id'])
+        ));
+        if ($picked === []) {
+            Flash::error('ยังไม่ได้เลือกนักเรียนที่จะถอน');
+
+            return $back;
+        }
+
+        $dropped = 0;
+        foreach ($picked as $studentId) {
+            $dropped += $this->enrollments->drop((int) $course['id'], $studentId) ? 1 : 0;
+        }
+        $this->auth->log('course.drop_students', 'course#' . $course['id'], ['student_ids' => $picked, 'count' => $dropped]);
+        Flash::success('ถอนนักเรียน ' . $dropped . ' คนออกจากรายวิชาแล้ว · คะแนนและงานที่ส่งยังเก็บไว้ ถ้าเพิ่มกลับเข้ามาจะได้คืนทั้งหมด');
+
+        return $back;
+    }
+
     public function addStudents(Request $request, Response $response, array $args): Response
     {
         $user = $request->getAttribute('user');

@@ -151,6 +151,7 @@ return static function (App $app): void {
             // ครูเพิ่มนักเรียนที่มีบัญชีอยู่แล้วเข้ารายวิชาโดยระบุอีเมล
             $t->post('/{id:[0-9]+}/students', [CourseController::class, 'addStudents']);
             $t->post('/{id:[0-9]+}/students/{studentId:[0-9]+}/drop', [CourseController::class, 'dropStudent']);
+            $t->post('/{id:[0-9]+}/students/drop', [CourseController::class, 'dropStudents']);
             // เพิ่มนักเรียนที่ติ๊กเลือกจากกลุ่มเรียนของรายวิชา
             $t->post('/{id:[0-9]+}/students/classroom', [CourseController::class, 'addClassroomStudents']);
             // ประกาศข่าวสารถึงนักเรียนทั้งรายวิชา (แท็บประกาศ)
