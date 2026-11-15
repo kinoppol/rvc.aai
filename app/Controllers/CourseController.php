@@ -833,7 +833,10 @@ final class CourseController
         ];
 
         $data += match ($tab) {
-            'units'    => ['units' => $this->decorateUnits($this->units->forCourse($course['id']))],
+            'units'    => [
+                'units' => $this->decorateUnits($rawUnits = $this->units->forCourse($course['id'])),
+                'midterm' => $this->midtermOptions($course, $rawUnits),
+            ],
             'feed'     => [
                 'feedReady' => $this->feed->ready(),
                 'posts' => $posts = $this->feed->forCourse((int) $course['id']),
@@ -901,6 +904,137 @@ final class CourseController
     }
 
     /** @param list<array<string,mixed>> $units @return list<array<string,mixed>> */
+    /**
+     * ตัวเลือกช่วงสอบกลางภาค: วางหน่วยสอบกลางภาคหลังหน่วยการเรียนที่ k (1 … n−1) แล้วดูว่าตกสัปดาห์ไหน
+     * ลำดับหน่วยคือสิ่งเดียวที่กำหนดทั้งสัปดาห์สอบ (Semester::schedule) และขอบเขตข้อสอบ (QuizWizardController::examScope)
+     *
+     * @param list<array<string,mixed>> $units
+     * @return array<string,mixed>|null null เมื่อไม่มีหน่วยสอบกลางภาค หรือหน่วยการเรียนน้อยกว่า 2 หน่วย
+     */
+    private function midtermOptions(array $course, array $units): ?array
+    {
+        $mid = null;
+        foreach ($units as $u) {
+            if ($u['kind'] === 'midterm') {
+                $mid = $u;
+                break;
+            }
+        }
+        $lessons = array_values(array_filter($units, static fn (array $u): bool => !UnitRepository::isExam($u)));
+        if ($mid === null || count($lessons) < 2) {
+            return null;
+        }
+
+        $weeks = Semester::courseWeeks($course, $units);
+        $weekly = (int) $course['theory_hours'] + (int) $course['practice_hours'];
+        $current = 0;
+        $seen = 0;
+        foreach ($units as $u) {
+            if ((int) $u['id'] === (int) $mid['id']) {
+                break;
+            }
+            if (!UnitRepository::isExam($u)) {
+                $seen++;
+            }
+        }
+        $current = $seen;
+
+        $options = [];
+        for ($k = 1; $k < count($lessons); $k++) {
+            $order = $this->withMidtermAfter($units, $mid, (int) $lessons[$k - 1]['id']);
+            $at = array_search((int) $mid['id'], array_map('intval', array_column($order, 'id')), true);
+            $week = Semester::schedule($order, $weeks, $weekly)[$at]['from'] ?? 0;
+            $options[] = [
+                'after' => (int) $lessons[$k - 1]['id'],
+                'k' => $k,
+                'week' => $week,
+                'title' => (string) $lessons[$k - 1]['title'],
+            ];
+        }
+
+        return [
+            'unitId' => (int) $mid['id'],
+            'current' => $current,
+            'lessons' => count($lessons),
+            'weeks' => $weeks,
+            'options' => $options,
+            'hasQuiz' => (int) ($mid['has_posttest'] ?? 0) > 0,
+        ];
+    }
+
+    /**
+     * ลำดับหน่วยใหม่: หน่วยอื่นคงลำดับเดิม แล้ววางหน่วยสอบกลางภาคไว้ต่อจากหน่วย $afterId
+     *
+     * @param list<array<string,mixed>> $units
+     * @return list<array<string,mixed>>
+     */
+    private function withMidtermAfter(array $units, array $mid, int $afterId): array
+    {
+        $out = [];
+        foreach ($units as $u) {
+            if ((int) $u['id'] === (int) $mid['id']) {
+                continue;
+            }
+            $out[] = $u;
+            if ((int) $u['id'] === $afterId) {
+                $out[] = $mid;
+            }
+        }
+
+        return $out;
+    }
+
+    /** ย้ายหน่วยสอบกลางภาคไปหลังหน่วยการเรียนที่เลือก — ขอบเขตข้อสอบกลางภาคเปลี่ยนตาม (หน่วยก่อนหน้าทั้งหมด) */
+    public function moveMidterm(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $data = (array) $request->getParsedBody();
+        $back = $response->withHeader('Location', Url::to('/courses/' . (int) $args['id'] . '?tab=units'))->withStatus(302);
+
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
+
+            return $back;
+        }
+        $course = $this->requireOwnedCourse($request, (int) $args['id'], (int) $user['id']);
+        $units = $this->units->forCourse((int) $course['id']);
+        $plan = $this->midtermOptions($course, $units);
+        $afterId = (int) ($data['after'] ?? 0);
+        $pick = null;
+        foreach ($plan['options'] ?? [] as $o) {
+            if ($o['after'] === $afterId) {
+                $pick = $o;
+            }
+        }
+        if ($plan === null || $pick === null) {
+            Flash::error('เลือกช่วงสอบกลางภาคไม่ถูกต้อง');
+
+            return $back;
+        }
+
+        $mid = null;
+        foreach ($units as $u) {
+            if ((int) $u['id'] === $plan['unitId']) {
+                $mid = $u;
+            }
+        }
+        foreach ($this->withMidtermAfter($units, $mid, $afterId) as $i => $u) {
+            if ((int) $u['sort_order'] !== $i + 1) {
+                $this->units->update((int) $u['id'], ['sort_order' => $i + 1]);
+            }
+        }
+        $this->auth->log('course.move_midterm', 'course#' . $course['id'], ['after_unit' => $afterId, 'week' => $pick['week']]);
+
+        $scope = $pick['k'] === 1 ? 'หน่วยที่ 1' : 'หน่วยที่ 1–' . $pick['k'];
+        Flash::success(sprintf('ย้ายสอบกลางภาคไปสัปดาห์ที่ %d (หลังหน่วยที่ %d) แล้ว · ข้อสอบกลางภาคออกจาก%s · สอบปลายภาคยังครอบคลุมทุกหน่วย',
+            $pick['week'], $pick['k'], $scope));
+        if ($plan['hasQuiz'] && $pick['k'] !== $plan['current']) {
+            Flash::warning('แบบทดสอบกลางภาคที่มีอยู่ยังเป็นข้อสอบจากขอบเขตเดิม (หน่วยที่ 1–' . $plan['current'] . ') ไม่ได้เปลี่ยนตาม · เปิดหน่วยสอบกลางภาคเพื่อตรวจ หรือให้ AI ร่างชุดใหม่จากขอบเขตใหม่');
+        }
+
+        return $back;
+    }
+
     private function decorateUnits(array $units): array
     {
         $no = 0;

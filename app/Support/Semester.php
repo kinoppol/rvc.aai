@@ -144,4 +144,75 @@ final class Semester
             'finalWeek' => $final ? $weeks : null,
         ];
     }
+
+    /**
+     * วางสัปดาห์และชั่วโมงของทุกหน่วยตามลำดับ (ใช้ทั้งตารางในแผนการสอนและการเลือกสัปดาห์สอบกลางภาค)
+     * หน่วยสอบใช้ 1 สัปดาห์เต็มเสมอ · หน่วยที่ครูกำหนดสัปดาห์ไว้ (units.weeks) ใช้ตามนั้น ที่เหลือแบ่งสัปดาห์ที่ว่าง
+     *
+     * @param list<array<string,mixed>> $units
+     * @return list<array{hours:int, from:int, to:int}>
+     */
+    public static function schedule(array $units, int $weeks, int $weekly): array
+    {
+        // คำนวณตำแหน่งเป็นชั่วโมง · วิชาที่ยังไม่กรอก ท/ป ถือว่าสัปดาห์ละ 1 หน่วยไว้วางตาราง แต่แสดง 0 ชั่วโมง
+        $per = max(1, $weekly);
+        $exams = count(array_filter($units, [self::class, 'isExam']));
+        $fixed = 0;
+        $open = [];
+        foreach ($units as $i => $u) {
+            if (self::isExam($u)) {
+                continue;
+            }
+            if ((int) ($u['weeks'] ?? 0) > 0) {
+                $fixed += (int) $u['weeks'];
+            } else {
+                $open[] = $i;
+            }
+        }
+
+        $free = max(0, $weeks - $exams - $fixed);
+        $shares = count($open) <= $free
+            ? array_map(static fn (int $w): int => $w * $per, Semester::spread($free, count($open)))
+            : Semester::spread($free * $per, count($open));
+        $openHours = $open === [] ? [] : array_combine($open, $shares);
+
+        $out = [];
+        $cursor = 0;
+        foreach ($units as $i => $u) {
+            if (self::isExam($u)) {
+                $cursor = (int) ceil($cursor / $per) * $per; // สอบเริ่มต้นสัปดาห์ใหม่เสมอ
+                $h = $per;
+            } else {
+                $h = isset($openHours[$i]) ? $openHours[$i] : (int) $u['weeks'] * $per;
+            }
+
+            $from = intdiv($cursor, $per) + 1;
+            $cursor += $h;
+            $out[$i] = [
+                'hours' => $weekly > 0 ? $h : 0,
+                'from' => $from,
+                'to' => max($from, (int) ceil($cursor / $per)),
+            ];
+        }
+
+        return $out;
+    }
+
+    /** จำนวนสัปดาห์ของรายวิชา (รวมสอบ): ที่ครูตั้งไว้ หรือค่าตามระดับชั้นและหน่วยสอบที่มี */
+    public static function courseWeeks(array $course, array $units): int
+    {
+        $kinds = array_column($units, 'kind');
+
+        return (int) ($course['weeks'] ?? 0) ?: self::defaultWeeks(
+            (string) $course['code'],
+            in_array('midterm', $kinds, true),
+            in_array('final', $kinds, true)
+        );
+    }
+
+    /** @param array<string,mixed> $unit */
+    private static function isExam(array $unit): bool
+    {
+        return in_array($unit['kind'] ?? 'lesson', ['midterm', 'final'], true);
+    }
 }

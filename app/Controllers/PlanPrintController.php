@@ -319,48 +319,7 @@ final class PlanPrintController
      */
     private function schedule(array $units, int $weeks, int $weekly): array
     {
-        // คำนวณตำแหน่งเป็นชั่วโมง · วิชาที่ยังไม่กรอก ท/ป ถือว่าสัปดาห์ละ 1 หน่วยไว้วางตาราง แต่แสดง 0 ชั่วโมง
-        $per = max(1, $weekly);
-        $exams = count(array_filter($units, [UnitRepository::class, 'isExam']));
-        $fixed = 0;
-        $open = [];
-        foreach ($units as $i => $u) {
-            if (UnitRepository::isExam($u)) {
-                continue;
-            }
-            if ((int) ($u['weeks'] ?? 0) > 0) {
-                $fixed += (int) $u['weeks'];
-            } else {
-                $open[] = $i;
-            }
-        }
-
-        $free = max(0, $weeks - $exams - $fixed);
-        $shares = count($open) <= $free
-            ? array_map(static fn (int $w): int => $w * $per, Semester::spread($free, count($open)))
-            : Semester::spread($free * $per, count($open));
-        $openHours = $open === [] ? [] : array_combine($open, $shares);
-
-        $out = [];
-        $cursor = 0;
-        foreach ($units as $i => $u) {
-            if (UnitRepository::isExam($u)) {
-                $cursor = (int) ceil($cursor / $per) * $per; // สอบเริ่มต้นสัปดาห์ใหม่เสมอ
-                $h = $per;
-            } else {
-                $h = isset($openHours[$i]) ? $openHours[$i] : (int) $u['weeks'] * $per;
-            }
-
-            $from = intdiv($cursor, $per) + 1;
-            $cursor += $h;
-            $out[$i] = [
-                'hours' => $weekly > 0 ? $h : 0,
-                'from' => $from,
-                'to' => max($from, (int) ceil($cursor / $per)),
-            ];
-        }
-
-        return $out;
+        return Semester::schedule($units, $weeks, $weekly);
     }
 
     /** @return list<string> แยกข้อความหลายบรรทัดเป็นข้อ ๆ และตัดเลขข้อ/สัญลักษณ์นำหน้าที่ครูพิมพ์มาเอง */

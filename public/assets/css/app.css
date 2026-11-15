@@ -3048,3 +3048,10 @@ html.is-presenting { overflow: hidden; }
 .link-group-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin: 14px 0 4px; }
 .bulk-pick-off { width: 18px; flex: none; display: grid; place-items: center; color: var(--ink3, var(--ink2)); }
 .bulk-pick-off .msi { font-size: 16px; }
+
+/* แท็บหน่วยการเรียน: เลือกช่วงสอบกลางภาค */
+.midterm-move { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin-top: 22px; }
+.midterm-move-icon { font-size: 28px; color: var(--violet, var(--brand)); }
+.midterm-move-text { flex: 1 1 320px; min-width: 0; }
+.midterm-move-text h3 { margin: 0 0 4px; font-size: 16px; }
+.midterm-move select { width: auto; max-width: 100%; }

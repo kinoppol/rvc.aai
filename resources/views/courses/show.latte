@@ -83,6 +83,28 @@
                 {/if}
             </div>
 
+            {* ช่วงสอบกลางภาค: ย้ายหน่วยสอบไปหลังหน่วยใดก็ได้ — กำหนดทั้งสัปดาห์สอบในแผนการสอนและขอบเขตข้อสอบกลางภาค *}
+            {if $midterm}
+                <form class="card midterm-move" method="post" action="{$base}/courses/{$course['id']}/midterm"
+                      n:attr="data-confirm: $midterm['hasQuiz'] ? 'แบบทดสอบกลางภาคที่มีอยู่ออกจากขอบเขตเดิม (หน่วยที่ 1–' . $midterm['current'] . ') และจะไม่เปลี่ยนตาม ต้องตรวจหรือให้ AI ร่างใหม่เอง', data-confirm-title: $midterm['hasQuiz'] ? 'ย้ายสอบกลางภาค' : null, data-confirm-ok: $midterm['hasQuiz'] ? 'ย้าย' : null">
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <span class="msi midterm-move-icon" aria-hidden="true">event</span>
+                    <div class="midterm-move-text">
+                        <h3>ช่วงสอบกลางภาค</h3>
+                        <div class="card-sub">
+                            ตอนนี้สอบหลังหน่วยที่ {$midterm['current']} · ข้อสอบกลางภาคออกจาก <b>หน่วยที่ 1{if $midterm['current'] > 1}–{$midterm['current']}{/if}</b>
+                            · ย้ายแล้วขอบเขตข้อสอบและสัปดาห์สอบในแผนการสอนเปลี่ยนตาม (ภาคเรียน {$midterm['weeks']} สัปดาห์)
+                        </div>
+                    </div>
+                    <select class="input" name="after" aria-label="สอบกลางภาคหลังหน่วยที่">
+                        {foreach $midterm['options'] as $o}
+                            <option value="{$o['after']}" n:attr="selected: $o['k'] === $midterm['current']">สัปดาห์ที่ {$o['week']} · หลังหน่วยที่ {$o['k']} · ออกสอบหน่วยที่ 1{if $o['k'] > 1}–{$o['k']}{/if}</option>
+                        {/foreach}
+                    </select>
+                    <button class="btn btn-primary" type="submit">ย้ายสอบกลางภาค</button>
+                </form>
+            {/if}
+
             {* ร่างเนื้อหาทุกหน่วยที่ยังว่าง: ผู้ช่วยทำทีละหน่วยจนครบ (units-autodraft.js) · หน่วยที่มีเนื้อหาแล้ว/หน่วยสอบข้าม *}
             {var $emptyUnits = []}
             {foreach $units as $u}{if !$u['is_exam'] && !(int) $u['section_count']}{do $emptyUnits[] = (int) $u['id']}{/if}{/foreach}
