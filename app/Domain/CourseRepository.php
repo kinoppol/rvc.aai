@@ -154,7 +154,11 @@ final class CourseRepository
     {
         if (!isset($this->columns[$column])) {
             try {
-                $this->columns[$column] = $this->db->first('SHOW COLUMNS FROM {courses} LIKE ?', [$column]) !== null;
+                // ห้ามใช้ SHOW COLUMNS … LIKE ? — MariaDB ไม่รับ placeholder ในคำสั่ง SHOW เมื่อใช้ real prepares (คืน false ตลอด)
+                $this->columns[$column] = $this->db->int(
+                    'SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+                    [$this->db->table('courses'), $column]
+                ) > 0;
             } catch (\PDOException) {
                 $this->columns[$column] = false;
             }
