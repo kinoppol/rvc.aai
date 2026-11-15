@@ -93,7 +93,7 @@ final class QuizWizardController
     {
         $user = $request->getAttribute('user');
         $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id']);
-        $params = $this->readParams($request, $course);
+        $params = $this->readParams($request->getQueryParams(), $course);
 
         if ($params['unitTitles'] === [] || $params['types'] === []) {
             Flash::error('กรุณาเลือกหน่วยการเรียนและชนิดข้อสอบอย่างน้อยหนึ่งอย่าง');
@@ -117,7 +117,7 @@ final class QuizWizardController
     {
         $user = $request->getAttribute('user');
         $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id']);
-        $params = $this->readParams($request, $course);
+        $params = $this->readParams($request->getQueryParams(), $course);
         $quality = $this->settings->userQualityPref((int) $user['id']);
 
         ignore_user_abort(true);
@@ -173,62 +173,18 @@ final class QuizWizardController
             'jobId' => $jobId,   // ปุ่มยกเลิกใช้สั่งหยุดงานนี้ (cancel())
         ]);
 
-        $collected = [];
         $started = hrtime(true);
-        // ครูกดยกเลิก = สถานะงานเป็น cancelled — ตรวจก่อนทุกรอบและทุกข้อ แล้วหยุดโดยไม่บันทึกและไม่ตัดโควตา
-        $cancelled = fn (): bool => ($this->ai->findJob($jobId)['status'] ?? '') === 'cancelled';
+        $result = $this->runRounds($route, $course, $params, $quality, $rounds, $jobId, $send);
+        $collected = $result['questions'];
 
-        foreach ($rounds as $i => [$chunk, $want]) {
-            if ($cancelled()) {
-                return $this->stopCancelled($response, $send, (int) $user['id'], $jobId, $route, count($collected));
-            }
-            if (count($rounds) > 1) {
-                $send('round', ['no' => $i + 1, 'of' => count($rounds), 'count' => $want]);
-            }
-
-            $got = 0;
-            try {
-                foreach ($this->generator->stream($route, [
-                    'course_code' => $course['code'],
-                    'course_name' => $course['name'],
-                    'lesson_titles' => $params['unitTitles'],
-                    'count' => $want,
-                    'types' => $params['types'],
-                    'level' => $params['level'],
-                    'source' => $chunk,
-                    // ข้อที่ได้จากรอบก่อน ๆ — กันถามซ้ำเมื่อเนื้อหาสองก้อนคาบเกี่ยวกัน
-                    'avoid' => self::avoidList($collected),
-                    // ตำแหน่งคำตอบของรอบก่อน ๆ — ให้ไม่ซ้ำติดกันเกิน 2 ข้อข้ามรอบด้วย
-                    'avoid_correct' => array_values(array_map(
-                        static fn (array $q): int => QuizGenerator::correctIndex($q['choices']),
-                        array_filter($collected, static fn (array $q): bool => $q['type'] === 'choice')
-                    )),
-                ], $quality) as $ev) {
-                    if ($ev['event'] === 'question' && $cancelled()) {
-                        return $this->stopCancelled($response, $send, (int) $user['id'], $jobId, $route, count($collected));
-                    }
-                    if ($ev['event'] === 'question' && $got < $want) {
-                        $got++;
-                        $ev['data']['no'] = count($collected) + 1;
-                        $collected[] = $ev['data'];
-                        $send('question', $ev['data']);
-                    } elseif ($ev['event'] === 'error') {
-                        throw new \RuntimeException($ev['message']);
-                    }
-                }
-            } catch (Throwable $e) {
-                // รอบแรกล้มและยังไม่ได้สักข้อ = แจ้งครูเลย · รอบหลังล้ม = เก็บข้อที่ได้ไว้แล้วลองรอบถัดไป
-                if ($collected === []) {
-                    $send('error', ['reason' => 'generate_failed', 'message' => $e instanceof \RuntimeException ? $e->getMessage() : 'ระบบขัดข้องระหว่างร่างข้อสอบ']);
-                    $this->ai->updateJob($jobId, ['status' => 'failed', 'error' => $e->getMessage(), 'finished_at' => date('Y-m-d H:i:s')]);
-
-                    return $response;
-                }
-            }
-        }
-
-        if ($cancelled()) {
+        if ($result['cancelled']) {
             return $this->stopCancelled($response, $send, (int) $user['id'], $jobId, $route, count($collected));
+        }
+        if ($result['error'] !== null) {
+            $send('error', ['reason' => 'generate_failed', 'message' => $result['error']]);
+            $this->ai->updateJob($jobId, ['status' => 'failed', 'error' => $result['error'], 'finished_at' => date('Y-m-d H:i:s')]);
+
+            return $response;
         }
 
         if ($collected === []) {
@@ -254,6 +210,173 @@ final class QuizWizardController
         ]);
 
         return $response;
+    }
+
+    /**
+     * ร่างข้อสอบทีละรอบตามก้อนเนื้อหา (ใช้ทั้ง stream() และ autoDraft())
+     * ครูกดยกเลิก (ai_jobs.status = cancelled) → หยุดก่อนรอบ/ข้อถัดไป · รอบแรกล้มโดยยังไม่ได้สักข้อ → error
+     * รอบหลังล้ม → เก็บข้อที่ได้ไว้แล้วทำรอบถัดไป
+     *
+     * @param list<array{0:string,1:int}> $rounds
+     * @return array{questions:list<array<string,mixed>>, cancelled:bool, error:?string}
+     */
+    private function runRounds(AiRoute $route, array $course, array $params, string $quality, array $rounds, int $jobId, ?callable $send = null): array
+    {
+        $collected = [];
+        $cancelled = fn (): bool => ($this->ai->findJob($jobId)['status'] ?? '') === 'cancelled';
+        $stop = static fn (array $collected): array => ['questions' => $collected, 'cancelled' => true, 'error' => null];
+
+        foreach ($rounds as $i => [$chunk, $want]) {
+            if ($cancelled()) {
+                return $stop($collected);
+            }
+            if ($send !== null && count($rounds) > 1) {
+                $send('round', ['no' => $i + 1, 'of' => count($rounds), 'count' => $want]);
+            }
+
+            $got = 0;
+            try {
+                foreach ($this->generator->stream($route, [
+                    'course_code' => $course['code'],
+                    'course_name' => $course['name'],
+                    'lesson_titles' => $params['unitTitles'],
+                    'count' => $want,
+                    'types' => $params['types'],
+                    'level' => $params['level'],
+                    'source' => $chunk,
+                    // ข้อที่ได้จากรอบก่อน ๆ — กันถามซ้ำเมื่อเนื้อหาสองก้อนคาบเกี่ยวกัน
+                    'avoid' => self::avoidList($collected),
+                    // ตำแหน่งคำตอบของรอบก่อน ๆ — ให้ไม่ซ้ำติดกันเกิน 2 ข้อข้ามรอบด้วย
+                    'avoid_correct' => array_values(array_map(
+                        static fn (array $q): int => QuizGenerator::correctIndex($q['choices']),
+                        array_filter($collected, static fn (array $q): bool => $q['type'] === 'choice')
+                    )),
+                ], $quality) as $ev) {
+                    if ($ev['event'] === 'question' && $cancelled()) {
+                        return $stop($collected);
+                    }
+                    if ($ev['event'] === 'question' && $got < $want) {
+                        $got++;
+                        $ev['data']['no'] = count($collected) + 1;
+                        $collected[] = $ev['data'];
+                        if ($send !== null) {
+                            $send('question', $ev['data']);
+                        }
+                    } elseif ($ev['event'] === 'error') {
+                        throw new \RuntimeException($ev['message']);
+                    }
+                }
+            } catch (Throwable $e) {
+                if ($collected === []) {
+                    return [
+                        'questions' => [],
+                        'cancelled' => false,
+                        'error' => $e instanceof \RuntimeException ? $e->getMessage() : 'ระบบขัดข้องระหว่างร่างข้อสอบ',
+                    ];
+                }
+            }
+        }
+
+        return ['questions' => $collected, 'cancelled' => $cancelled(), 'error' => null];
+    }
+
+    /**
+     * ร่างแบบทดสอบก่อนเรียน/หลังเรียนของทุกหน่วยจากแท็บแบบทดสอบ: หน้าเว็บเรียกทีละ (หน่วย × ชนิด)
+     * (public/assets/js/quizzes-autodraft.js) ด้วยรูปแบบ ระดับ และจำนวนข้อที่ครูตั้งครั้งเดียว
+     * หน่วยที่มีแบบทดสอบชนิดนั้นแล้ว/หน่วยสอบข้าม · ผลเป็นฉบับร่าง (เข้าคิวรอตรวจ) ครูตรวจแล้วเผยแพร่เอง · ตอบ JSON
+     */
+    public function autoDraft(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $course = $this->ownedCourse($request, (int) $args['courseId'], (int) $user['id']);
+        $data = (array) $request->getParsedBody();
+
+        if (!Csrf::check($data['_token'] ?? null)) {
+            return $this->json($response, ['ok' => false, 'stop' => true, 'error' => 'เซสชันหมดอายุ กรุณารีเฟรชหน้าแล้วลองใหม่'], 419);
+        }
+        $unit = $this->units->find((int) ($data['unit_id'] ?? 0));
+        $kind = (string) ($data['kind'] ?? '');
+        if ($unit === null || (int) $unit['course_id'] !== (int) $course['id'] || !in_array($kind, ['pretest', 'posttest'], true)) {
+            return $this->json($response, ['ok' => false, 'error' => 'ไม่พบหน่วยการเรียนนี้'], 404);
+        }
+        if (UnitRepository::isExam($unit)) {
+            return $this->json($response, ['ok' => true, 'skipped' => 'exam']);
+        }
+        foreach ($this->quizzes->forUnit((int) $unit['id']) as $existing) {
+            if ($existing['kind'] === $kind) {
+                return $this->json($response, ['ok' => true, 'skipped' => 'has_quiz']);
+            }
+        }
+
+        $params = $this->readParams([
+            'unit_id' => (string) $unit['id'],
+            'kind' => $kind,
+            'types' => (array) ($data['types'] ?? []),
+            'count' => (string) ($data['count'] ?? ''),
+            'level' => (string) ($data['level'] ?? ''),
+            'ai' => (string) ($data['ai'] ?? ''),
+        ], $course);
+        $quality = $this->settings->userQualityPref((int) $user['id']);
+
+        // งานยาว (ราว 1–3 นาที) — ทำต่อแม้ปิดหน้า และปลดล็อก session ให้หน้าอื่นของครูใช้ได้ระหว่างรอ
+        ignore_user_abort(true);
+        @set_time_limit(0);
+        session_write_close();
+
+        try {
+            $route = $this->router->route((int) $user['id'], $quality, real: true, target: $params['ai'], task: 'quiz');
+        } catch (AiUnavailableException $e) {
+            // โควตาหมด/เครื่องปิด — หน่วยถัดไปก็จะไม่ได้เหมือนกัน หยุดทั้งชุด
+            return $this->json($response, ['ok' => false, 'stop' => true, 'error' => $e->getMessage()]);
+        }
+
+        $budget = ModelBudget::chars($route);
+        $known = $this->knowledge->forUnits($params['unitIds'], (int) ($budget * min($params['count'], self::MAX_ROUNDS) * 0.85));
+        $rounds = ModelBudget::rounds(ModelBudget::split($known['text'], $budget), $params['count'], $budget)
+            ?: [['', $params['count']]];
+
+        $jobId = $this->ai->createJob([
+            'user_id' => (int) $user['id'],
+            'course_id' => $course['id'],
+            'kind' => 'quiz',
+            'source' => $route->source,
+            'status' => 'running',
+            'prompt' => json_encode($params, JSON_UNESCAPED_UNICODE),
+            'started_at' => date('Y-m-d H:i:s'),
+        ]);
+        $started = hrtime(true);
+        $result = $this->runRounds($route, $course, $params, $quality, $rounds, $jobId);
+
+        if ($result['error'] !== null || $result['questions'] === []) {
+            $message = $result['error'] ?? 'ผู้ช่วยไม่ได้ร่างข้อสอบออกมา';
+            $this->ai->updateJob($jobId, ['status' => 'failed', 'error' => $message, 'finished_at' => date('Y-m-d H:i:s')]);
+            $this->ai->logUsage((int) $user['id'], $jobId, $route->source, $route->model, false, 'quiz');
+
+            return $this->json($response, ['ok' => false, 'error' => $message]);
+        }
+
+        // ระหว่างรอ AI อาจมีคนสร้างแบบทดสอบชนิดนี้ให้หน่วยไปแล้ว (เปิดสองแท็บ) — ไม่สร้างซ้ำ
+        foreach ($this->quizzes->forUnit((int) $unit['id']) as $existing) {
+            if ($existing['kind'] === $kind) {
+                $this->ai->updateJob($jobId, ['status' => 'cancelled', 'finished_at' => date('Y-m-d H:i:s')]);
+
+                return $this->json($response, ['ok' => true, 'skipped' => 'has_quiz']);
+            }
+        }
+
+        $durationMs = (int) round((hrtime(true) - $started) / 1_000_000);
+        $quizId = $this->persist($course, $params, $result['questions'], (int) $user['id'], $jobId, $route->source, $durationMs);
+        if ($route->countsQuota) {
+            $this->ai->consumeQuota((int) $user['id'], $this->period(), $this->settings->int('ai_monthly_quota', 60));
+        }
+        $this->ai->logUsage((int) $user['id'], $jobId, $route->source, $route->model, true, 'quiz');
+        $this->auth->log('ai.quiz.auto', 'quiz#' . $quizId, ['count' => count($result['questions']), 'kind' => $kind, 'unit' => (int) $unit['id']]);
+
+        return $this->json($response, [
+            'ok' => true,
+            'questions' => count($result['questions']),
+            'reviewUrl' => Url::to("/courses/{$course['id']}/quizzes/$quizId/review"),
+        ]);
     }
 
     /** ครูกดยกเลิก: ทำเครื่องหมายงานเป็น cancelled แล้ว stream() จะหยุดเองก่อนรอบ/ข้อถัดไป */
@@ -649,9 +772,8 @@ final class QuizWizardController
     }
 
     /** @return array{unit_id:?int,kind:string,unitTitles:list<string>,count:int,types:list<string>,level:string} */
-    private function readParams(Request $request, array $course): array
+    private function readParams(array $q, array $course): array
     {
-        $q = $request->getQueryParams();
         $unitId = isset($q['unit_id']) && $q['unit_id'] !== '' ? (int) $q['unit_id'] : null;
         $kind = in_array($q['kind'] ?? '', ['pretest', 'posttest'], true) ? $q['kind'] : 'posttest';
 

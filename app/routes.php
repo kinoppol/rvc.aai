@@ -210,6 +210,8 @@ return static function (App $app): void {
             $t->get('/{courseId:[0-9]+}/quizzes/workspace', [QuizWizardController::class, 'workspace']);
             $t->get('/{courseId:[0-9]+}/quizzes/stream', [QuizWizardController::class, 'stream']);
             $t->post('/{courseId:[0-9]+}/quizzes/jobs/{jobId:[0-9]+}/cancel', [QuizWizardController::class, 'cancel']);
+            // ร่างแบบทดสอบก่อน/หลังเรียนทุกหน่วยจากแท็บแบบทดสอบ (หน้าเว็บเรียกทีละหน่วย × ชนิด · ตอบ JSON)
+            $t->post('/{courseId:[0-9]+}/quizzes/auto', [QuizWizardController::class, 'autoDraft']);
             $t->get('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/review', [QuizWizardController::class, 'review']);
             $t->get('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/results', [QuizResultsController::class, 'show']);
             $t->post('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}', [QuizWizardController::class, 'save']);

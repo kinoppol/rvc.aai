@@ -3011,3 +3011,14 @@ html.is-presenting { overflow: hidden; }
 .autodraft-state.is-err { background: var(--errSoft, #fde8e8); color: var(--err, #b42318); white-space: normal; max-width: 260px; }
 @keyframes autodraftPulse { 50% { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .autodraft-state.is-run { animation: none; } }
+/* แท็บแบบทดสอบ: ตั้งค่าร่างแบบทดสอบทุกหน่วย (quizzes-autodraft.js) */
+.qad-settings { display: flex; flex-wrap: wrap; gap: 14px 26px; margin: 16px 0 6px; }
+.qad-settings fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.qad-settings legend { font-weight: 700; font-size: 13px; color: var(--ink2); padding: 0; margin-bottom: 4px; width: 100%; }
+.qad-settings select { width: auto; }
+.qad-queue { list-style: none; margin: 12px 0 0; padding: 0; max-height: 320px; overflow: auto; border-top: 1px solid var(--line); }
+.qad-queue li { display: flex; align-items: center; gap: 10px; padding: 7px 2px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.qad-queue li.is-off { opacity: .4; }
+.qad-label { flex: 1; min-width: 0; }
+.qad-queue .autodraft-state a { color: inherit; }
+.qad-actions { margin-top: 14px; }

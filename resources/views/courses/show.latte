@@ -233,6 +233,70 @@
                 {/if}
             </div>
 
+            {* ร่างแบบทดสอบก่อน/หลังเรียนทุกหน่วย: ตั้งค่าครั้งเดียว ผู้ช่วยร่างทีละหน่วยจนครบ (quizzes-autodraft.js)
+               หน่วยที่มีแบบทดสอบชนิดนั้นแล้ว/หน่วยสอบข้าม · ทุกชุดเป็นฉบับร่างรอครูตรวจและเผยแพร่เอง *}
+            {if $course['ai_quiz_enabled'] && $quizQueue}
+                <form class="card autodraft" id="quizAutoDraft" data-url="{$base}/courses/{$course['id']}/quizzes/auto" onsubmit="return false">
+                    <input type="hidden" name="_token" value="{$csrf}">
+                    <div class="autodraft-head">
+                        <span class="msi autodraft-icon" aria-hidden="true">auto_awesome</span>
+                        <div class="autodraft-text">
+                            <h3>ให้ผู้ช่วย AI ร่างแบบทดสอบก่อนเรียน/หลังเรียนทุกหน่วย</h3>
+                            <div class="card-sub">
+                                ตั้งค่าครั้งเดียว ผู้ช่วยจะร่างทีละหน่วยไปเรื่อย ๆ จนครบ (ชุดละประมาณ 1–3 นาที) จากเนื้อหาจริงของแต่ละหน่วย
+                                · หน่วยที่มีแบบทดสอบแล้วและหน่วยสอบจะข้ามไป · ทุกชุดเป็น <b>ฉบับร่าง</b> นักเรียนยังไม่เห็น
+                                จนกว่าคุณจะเปิดตรวจแล้วกดเผยแพร่เอง · เปิดหน้านี้ค้างไว้จนเสร็จ
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="qad-settings">
+                        <fieldset>
+                            <legend>สร้างชุด</legend>
+                            <label class="check-row"><input type="checkbox" name="kinds[]" value="pretest" checked> ก่อนเรียน</label>
+                            <label class="check-row"><input type="checkbox" name="kinds[]" value="posttest" checked> หลังเรียน</label>
+                        </fieldset>
+                        <fieldset>
+                            <legend>รูปแบบข้อสอบ</legend>
+                            <label class="check-row"><input type="checkbox" name="types[]" value="ปรนัย" checked> ปรนัย</label>
+                            <label class="check-row"><input type="checkbox" name="types[]" value="อัตนัย"> อัตนัย</label>
+                            <label class="check-row"><input type="checkbox" name="types[]" value="จับคู่"> จับคู่</label>
+                        </fieldset>
+                        <fieldset>
+                            <legend>ระดับความยาก</legend>
+                            <label class="check-row" title="เน้นความจำและคำศัพท์พื้นฐาน"><input type="radio" name="level" value="ง่าย"> ง่าย</label>
+                            <label class="check-row" title="ความเข้าใจและการนำไปใช้ในงานจริง"><input type="radio" name="level" value="กลาง" checked> กลาง</label>
+                            <label class="check-row" title="วิเคราะห์และแก้ปัญหา"><input type="radio" name="level" value="ยาก"> ยาก</label>
+                        </fieldset>
+                        <fieldset>
+                            <legend>จำนวนข้อต่อชุด</legend>
+                            <select class="input" name="count" aria-label="จำนวนข้อต่อชุด">
+                                {foreach [5, 8, 10, 20] as $n}<option value="{$n}" n:attr="selected: $n === 10">{$n} ข้อ</option>{/foreach}
+                            </select>
+                        </fieldset>
+                    </div>
+
+                    <ul class="qad-queue">
+                        {foreach $quizQueue as $job}
+                            <li data-unit="{$job['unit_id']}" data-kind="{$job['kind']}">
+                                <span class="qad-label">{$job['label']}</span>
+                                <span class="autodraft-state">รอร่าง</span>
+                            </li>
+                        {/foreach}
+                    </ul>
+
+                    <div class="autodraft-head qad-actions">
+                        <button type="button" class="btn btn-ai is-needed" id="quizAutoStart">✦ ร่างแบบทดสอบทุกหน่วย (<span id="quizAutoCount">{count($quizQueue)}</span> ชุด)</button>
+                        <button type="button" class="btn" id="quizAutoStop" hidden>หยุดหลังชุดนี้</button>
+                    </div>
+                    <div class="autodraft-progress" hidden>
+                        <div class="bar"><span id="quizAutoBar" style="width: 0%"></span></div>
+                        <div class="hint" id="quizAutoStatus" aria-live="polite"></div>
+                    </div>
+                </form>
+                <script src="{$base}/assets/js/quizzes-autodraft.js?v={$assetVer ?? 1}" defer></script>
+            {/if}
+
         {elseif $tab === 'worksheets'}
             {* ใบงานของทุกหน่วย เรียงตามหน่วย · เพิ่มใบงานได้จากหน่วยที่ต้องการ *}
             <div class="list">

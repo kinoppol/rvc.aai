@@ -97,6 +97,7 @@ $builder->addDefinitions([
             (int) @filemtime(Paths::root() . '/public/assets/js/behavior-analysis.js'),
             (int) @filemtime(Paths::root() . '/public/assets/js/subject-lookup.js'),
             (int) @filemtime(Paths::root() . '/public/assets/js/units-autodraft.js'),
+            (int) @filemtime(Paths::root() . '/public/assets/js/quizzes-autodraft.js'),
             1
         ),
         'user' => null,

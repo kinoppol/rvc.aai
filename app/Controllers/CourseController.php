@@ -706,7 +706,10 @@ final class CourseController
                 'posts' => $posts = $this->feed->forCourse((int) $course['id']),
                 'seenCounts' => $this->feed->seenCounts((int) $course['id'], $posts),
             ],
-            'quizzes'  => ['quizGroups' => $this->quizGroups((int) $course['id'])],
+            'quizzes'  => [
+                'quizGroups' => $this->quizGroups((int) $course['id']),
+                'quizQueue' => $this->quizQueue((int) $course['id']),
+            ],
             'worksheets' => [
                 'worksheets' => $this->assignments->forCourse((int) $course['id'], 'worksheet'),
                 'lessonUnits' => array_values(array_filter(
@@ -801,6 +804,32 @@ final class CourseController
      *
      * @return list<array{no:?string,title:string,is_exam:bool,quizzes:list<array<string,mixed>>}>
      */
+    /**
+     * งานที่ปุ่ม "ร่างแบบทดสอบทุกหน่วย" ต้องทำ: หน่วยการเรียน (ไม่ใช่หน่วยสอบ) × ก่อนเรียน/หลังเรียน ที่ยังไม่มีแบบทดสอบ
+     *
+     * @return list<array{unit_id:int,kind:string,label:string}>
+     */
+    private function quizQueue(int $courseId): array
+    {
+        $queue = [];
+        foreach ($this->decorateUnits($this->units->forCourse($courseId)) as $u) {
+            if ($u['is_exam']) {
+                continue;
+            }
+            foreach (['pretest' => ['has_pretest', 'ก่อนเรียน'], 'posttest' => ['has_posttest', 'หลังเรียน']] as $kind => [$has, $label]) {
+                if (!(int) $u[$has]) {
+                    $queue[] = [
+                        'unit_id' => (int) $u['id'],
+                        'kind' => $kind,
+                        'label' => 'หน่วยที่ ' . ltrim((string) $u['no'], '0') . ' ' . $u['title'] . ' · ' . $label,
+                    ];
+                }
+            }
+        }
+
+        return $queue;
+    }
+
     private function quizGroups(int $courseId): array
     {
         $byUnit = [];
