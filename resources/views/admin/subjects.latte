@@ -6,16 +6,22 @@
 {block content}
 {include '../_partials/system-tabs.latte'}
 <style>
+    .subj-metrics { margin: 6px 0 22px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    @media (max-width: 860px) { .subj-metrics { grid-template-columns: 1fr; } }
+    .subj-block + .subj-block { margin-top: 22px; }
+    .subj-block .hint { margin-bottom: 8px; }
     .subj-filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
     .subj-filter input[type=search] { flex: 1 1 260px; }
-    .subj-filter select { width: auto; }
+    .subj-filter select { width: auto; flex: 0 0 auto; }
+    .subj-table td { padding-top: 10px; padding-bottom: 10px; }
     .subj-table td { vertical-align: top; }
     .subj-table .code { font-family: var(--mono, monospace); white-space: nowrap; font-weight: 600; }
     .subj-table .en { color: var(--ink2); font-size: 12.5px; }
     .subj-table .tpn { white-space: nowrap; text-align: center; }
     .subj-flags { display: flex; gap: 4px; flex-wrap: wrap; }
     .subj-flag { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; background: var(--brandSoft); color: var(--brandInk); }
-    .subj-flag.is-off { background: var(--surface2); color: var(--ink3, #999); text-decoration: line-through; }
+    .subj-flag { font-weight: 600; }
+    .subj-flag.is-off { background: transparent; border: 1px dashed var(--line); color: var(--ink2); text-decoration: line-through; }
     .subj-pager { display: flex; gap: 6px; align-items: center; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
     .subj-detail h2 { margin: 0 0 4px; }
     .subj-detail dl { display: grid; grid-template-columns: 150px 1fr; gap: 8px 14px; margin: 14px 0 0; }
@@ -49,7 +55,7 @@
         <p>รัน migration <code>000138</code> ที่หน้า <a href="{$base}/admin/migrations">ฐานข้อมูล</a> ก่อน แล้วระบบจะนำเข้ารายวิชาจากไฟล์ในโปรเจกต์ให้อัตโนมัติ</p>
     </div>
 {else}
-    <div class="metric-grid">
+    <div class="metric-grid subj-metrics">
         <div class="metric metric-indigo">
             <div class="metric-top"><div class="metric-icon"><span class="msi">library_books</span></div></div>
             <div class="metric-label">รายวิชาทั้งหมด</div>
@@ -74,7 +80,7 @@
     </div>
 
     {if $show}
-        <section class="card subj-detail" id="detail">
+        <section class="card subj-detail subj-block" id="detail">
             <div class="hint">
                 <a href="{$base}/admin/subjects{if $qs}?{$qs}{/if}"><span class="msi" aria-hidden="true">arrow_back</span>กลับไปที่รายการ</a>
             </div>
@@ -93,15 +99,15 @@
         </section>
     {/if}
 
-    <section class="card">
+    <section class="card subj-block">
         <form class="subj-filter" method="get" action="{$base}/admin/subjects">
-            <input type="search" name="q" value="{$filters['q']}" placeholder="ค้นรหัสวิชา ชื่อไทย หรือชื่ออังกฤษ" aria-label="ค้นหารายวิชา">
-            <select name="level" aria-label="ระดับ">
+            <input class="input" type="search" name="q" value="{$filters['q']}" placeholder="ค้นรหัสวิชา ชื่อไทย หรือชื่ออังกฤษ" aria-label="ค้นหารายวิชา">
+            <select class="input" name="level" aria-label="ระดับ">
                 <option value="">ทุกระดับ</option>
                 <option value="2" n:attr="selected: $filters['level'] === '2'">ปวช. (2xxxx)</option>
                 <option value="3" n:attr="selected: $filters['level'] === '3'">ปวส. (3xxxx)</option>
             </select>
-            <select name="year" aria-label="ปีหลักสูตร">
+            <select class="input" name="year" aria-label="ปีหลักสูตร">
                 <option value="">ทุกหลักสูตร</option>
                 {foreach $stats['years'] as $y => $n}
                     <option value="{$y}" n:attr="selected: $filters['year'] === $y">หลักสูตร {$y}</option>
