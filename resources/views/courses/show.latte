@@ -230,6 +230,9 @@
                             {if $q['submitted_count'] > 0 || $q['review_status'] === 'published'}
                                 <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/quizzes/{$q['id']}/results">ผลคะแนน ({$q['submitted_count']})</a>
                             {/if}
+                            {if $q['question_count'] > 0}
+                                <a class="btn btn-sm" href="{$base}/quizzes/{$q['id']}/try?back={('/courses/' . $course['id'] . '?tab=quizzes')|escapeUrl}" title="ทำแบบทดสอบในมุมมองนักเรียน ไม่บันทึกคำตอบ"><span class="msi" aria-hidden="true">play_arrow</span>ทดลองสอบ</a>
+                            {/if}
                             <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/quizzes/{$q['id']}/review">แก้ไข</a>
                             <form method="post" action="{$base}/courses/{$course['id']}/quizzes/{$q['id']}/delete"
                                   data-confirm-title="ย้ายไปถังขยะ" data-confirm-ok="ย้ายไปถังขยะ" data-confirm-danger

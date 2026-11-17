@@ -1,5 +1,5 @@
 {* แถวหนึ่งรายการในเส้นทางการเรียน — ส่ง it:, no:, itemBase:, preview: มาจากหน้าที่ include
-   ส่วนเนื้อหา/ใบงานเป็นลิงก์ · แบบทดสอบเป็นปุ่มเริ่มทำ (ปิดไว้ในมุมมองตัวอย่างของครู) *}
+   ส่วนเนื้อหา/ใบงานเป็นลิงก์ · แบบทดสอบเป็นปุ่มเริ่มทำ (มุมมองตัวอย่างของครู = ลิงก์ทดลองสอบแบบไม่บันทึก /quizzes/{id}/try) *}
 {capture $inner}
     <span class="path-no">{$no}</span>
     <span class="path-main">
@@ -26,7 +26,7 @@
 {/capture}
 {if $it['kind'] === 'quiz'}
     {if $preview}
-        <div class="path-row is-static" title="ตัวอย่างมุมมองนักเรียน · เริ่มทำแบบทดสอบไม่ได้">{$inner|noescape}</div>
+        <a class="path-row" href="{$base}/quizzes/{$it['id']}/try{if $itemBase}?back={$itemBase|escapeUrl}{/if}" title="ทดลองทำในมุมมองนักเรียน · ไม่บันทึกคำตอบ">{$inner|noescape}</a>
     {elseif $it['locked']}
         <div class="path-row is-static is-locked" title="{$it['lock_note']}">{$inner|noescape}</div>
     {else}

@@ -255,6 +255,9 @@ return static function (App $app): void {
         // ถังขยะของครู: แบบทดสอบที่ลบไว้จากทุกรายวิชา (กู้คืน/ลบถาวรผ่าน /courses/{id}/quizzes/{quizId}/restore|destroy)
         $group->get('/trash', [CourseController::class, 'trash'])->add(new RoleMiddleware(Roles::TEACHING));
 
+        // ครูทดลองทำแบบทดสอบของตนในมุมมองของนักเรียน (ไม่บันทึก)
+        $group->get('/quizzes/{quizId:[0-9]+}/try', [StudentController::class, 'tryQuiz'])->add(new RoleMiddleware(Roles::TEACHING));
+
         // ตรวจแผนการสอน (อ่านอย่างเดียว) — ตัวควบคุมตรวจ Roles::canReviewPlans() เอง เพราะหัวหน้างานหลักสูตรเป็นค่าตั้งรายผู้ใช้ ไม่ใช่บทบาท
         $group->group('/plans', function (RouteCollectorProxy $p): void {
             $p->get('', [PlanReviewController::class, 'index']);

@@ -20,6 +20,10 @@
                 {if $published}เผยแพร่ให้นักเรียนแล้ว{else}ยังไม่เผยแพร่ให้นักเรียน{/if}
             </div>
         </div>
+        {if $questions}
+            <a class="btn btn-sm" href="{$base}/quizzes/{$quiz['id']}/try?back={('/courses/' . $course['id'] . '/quizzes/' . $quiz['id'] . '/review')|escapeUrl}"
+               title="ทำแบบทดสอบในมุมมองนักเรียน (ใช้ข้อสอบที่บันทึกไว้ล่าสุด) ไม่บันทึกคำตอบ"><span class="msi" aria-hidden="true">play_arrow</span>ทดลองสอบ</a>
+        {/if}
         <span class="ai-chip">{$aiChip}</span>
     </div>
 

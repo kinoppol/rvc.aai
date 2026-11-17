@@ -106,7 +106,7 @@ final class StudentController
 
     /**
      * ครูดูหน่วยในมุมมองของนักเรียน (อ่านอย่างเดียว) · เปิดได้ทุกสถานะ แม้ยังไม่เผยแพร่
-     * แบบทดสอบแสดงเฉพาะชุดที่นักเรียนมองเห็นจริง (เผยแพร่แล้วและมีข้อสอบ) แต่เริ่มทำไม่ได้
+     * แบบทดสอบแสดงเฉพาะชุดที่นักเรียนมองเห็นจริง (เผยแพร่แล้วและมีข้อสอบ) กดแล้วไปหน้าทดลองสอบที่ไม่บันทึก (tryQuiz)
      */
     public function preview(Request $request, Response $response, array $args): Response
     {
@@ -362,16 +362,103 @@ final class StudentController
 
     private function renderPractice(Response $response, array $course, array $unit, string $name, string $code, string $back, ?int $until): Response
     {
+        $questions = array_map(static fn (array $q): array => [
+            'q' => $q['q'],
+            'c' => array_map(static fn (int $k, string $c): array => ['label' => QuizRepository::CHOICE_LABELS[$k] ?? (string) ($k + 1), 'text' => $c],
+                array_keys($q['c']), $q['c']),
+            'answer' => $q['answer'],
+            'why' => $q['why'],
+        ], self::PRACTICE_QUESTIONS);
+
         return $this->view->render($response, 'learn/practice', [
             'page' => 'learn',
             'course' => $course,
-            'unit' => $unit,
-            'questions' => self::PRACTICE_QUESTIONS,
+            'kicker' => 'ซ้อมสอบ · ' . $course['code'],
+            'heading' => $unit['title'] . ' — ข้อสอบซ้อม (ไม่มีผลกับการสอบจริง)',
+            'questions' => $questions,
+            'proctorOn' => true,
             'limit' => ProctorRepository::LIMIT,
             'studentName' => $name,
             'studentCode' => $code,
             'backUrl' => $back,
             'until' => $until,
+            'timeUpText' => 'หมดเวลาช่วงซ้อมที่ครูเปิดไว้แล้ว',
+            'doneHint' => 'ในการสอบจริง เมื่อส่งคำตอบแล้วจะแก้ไขไม่ได้อีก · ข้อสอบซ้อมนี้ทำซ้ำได้ไม่จำกัดในช่วงที่ครูเปิดไว้',
+            'footNote' => 'ซ้อม · ไม่บันทึกคำตอบ',
+            'teacherTrial' => false,
+        ]);
+    }
+
+    /**
+     * GET /quizzes/{quizId}/try — ครูทดลองทำแบบทดสอบของตนในมุมมองของนักเรียน (ทุกสถานะ รวมถึงร่าง)
+     * ใช้หน้าเดียวกับซ้อมสอบ: ตรวจคำตอบในเบราว์เซอร์ ไม่สร้าง attempt ไม่บันทึกอะไร
+     * ถ้าเปิดโหมดคุมสอบ จะทำงานแบบซ้อม (เตือนและแสดงหน้าระงับให้เห็น แต่ไม่ส่งเหตุการณ์ไปบันทึก)
+     * ?back= = หน้าที่กดมา (path ภายในเท่านั้น)
+     */
+    public function tryQuiz(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        $quiz = $this->quizzes->find((int) $args['quizId']);
+        $course = $quiz !== null ? $this->courseRow((int) $quiz['course_id']) : null;
+        if ($quiz === null || $course === null || (int) $course['teacher_id'] !== (int) $user['id']) {
+            throw new HttpNotFoundException($request, 'ไม่พบแบบทดสอบนี้');
+        }
+
+        $back = (string) ($request->getQueryParams()['back'] ?? '');
+        if (!preg_match('#^/[A-Za-z0-9/_?=&\#.-]*$#', $back) || str_starts_with($back, '//')) {
+            $back = $quiz['unit_id'] ? "/courses/{$course['id']}/units/{$quiz['unit_id']}/edit" : "/courses/{$course['id']}?tab=quizzes";
+        }
+
+        $questions = [];
+        foreach ($this->quizzes->questions((int) $quiz['id']) as $q) {
+            $choices = [];
+            $correct = [];
+            foreach ($q['choices'] as $k => $c) {
+                $choices[] = ['label' => (string) ($c['label'] ?: (QuizRepository::CHOICE_LABELS[$k] ?? $k + 1)), 'text' => (string) $c['content']];
+                if ((int) $c['is_correct'] === 1) {
+                    $correct[] = $k;
+                }
+            }
+            // ปรนัยที่มีเฉลยข้อเดียวตรวจในเบราว์เซอร์ได้ · อื่น ๆ (อัตนัย หลายคำตอบ จับคู่) ครูตรวจเอง
+            $auto = $q['type'] === 'choice' && count($correct) === 1;
+            $why = trim(strip_tags((string) ($q['explanation'] ?? '')));
+            if ($auto) {
+                $why = 'เฉลย: ' . $choices[$correct[0]]['label'] . ' ' . $choices[$correct[0]]['text'] . ($why !== '' ? ' · ' . $why : '');
+            } else {
+                $why = 'ข้อนี้ไม่ได้ตรวจอัตโนมัติ (ครูให้คะแนนเอง)' . ($why !== '' ? ' · ' . $why : '');
+            }
+            $questions[] = [
+                'q' => (string) $q['question'],
+                'c' => $q['type'] === 'short_answer' ? [] : $choices,
+                'answer' => $auto ? $correct[0] : null,
+                'why' => $why . ' · ' . rtrim(rtrim(number_format((float) $q['score'], 2, '.', ''), '0'), '.') . ' คะแนน',
+            ];
+        }
+        if ($questions === []) {
+            Flash::error('แบบทดสอบนี้ยังไม่มีข้อสอบ เพิ่มข้อสอบก่อนแล้วจึงทดลองสอบ');
+
+            return $this->redirect($response, $back);
+        }
+
+        $limit = $quiz['time_limit_minutes'] ? (int) $quiz['time_limit_minutes'] : 0;
+
+        return $this->view->render($response, 'learn/practice', [
+            'page' => 'courses',
+            'course' => $course,
+            'kicker' => 'ทดลองสอบในมุมมองนักเรียน · ' . $course['code'],
+            'heading' => $quiz['title'],
+            'questions' => $questions,
+            'proctorOn' => $this->proctor->enabled($quiz),
+            'limit' => ProctorRepository::LIMIT,
+            'studentName' => (string) $user['full_name'],
+            'studentCode' => (string) $user['username'],
+            'backUrl' => $back,
+            'until' => $limit > 0 ? time() + $limit * 60 : null,
+            'timeUpText' => 'หมดเวลาทำข้อสอบแล้ว (นักเรียนจะถูกส่งคำตอบให้อัตโนมัติ)',
+            'doneHint' => 'นี่คือการทดลองของครู ไม่บันทึกคำตอบและไม่นับเป็นการสอบของใคร · นักเรียนจะไม่เห็นเฉลยหลังส่ง',
+            'footNote' => 'ทดลองสอบ · ไม่บันทึกคำตอบ',
+            'teacherTrial' => true,
+            'quiz' => $quiz,
         ]);
     }
 

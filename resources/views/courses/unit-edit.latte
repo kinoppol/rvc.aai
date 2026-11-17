@@ -565,6 +565,9 @@
                 {if $q['submitted_count'] > 0 || $q['review_status'] === 'published'}
                     <a class="btn btn-sm" href="{$quizBase}/{$q['id']}/results">ผลคะแนน ({$q['submitted_count']})</a>
                 {/if}
+                {if $q['question_count'] > 0}
+                    <a class="btn btn-sm" href="{$base}/quizzes/{$q['id']}/try" title="ทำแบบทดสอบในมุมมองนักเรียน ไม่บันทึกคำตอบ"><span class="msi" aria-hidden="true">play_arrow</span>ทดลองสอบ</a>
+                {/if}
                 <a class="btn btn-sm" href="{$quizBase}/{$q['id']}/review">แก้ไข</a>
             </div>
         {/foreach}

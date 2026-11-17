@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ซ้อมสอบ · {$unit['title']} · {$appName}</title>
+    <title>{$kicker} · {$heading} · {$appName}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap">
@@ -11,24 +11,35 @@
 </head>
 <body>
 {*
-    ซ้อมสอบในโหมดคุมสอบ (StudentController::practice / previewPractice)
-    ข้อสอบเป็นข้อตกลงการสอบ ตรวจในเบราว์เซอร์ ไม่ส่งอะไรไปเซิร์ฟเวอร์ · โหมดคุมสอบทำงานแบบ data-practice (ไม่บันทึก ไม่ระงับจริง)
+    ทำข้อสอบแบบไม่บันทึก ตรวจในเบราว์เซอร์ ไม่ส่งอะไรไปเซิร์ฟเวอร์ — ใช้สองแบบ
+      • ซ้อมสอบในโหมดคุมสอบ (StudentController::practice / previewPractice) ข้อสอบเป็นข้อตกลงการสอบ
+      • ครูทดลองสอบในมุมมองนักเรียน (StudentController::tryQuiz) ใช้ข้อสอบจริงของชุดนั้น
+    โหมดคุมสอบ (ถ้าเปิด) ทำงานแบบ data-practice: เตือนและแสดงหน้าระงับให้เห็น แต่ไม่บันทึก ไม่ระงับจริง
 *}
-<div class="take" id="take" data-proctor="1" data-practice="1" data-plimit="{$limit}" data-switches="0" data-copies="0"
-     data-locked="0" data-student="{$studentName} · {$studentCode}" data-until="{$until ?? ''}">
+<div class="take" id="take" {if $proctorOn}data-proctor="1" data-practice="1" data-plimit="{$limit}" data-switches="0" data-copies="0"
+     data-locked="0" data-student="{$studentName} · {$studentCode}"{/if} data-until="{$until ?? ''}" data-timeup="{$timeUpText}">
+
+    {if $teacherTrial}
+        <div class="trial-bar">
+            <b>ทดลองสอบในมุมมองนักเรียน</b> · ไม่บันทึกคำตอบ · ใช้ข้อสอบที่บันทึกไว้ล่าสุด
+            {if $quiz['review_status'] !== 'published'} · <span>ชุดนี้ยังไม่เผยแพร่ นักเรียนยังมองไม่เห็น</span>{/if}
+            {if !$proctorOn} · โหมดคุมสอบปิดอยู่{/if}
+            <a href="{$base}{$backUrl}" data-leave>ออกจากการทดลอง</a>
+        </div>
+    {/if}
 
     <header class="take-bar">
         <div class="take-bar-inner">
             <div class="grow">
-                <div class="take-code mono">ซ้อมสอบ · {$course['code']}</div>
-                <div class="take-title">{$unit['title']} — ข้อสอบซ้อม (ไม่มีผลกับการสอบจริง)</div>
+                <div class="take-code mono">{$kicker}</div>
+                <div class="take-title">{$heading}</div>
             </div>
-            <div class="take-clock mono" id="clock" title="เวลาที่เหลือของช่วงซ้อม"></div>
+            <div class="take-clock mono" id="clock" title="เวลาที่เหลือ"></div>
         </div>
         <div class="bar take-progress"><span id="progress" style="width:0%"></span></div>
         <div class="take-bar-inner take-meta">
             <span id="posText">ข้อ 1 จาก {count($questions)}</span>
-            <span class="pr-counters" id="prCounters">สลับหน้าจอ 0/{$limit} · คัดลอก/จับภาพ 0/{$limit}</span>
+            {if $proctorOn}<span class="pr-counters" id="prCounters">สลับหน้าจอ 0/{$limit} · คัดลอก/จับภาพ 0/{$limit}</span>{/if}
         </div>
     </header>
 
@@ -40,8 +51,8 @@
                     <div class="take-choices">
                         {foreach $q['c'] as $k => $c}
                             <button type="button" class="take-choice" data-choice="{$k}">
-                                <span class="take-choice-key mono">{['ก', 'ข', 'ค', 'ง'][$k]}</span>
-                                <span>{$c}</span>
+                                <span class="take-choice-key mono">{$c['label']}</span>
+                                <span>{$c['text']}</span>
                             </button>
                         {/foreach}
                     </div>
@@ -54,11 +65,11 @@
 
         <section class="practice-done" id="practiceDone" hidden>
             <div class="result-check">✓</div>
-            <h2>ซ้อมเสร็จแล้ว</h2>
+            <h2>{$teacherTrial ? 'ทดลองสอบเสร็จแล้ว' : 'ซ้อมเสร็จแล้ว'}</h2>
             <p id="practiceScore"></p>
-            <p class="hint">ในการสอบจริง เมื่อส่งคำตอบแล้วจะแก้ไขไม่ได้อีก · ข้อสอบซ้อมนี้ทำซ้ำได้ไม่จำกัดในช่วงที่ครูเปิดไว้</p>
+            <p class="hint">{$doneHint}</p>
             <div class="practice-done-actions">
-                <button type="button" class="btn btn-primary" id="practiceAgain">ซ้อมอีกครั้ง</button>
+                <button type="button" class="btn btn-primary" id="practiceAgain">{$teacherTrial ? 'ทดลองอีกครั้ง' : 'ซ้อมอีกครั้ง'}</button>
                 <a class="btn" href="{$base}{$backUrl}" id="practiceBack">กลับ</a>
             </div>
         </section>
@@ -66,14 +77,14 @@
 
     <footer class="take-foot" id="practiceFoot">
         <button type="button" class="btn" id="prevBtn">ข้อก่อนหน้า</button>
-        <span class="grow hint" style="text-align:center">ซ้อม · ไม่บันทึกคำตอบ</span>
+        <span class="grow hint" style="text-align:center">{$footNote}</span>
         <button type="button" class="btn btn-primary" id="nextBtn">ข้อถัดไป</button>
     </footer>
 
-    {include '../_partials/proctor-overlays.latte', limit: $limit, practice: true, switches: 0, copies: 0}
+    {if $proctorOn}{include '../_partials/proctor-overlays.latte', limit: $limit, practice: true, switches: 0, copies: 0}{/if}
 </div>
 
-<script src="{$base}/assets/js/quiz-proctor.js?v={$assetVer ?? 1}"></script>
+{if $proctorOn}<script src="{$base}/assets/js/quiz-proctor.js?v={$assetVer ?? 1}"></script>{/if}
 <script src="{$base}/assets/js/quiz-practice.js?v={$assetVer ?? 1}"></script>
 </body>
 </html>

@@ -46,8 +46,8 @@
             });
             if (picked[i] === ans) right++;
         });
-        $('practiceScore').textContent = (timeUp ? 'หมดเวลาช่วงซ้อมที่ครูเปิดไว้แล้ว · ' : '')
-            + 'ตอบถูก ' + right + ' จาก ' + auto + ' ข้อ (ข้อปรนัย) · อ่านคำอธิบายใต้แต่ละข้อได้เลย';
+        $('practiceScore').textContent = (timeUp ? (root.dataset.timeup || 'หมดเวลาแล้ว') + ' · ' : '')
+            + 'ตอบถูก ' + right + ' จาก ' + auto + ' ข้อ (ข้อที่ตรวจอัตโนมัติ) · อ่านคำอธิบายใต้แต่ละข้อได้เลย';
         if (timeUp) $('practiceAgain').hidden = true;
         done.hidden = false;
         foot.hidden = true;
@@ -64,6 +64,9 @@
     });
     $('practiceAgain').addEventListener('click', function () { proctor().leaving = true; location.reload(); });
     $('practiceBack').addEventListener('click', function () { proctor().leaving = true; });
+    document.querySelectorAll('[data-leave]').forEach(function (a) {
+        a.addEventListener('click', function () { proctor().leaving = true; });
+    });
 
     // นับถอยหลังช่วงซ้อมที่ครูเปิดไว้ (ครูลองดูหน้านี้ = ไม่มีกำหนด)
     var until = +root.dataset.until || 0;
