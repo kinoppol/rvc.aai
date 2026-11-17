@@ -424,7 +424,9 @@ final class StudentController
             return $this->json($response, ['ok' => false, 'status' => $attempt['status']]);
         }
 
-        $state = $this->proctor->record((int) $attempt['id'], (string) ($data['type'] ?? ''), (string) ($data['detail'] ?? ''));
+        // live=0 = เกิดระหว่างนักเรียนอ่านคำเตือน/ถูกระงับ: บันทึกไว้ให้ครูดูแต่ไม่นับเข้าเกณฑ์
+        $state = $this->proctor->record((int) $attempt['id'], (string) ($data['type'] ?? ''), (string) ($data['detail'] ?? ''),
+            ($data['live'] ?? '1') !== '0');
         if ($state === null) {
             return $this->json($response, ['ok' => false], 422);
         }

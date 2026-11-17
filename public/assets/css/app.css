@@ -2953,6 +2953,13 @@ html.is-presenting { overflow: hidden; }
 .qr-proctor summary { cursor: pointer; list-style: none; display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .qr-proctor summary::-webkit-details-marker { display: none; }
 .qr-proctor-log { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; white-space: nowrap; }
+.qr-proctor-log .is-uncounted { color: var(--ink3); }
+.qr-counted { font-size: 11px; color: var(--warn); margin-left: 4px; }
+.qr-log-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qr-log-head .msi { vertical-align: -4px; }
+.qr-log-filter { width: auto; max-width: 280px; height: 36px; font-size: 13px; }
+.qr-log-only { display: inline-flex; align-items: center; gap: 5px; font: 500 13px/1 var(--body); cursor: pointer; }
+.qr-log tr.is-teacher td { background: var(--brandSoft); }
 .qr-metrics { margin: 0 0 20px; }
 .qr-of { font: 600 14px/1 var(--sans); color: var(--ink3); letter-spacing: 0; }
 .qr-card { padding: 0; margin-bottom: 20px; overflow: hidden; }

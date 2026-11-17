@@ -22,7 +22,7 @@
     var url = base + '/learn/attempts/' + attempt + '/proctor';
     var resultUrl = base + '/learn/attempts/' + attempt + '/result';
 
-    var state = window.rvcProctor = { active: false, locked: root.dataset.locked === '1', leaving: false };
+    var state = window.rvcProctor = { active: false, locked: root.dataset.locked === '1', leaving: false, started: root.dataset.locked === '1' };
     var fsOK = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
     var last = { switch: 0, copy: 0 };
 
@@ -94,19 +94,30 @@
         snip: 'ใช้คีย์ลัดจับภาพหน้าจอ', print: 'สั่งพิมพ์หรือบันทึกหน้าข้อสอบ'
     };
 
+    /*
+     * ทุกความพยายามที่ตรวจพบถูกส่งไปบันทึกให้ครูดู แม้ไม่นับเข้าเกณฑ์ (เซิร์ฟเวอร์เก็บ counted = 0)
+     * live = กำลังทำข้อสอบจริง (ไม่ได้อยู่ระหว่างอ่านคำเตือนหรือถูกระงับ) — เฉพาะ live จึงนับครั้ง
+     * อีเวนต์พ่วงของการกระทำเดียวกัน (เช่น blur + hidden จากการสลับครั้งเดียว) ส่งครั้งเดียว
+     */
+    var sent = {};
     function report(type, detail) {
-        if (!state.active || state.locked || state.leaving) return;
+        if (!state.started || state.leaving) return;
+        var now = Date.now();
         var counted = type === 'switch' || type === 'copy';
-        if (counted) {
-            var now = Date.now();
-            if (now - last[type] < 2500) return;   // หลายอีเวนต์จากการกระทำครั้งเดียว
+        if (counted && now - last[type] < 2500) return;   // อีเวนต์พ่วงของการกระทำเดียวกัน
+        var key = type + ':' + detail;
+        if (now - (sent[key] || 0) < 2500) return;
+        sent[key] = now;
+
+        var live = state.active && !state.locked;
+        if (counted && live) {
             last[type] = now;
             counts[type]++;
             showCounters();
             warnUser(type, detail, counts[type]);   // แสดงทันที ไม่รอเซิร์ฟเวอร์
         }
         if (practice) return;
-        var body = new URLSearchParams({ _token: token, type: type, detail: detail });
+        var body = new URLSearchParams({ _token: token, type: type, detail: detail, live: live ? '1' : '0' });
         fetch(url, { method: 'POST', body: body, keepalive: true, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (d) {
@@ -146,6 +157,7 @@
         enterFull().then(function () {
             showOnly(null);
             state.active = true;
+            state.started = true;
             last.switch = Date.now();   // การกลับเข้าเต็มจอเองไม่นับเป็นการสลับ
         });
     }
@@ -190,9 +202,9 @@
         toast('ไม่อนุญาตให้วางข้อความระหว่างสอบ กรุณาพิมพ์คำตอบเอง');
         report('paste', 'paste');
     });
-    document.addEventListener('drop', function (e) { e.preventDefault(); toast('ไม่อนุญาตให้ลากข้อความมาวาง'); });
+    document.addEventListener('drop', function (e) { e.preventDefault(); toast('ไม่อนุญาตให้ลากข้อความมาวาง'); report('blocked', 'drop'); });
     document.addEventListener('dragstart', function (e) { e.preventDefault(); });
-    document.addEventListener('contextmenu', function (e) { e.preventDefault(); toast('ปิดการคลิกขวาระหว่างสอบ'); });
+    document.addEventListener('contextmenu', function (e) { e.preventDefault(); toast('ปิดการคลิกขวาระหว่างสอบ'); report('blocked', 'contextmenu'); });
     document.addEventListener('selectstart', function (e) { if (!inAnswer(e.target)) e.preventDefault(); });
 
     document.addEventListener('keydown', function (e) {
@@ -206,8 +218,8 @@
         if (k === 'f12' || (mod && e.shiftKey && (k === 'i' || k === 'j' || k === 'c')) || (mod && k === 'u')) {
             e.preventDefault(); toast('ปิดเครื่องมือนี้ระหว่างสอบ'); report('blocked', 'devtools'); return;
         }
-        if (mod && k === 's') { e.preventDefault(); toast('ไม่อนุญาตให้บันทึกหน้าข้อสอบ'); return; }
-        if (mod && k === 'a' && !inAnswer(e.target)) { e.preventDefault(); }
+        if (mod && k === 's') { e.preventDefault(); toast('ไม่อนุญาตให้บันทึกหน้าข้อสอบ'); report('blocked', 'save'); return; }
+        if (mod && k === 'a' && !inAnswer(e.target)) { e.preventDefault(); report('blocked', 'selectall'); }
     }, true);
     document.addEventListener('keyup', function (e) {
         if ((e.key || '').toLowerCase() === 'printscreen') {

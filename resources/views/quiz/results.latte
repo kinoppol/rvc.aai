@@ -9,12 +9,16 @@
             <summary>
                 {if $ev['switch']}<span class="tag tag-warn" title="สลับหน้าจอ">สลับ {$ev['switch']}</span>{/if}
                 {if $ev['copy']}<span class="tag tag-warn" title="คัดลอก/จับภาพหน้าจอ">คัดลอก {$ev['copy']}</span>{/if}
+                {if $ev['other']}<span class="tag tag-muted" title="ตรวจพบแต่ไม่นับเข้าเกณฑ์ระงับการสอบ เช่น คลิกขวา วางข้อความ หรือเกิดระหว่างแสดงคำเตือน">ไม่นับ {$ev['other']}</span>{/if}
                 {if $ev['unlock']}<span class="tag tag-muted" title="ครูอนุมัติให้สอบต่อ">อนุมัติ {$ev['unlock']}</span>{/if}
-                {if !$ev['switch'] && !$ev['copy'] && !$ev['unlock']}<span class="tag tag-muted">{$ev['other']} รายการ</span>{/if}
             </summary>
             <ol class="qr-proctor-log">
                 {foreach $ev['events'] as $e}
-                    <li><span class="mono">{date('H:i:s', strtotime($e['created_at']))}</span> {$e['label']}{if $e['attempt_no'] > 1} <span class="hint">(ครั้งที่ {$e['attempt_no']})</span>{/if}</li>
+                    <li n:class="!$e['counted'] && !$e['teacher'] ? is-uncounted">
+                        <span class="mono">{date('H:i:s', strtotime($e['created_at']))}</span> {$e['label']}
+                        {if $e['counted']}<b class="qr-counted">นับ</b>{/if}
+                        {if $e['attempt_no'] > 1} <span class="hint">(ครั้งที่ {$e['attempt_no']})</span>{/if}
+                    </li>
                 {/foreach}
             </ol>
         </details>
@@ -230,6 +234,55 @@
         </div>
         {/if}
     </div>
+
+    {* บันทึกความพยายามทุจริตทั้งหมด (ProctorRepository::timeline) — รวมที่ไม่ถึงเกณฑ์/ไม่นับ *}
+    {if $timeline}
+        {var $tlStudents = []}
+        {foreach $timeline as $e}{do $tlStudents[$e['student_id']] = $e['username'] . ' ' . $e['full_name']}{/foreach}
+        <div class="card qr-card" id="proctorLog">
+            <div class="qr-head qr-log-head">
+                <span class="grow"><span class="msi" aria-hidden="true">shield</span> บันทึกเหตุการณ์จากโหมดคุมสอบ ({count($timeline)} รายการ)</span>
+                <select class="input qr-log-filter" id="qrLogStudent" aria-label="กรองตามนักเรียน">
+                    <option value="">นักเรียนทุกคน ({count($tlStudents)} คน)</option>
+                    {foreach $tlStudents as $sid => $nm}<option value="{$sid}">{$nm}</option>{/foreach}
+                </select>
+                <label class="qr-log-only"><input type="checkbox" id="qrLogCounted"> เฉพาะที่นับเข้าเกณฑ์</label>
+            </div>
+            <p class="hint qr-items-hint">
+                บันทึกทุกความพยายามที่ระบบตรวจพบ แม้ยังไม่ถึงเกณฑ์ระงับการสอบ · <b>นับ</b> = นับเข้าเกณฑ์ (สลับหน้าจอ หรือคัดลอก/จับภาพ ได้อย่างละ {$proctorLimit} ครั้ง)
+                · ไม่นับ = ถูกกันไว้ (คลิกขวา วางข้อความ ฯลฯ) หรือเกิดซ้ำระหว่างแสดงคำเตือน/ถูกระงับ
+                · ระบบอาจตรวจจับผิดพลาดได้ โปรดใช้ประกอบการพิจารณาเท่านั้น
+            </p>
+            <div class="table-scroll">
+                <table class="data qr-table qr-log">
+                    <thead><tr><th>เวลา</th><th>รหัส</th><th>ชื่อ - นามสกุล</th><th>เหตุการณ์</th><th>นับเข้าเกณฑ์</th></tr></thead>
+                    <tbody>
+                    {foreach $timeline as $e}
+                        <tr data-sid="{$e['student_id']}" data-counted="{$e['counted'] ? 1 : 0}" n:class="$e['teacher'] ? is-teacher">
+                            <td class="mono hint">{App\Support\Thai::date($e['created_at'])} {date('H:i:s', strtotime($e['created_at']))}</td>
+                            <td class="mono">{$e['username']}</td>
+                            <td>{$e['full_name']}{if $e['attempt_no'] > 1} <span class="hint">(ครั้งที่ {$e['attempt_no']})</span>{/if}</td>
+                            <td>{$e['label']}</td>
+                            <td>{if $e['teacher']}<span class="hint">ครูดำเนินการ</span>{elseif $e['counted']}<span class="tag tag-warn">นับ</span>{else}<span class="tag tag-muted">ไม่นับ</span>{/if}</td>
+                        </tr>
+                    {/foreach}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <script>
+        (function () {
+            var who = document.getElementById('qrLogStudent'), only = document.getElementById('qrLogCounted');
+            function apply() {
+                document.querySelectorAll('#proctorLog tbody tr').forEach(function (tr) {
+                    tr.hidden = (who.value !== '' && tr.dataset.sid !== who.value) || (only.checked && tr.dataset.counted !== '1');
+                });
+            }
+            who.addEventListener('change', apply);
+            only.addEventListener('change', apply);
+        })();
+        </script>
+    {/if}
 
     {if $items && $stats['taken']}
         <div class="card qr-card">

@@ -15,6 +15,8 @@ use PDOException;
  *   paste / blocked = บันทึกไว้เฉย ๆ ไม่นับ
  * แต่ละกลุ่มยอมได้ LIMIT ครั้ง เกินจากนั้นระงับการสอบ (proctor_locked_at) จนครูอนุมัติให้สอบต่อ
  * ตัวนับเริ่มใหม่ทุกครั้งที่ครูอนุมัติ ส่วนบันทึกเหตุการณ์เก็บไว้ทั้งหมดให้ครูดูประกอบ
+ * ทุกความพยายามที่ตรวจพบถูกบันทึกเสมอ แม้ไม่ถูกนับเข้าเกณฑ์ (counted = 0, migration 000143) เช่น คลิกขวา วางข้อความ
+ * หรือสลับหน้าจอซ้ำระหว่างที่คำเตือนยังแสดงอยู่/ระหว่างถูกระงับ
  *
  * เป็นเพียงการป้องปราม — ตรวจผิดพลาดได้ (เช่น มีการแจ้งเตือนเด้งขึ้นมา) ครูต้องใช้วิจารณญาณเสมอ
  * ทุกเมธอดทำงานได้ก่อนรัน migration (ถือว่าปิดโหมดคุมสอบ)
@@ -38,6 +40,10 @@ final class ProctorRepository
         'copy:print'        => 'สั่งพิมพ์/บันทึกหน้า',
         'paste:paste'       => 'วางข้อความ (ถูกกันไว้)',
         'blocked:devtools'  => 'เปิดเครื่องมือนักพัฒนา (ถูกกันไว้)',
+        'blocked:contextmenu' => 'คลิกขวา (ถูกกันไว้)',
+        'blocked:drop'      => 'ลากข้อความมาวาง (ถูกกันไว้)',
+        'blocked:save'      => 'สั่งบันทึกหน้าข้อสอบ (ถูกกันไว้)',
+        'blocked:selectall' => 'เลือกข้อความทั้งหน้า (ถูกกันไว้)',
         'unlock'            => 'ครูอนุมัติให้สอบต่อ',
         'force_submit'      => 'ครูส่งคำตอบแทนและจบการสอบ',
     ];
@@ -46,10 +52,11 @@ final class ProctorRepository
         'switch' => ['hidden', 'blur', 'fullscreen'],
         'copy'   => ['copy', 'cut', 'printscreen', 'snip', 'print'],
         'paste'  => ['paste'],
-        'blocked' => ['devtools'],
+        'blocked' => ['devtools', 'contextmenu', 'drop', 'save', 'selectall'],
     ];
 
     private ?bool $ready = null;
+    private ?bool $hasCounted = null;
 
     public function __construct(private readonly Db $db)
     {
@@ -66,6 +73,20 @@ final class ProctorRepository
         }
 
         return $this->ready;
+    }
+
+    /** มีคอลัมน์ quiz_attempt_events.counted แล้วหรือยัง (migration 000143) */
+    private function hasCounted(): bool
+    {
+        if ($this->hasCounted === null) {
+            try {
+                $this->hasCounted = $this->db->first("SHOW COLUMNS FROM {quiz_attempt_events} LIKE 'counted'") !== null;
+            } catch (PDOException) {
+                $this->hasCounted = false;
+            }
+        }
+
+        return $this->hasCounted;
     }
 
     /** แบบทดสอบนี้เปิดโหมดคุมสอบหรือไม่ */
@@ -102,34 +123,53 @@ final class ProctorRepository
 
     /**
      * บันทึกเหตุการณ์จากเบราว์เซอร์ของนักเรียน แล้วคืนสถานะล่าสุด
-     * เหตุการณ์ประเภทเดียวกันที่มาซ้ำภายใน 2 วินาที (เบราว์เซอร์ยิงหลายอีเวนต์ต่อการสลับครั้งเดียว) นับเป็นครั้งเดียว
+     * - ทุกความพยายามถูกบันทึก (ยกเว้นเหตุการณ์เดียวกันทุกประการที่มาซ้ำภายใน 2 วินาที)
+     * - นับเข้าเกณฑ์เฉพาะ switch/copy ที่เกิดขณะทำข้อสอบจริง ($live = ไม่ได้อยู่ระหว่างแสดงคำเตือน) ไม่ได้ถูกระงับอยู่
+     *   และไม่ใช่อีเวนต์พ่วงของการกระทำเดียวกัน (ประเภทเดียวกันที่นับไปแล้วภายใน 2 วินาที)
      *
      * @return array{switches:int,copies:int,locked:bool,extra:int,limit:int,counted:bool}|null null = ประเภทไม่ถูกต้อง
      */
-    public function record(int $attemptId, string $type, string $detail): ?array
+    public function record(int $attemptId, string $type, string $detail, bool $live = true): ?array
     {
         if (!in_array($detail, self::DETAILS[$type] ?? [], true)) {
             return null;
         }
 
         $counted = false;
-        $this->db->transaction(function () use ($attemptId, $type, $detail, &$counted): void {
+        $this->db->transaction(function () use ($attemptId, $type, $detail, $live, &$counted): void {
             $attempt = $this->db->first('SELECT * FROM {quiz_attempts} WHERE id = ? FOR UPDATE', [$attemptId]);
-            if ($attempt === null || $attempt['status'] !== 'in_progress' || $this->isLocked($attempt)) {
+            if ($attempt === null || $attempt['status'] !== 'in_progress') {
                 return;
             }
 
-            $recent = $this->db->int(
+            $same = $this->db->int(
                 'SELECT COUNT(*) FROM {quiz_attempt_events}
-                 WHERE attempt_id = ? AND type = ? AND created_at >= NOW() - INTERVAL 2 SECOND',
-                [$attemptId, $type]
+                 WHERE attempt_id = ? AND type = ? AND detail = ? AND created_at >= NOW() - INTERVAL 2 SECOND',
+                [$attemptId, $type, $detail]
             );
-            if ($recent > 0) {
-                return;
+            if ($same > 0) {
+                return;   // อีเวนต์ซ้ำของการกระทำเดียวกัน ไม่ต้องบันทึกซ้ำ
             }
 
-            $this->db->insert('quiz_attempt_events', ['attempt_id' => $attemptId, 'type' => $type, 'detail' => $detail]);
-            if ($type !== 'switch' && $type !== 'copy') {
+            $countable = ($type === 'switch' || $type === 'copy') && $live && !$this->isLocked($attempt);
+            if ($countable) {
+                $countedRecently = $this->db->int(
+                    'SELECT COUNT(*) FROM {quiz_attempt_events}
+                     WHERE attempt_id = ? AND type = ? AND created_at >= NOW() - INTERVAL 2 SECOND'
+                     . ($this->hasCounted() ? ' AND counted = 1' : ''),
+                    [$attemptId, $type]
+                );
+                $countable = $countedRecently === 0;
+            }
+
+            $row = ['attempt_id' => $attemptId, 'type' => $type, 'detail' => $detail];
+            if ($this->hasCounted()) {
+                $row['counted'] = $countable ? 1 : 0;
+            } elseif (!$countable) {
+                return;   // ก่อนรัน migration 000143 ตารางแยกไม่ได้ว่านับหรือไม่ จึงเก็บเฉพาะที่นับ
+            }
+            $this->db->insert('quiz_attempt_events', $row);
+            if (!$countable) {
                 return;
             }
 
@@ -195,32 +235,56 @@ final class ProctorRepository
     }
 
     /**
-     * เหตุการณ์ทั้งหมดของแบบทดสอบนี้ จัดกลุ่มตามนักเรียน
+     * บันทึกเหตุการณ์ทั้งหมดของแบบทดสอบนี้ เรียงตามเวลา พร้อมชื่อนักเรียน
+     * counted = นับเข้าเกณฑ์ระงับการสอบ · teacher = การตัดสินของครู (อนุมัติ/จบการสอบแทน)
      *
-     * @return array<int,array{switch:int,copy:int,other:int,unlock:int,events:list<array<string,mixed>>}>
+     * @return list<array<string,mixed>>
      */
-    public function eventsByStudent(int $quizId): array
+    public function timeline(int $quizId): array
     {
         if (!$this->ready()) {
             return [];
         }
         $rows = $this->db->all(
-            'SELECT e.type, e.detail, e.created_at, a.student_id, a.attempt_no
-             FROM {quiz_attempt_events} e JOIN {quiz_attempts} a ON a.id = e.attempt_id
+            'SELECT e.id, e.type, e.detail, e.created_at, ' . ($this->hasCounted() ? 'e.counted' : 'e.type IN (\'switch\', \'copy\') AS counted') . ',
+                    a.student_id, a.attempt_no, u.username, u.full_name
+             FROM {quiz_attempt_events} e
+             JOIN {quiz_attempts} a ON a.id = e.attempt_id
+             JOIN {users} u ON u.id = a.student_id
              WHERE a.quiz_id = ?
              ORDER BY e.id',
             [$quizId]
         );
+
+        return array_map(static fn (array $r): array => $r + [
+            'label'   => self::label((string) $r['type'], $r['detail']),
+            'teacher' => in_array($r['type'], ['unlock', 'force_submit'], true),
+        ], $rows);
+    }
+
+    /**
+     * เหตุการณ์ทั้งหมดของแบบทดสอบนี้ จัดกลุ่มตามนักเรียน
+     * switch/copy = ครั้งที่นับเข้าเกณฑ์ · other = ความพยายามที่บันทึกไว้แต่ไม่นับ · unlock = ครูอนุมัติ
+     *
+     * @param list<array<string,mixed>>|null $timeline ผลของ timeline() ถ้ามีอยู่แล้ว
+     * @return array<int,array{switch:int,copy:int,other:int,unlock:int,events:list<array<string,mixed>>}>
+     */
+    public function eventsByStudent(int $quizId, ?array $timeline = null): array
+    {
         $out = [];
-        foreach ($rows as $r) {
+        foreach ($timeline ?? $this->timeline($quizId) as $r) {
             $sid = (int) $r['student_id'];
             $out[$sid] ??= ['switch' => 0, 'copy' => 0, 'other' => 0, 'unlock' => 0, 'events' => []];
-            $key = match ($r['type']) {
-                'switch', 'copy', 'unlock' => $r['type'],
+            $key = match (true) {
+                $r['type'] === 'unlock' => 'unlock',
+                $r['type'] === 'force_submit' => null,
+                (bool) $r['counted'] => (string) $r['type'],
                 default => 'other',
             };
-            $out[$sid][$key]++;
-            $out[$sid]['events'][] = $r + ['label' => self::label((string) $r['type'], $r['detail'])];
+            if ($key !== null) {
+                $out[$sid][$key]++;
+            }
+            $out[$sid]['events'][] = $r;
         }
 
         return $out;

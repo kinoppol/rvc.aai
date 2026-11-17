@@ -137,7 +137,8 @@ final class QuizResultsController
 
         // โหมดคุมสอบ: คนที่กำลังสอบ/ถูกระงับ และเหตุการณ์ที่บันทึกไว้ของแต่ละคน
         $live = $this->proctor->liveForQuiz((int) $quiz['id']);
-        $events = $this->proctor->eventsByStudent((int) $quiz['id']);
+        $timeline = $this->proctor->timeline((int) $quiz['id']);
+        $events = $this->proctor->eventsByStudent((int) $quiz['id'], $timeline);
         foreach ($rows as &$r) {
             $r['events'] = $events[$r['id']] ?? null;
         }
@@ -157,6 +158,7 @@ final class QuizResultsController
             'passPct'   => $passPct,
             'proctorOn' => $this->proctor->enabled($quiz),
             'live'      => $live,
+            'timeline'  => $timeline,
             'locked'    => array_values(array_filter($live, static fn (array $a): bool => !empty($a['proctor_locked_at']))),
             'proctorLimit' => ProctorRepository::LIMIT,
             'stats'     => [
