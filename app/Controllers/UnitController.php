@@ -10,6 +10,7 @@ use App\AI\UnitKnowledge;
 use App\Auth\Auth;
 use App\Domain\AssignmentRepository;
 use App\Domain\CourseRepository;
+use App\Domain\ProctorRepository;
 use App\Domain\QuizRepository;
 use App\Domain\UnitRepository;
 use App\Support\Csrf;
@@ -47,6 +48,7 @@ final class UnitController
         private readonly LoggerInterface $logger,
         private readonly UnitKnowledge $knowledge,
         private readonly Auth $auth,
+        private readonly ProctorRepository $proctor,
     ) {
     }
 
@@ -117,6 +119,10 @@ final class UnitController
             'unit' => $unit,
             'kind' => $kind,
             'isExam' => $kind !== 'lesson',
+            // ซ้อมสอบในโหมดคุมสอบ (หน่วยสอบเท่านั้น · มีหลังรัน migration 000142)
+            'practice' => $unit && $kind !== 'lesson' && array_key_exists('practice_until', $unit)
+                ? ['until' => $this->proctor->practiceUntil($unit), 'minutes' => ProctorRepository::PRACTICE_MINUTES]
+                : null,
             'kinds' => UnitRepository::KINDS,
             'sections' => $sections,
             // สถานะข้อความของ PDF แต่ละไฟล์ (พร้อมให้ AI ใช้ / รอ OCR / กำลังอ่าน / อ่านไม่ได้)
@@ -224,6 +230,40 @@ final class UnitController
     }
 
     /** บันทึกหลังการจัดการเรียนรู้ของหน่วย (ข้อ 9 ในแผนการสอน) */
+    /**
+     * POST /courses/{c}/units/{id}/practice — เปิด/ปิดช่วงซ้อมสอบของหน่วยสอบ
+     *   do=open = เปิดให้ซ้อม PRACTICE_MINUTES นาทีนับจากตอนนี้ (กดซ้ำ = ต่อเวลาใหม่) · do=close = ปิดทันที
+     */
+    public function practice(Request $request, Response $response, array $args): Response
+    {
+        [, $unit] = $this->ownedUnit($request, $args);
+        $courseId = (int) $args['courseId'];
+        $unitId = (int) $unit['id'];
+        if (!UnitRepository::isExam($unit) || !array_key_exists('practice_until', $unit)) {
+            throw new HttpNotFoundException($request, 'ซ้อมสอบได้เฉพาะหน่วยสอบกลางภาค/ปลายภาค');
+        }
+
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
+
+            return $this->redirectToUnit($response, $courseId, $unitId, '#practice');
+        }
+
+        if (($data['do'] ?? '') === 'close') {
+            $this->proctor->closePractice($unitId);
+            $this->auth->log('unit.practice_close', 'unit#' . $unitId);
+            Flash::success('ปิดช่วงซ้อมสอบแล้ว');
+        } else {
+            $this->proctor->openPractice($unitId);
+            $this->auth->log('unit.practice_open', 'unit#' . $unitId);
+            Flash::success(sprintf('เปิดให้ซ้อมสอบ %d นาที ถึงเวลา %s น. · นักเรียนกดปุ่ม "ซ้อมสอบ" ในหน้า%sได้',
+                ProctorRepository::PRACTICE_MINUTES, date('H:i', time() + ProctorRepository::PRACTICE_MINUTES * 60), $unit['title']));
+        }
+
+        return $this->redirectToUnit($response, $courseId, $unitId, '#practice');
+    }
+
     public function saveReport(Request $request, Response $response, array $args): Response
     {
         [, $unit] = $this->ownedUnit($request, $args);

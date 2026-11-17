@@ -369,6 +369,8 @@ code, .mono, .num { font-family: var(--mono); font-variant-numeric: tabular-nums
 .alert-success { background: var(--okSoft); color: var(--ok); border-color: var(--okSoft); }
 .alert-warning { background: var(--warnSoft); color: var(--warn); border-color: var(--warnLine); }
 .alert-error { background: var(--errSoft); color: var(--err); border-color: var(--errSoft); }
+.proctor-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.proctor-bar a { color: inherit; font-weight: 700; text-decoration: underline; }
 .alert-info { background: var(--brandSoft); color: var(--brand); border-color: var(--brandLine); }
 .alert strong { font-family: var(--sans); }
 
@@ -1085,6 +1087,63 @@ textarea.input {
     padding: 14px 24px; display: flex; align-items: center; gap: 12px;
 }
 .take-foot .btn { height: 44px; }
+
+/* โหมดคุมสอบ (learn/take.latte + assets/js/quiz-proctor.js) */
+.take[data-proctor="1"] .take-main, .take[data-proctor="1"] .take-bar { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.take[data-proctor="1"] textarea { -webkit-user-select: text; user-select: text; }
+.take.pr-covered .take-main, .take.pr-covered .take-foot { visibility: hidden; }
+.take.pr-veil .take-main { filter: blur(14px); transition: filter .1s; }
+.pr-watermark {
+    position: fixed; inset: -20%; z-index: 30; pointer-events: none; overflow: hidden;
+    display: flex; flex-wrap: wrap; gap: 70px 90px; align-content: flex-start; padding: 40px;
+    transform: rotate(-24deg); opacity: .06; color: var(--ink); font: 600 15px/1 var(--body); white-space: nowrap;
+}
+.pr-overlay {
+    position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; overflow: auto;
+    background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(10px);
+}
+.pr-overlay-lock { background: color-mix(in srgb, #7f1d1d 18%, var(--bg)); }
+.pr-box {
+    width: min(620px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 24px;
+    padding: 28px 28px 24px; box-shadow: 0 24px 60px rgba(15, 23, 42, .18); text-align: center;
+}
+.pr-box h2 { font: 800 21px/1.35 var(--sans); margin: 10px 0 8px; }
+.pr-box p { margin: 8px 0; line-height: 1.65; color: var(--ink2); }
+.pr-box-warn { border-color: var(--warnLine); }
+.pr-box-lock { border-color: #fca5a5; }
+.pr-icon { font-size: 40px; line-height: 1; }
+.pr-rules { text-align: left; margin: 14px 0; padding-left: 22px; line-height: 1.65; }
+.pr-rules li { margin: 6px 0; }
+.pr-what { font-weight: 700; color: var(--warn) !important; }
+.pr-count { font-size: 13.5px; background: var(--warnSoft); color: var(--warn) !important; border-radius: 12px; padding: 8px 12px; }
+.pr-note { font-size: 13px; color: var(--ink3) !important; background: var(--bg); border-radius: 12px; padding: 8px 12px; }
+.pr-btn { margin-top: 12px; height: 46px; padding: 0 24px; font-size: 15px; }
+.pr-sub { font-size: 12.5px; color: var(--ink3) !important; }
+.pr-wait { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; color: var(--brand) !important; }
+.pr-spin { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--brandSoft); border-top-color: var(--brand); animation: prSpin .9s linear infinite; }
+@keyframes prSpin { to { transform: rotate(360deg); } }
+.pr-toast {
+    position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%); z-index: 70;
+    background: #111827; color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+@media print { .take[data-proctor="1"] { display: none !important; } }
+/* ซ้อมสอบ (learn/practice.latte · การ์ดในหน้าแก้ไขหน่วยสอบ · แถบในหน้าหน่วยของนักเรียน) */
+.pr-counters { font-weight: 700; color: var(--warn); }
+.practice-why { margin-top: 14px; padding: 10px 14px; border-radius: 12px; background: var(--brandSoft); color: var(--brandInk); font-size: 14px; line-height: 1.6; }
+.take-q:not([hidden]) + .take-q:not([hidden]) { margin-top: 34px; padding-top: 26px; border-top: 1px dashed var(--line); }
+.take-choice.is-right { border-color: var(--ok); background: var(--okSoft); }
+.take-choice.is-wrong { border-color: var(--err); background: var(--errSoft); }
+.take-choice:disabled { cursor: default; color: var(--ink); }
+.practice-done { text-align: center; margin-top: 34px; padding: 26px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); }
+.practice-done h2 { font: 800 20px/1.3 var(--sans); margin: 12px 0 6px; }
+.practice-done-actions { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.practice-card { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.practice-card .card-head { display: flex; align-items: center; gap: 6px; }
+.practice-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.practice-actions form { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.practice-open { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; color: var(--ok); }
+.practice-banner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; border: 1.5px solid var(--brandLine); }
+@media (prefers-reduced-motion: reduce) { .pr-spin { animation: none; } }
 
 .result-check {
     width: 52px; height: 52px; margin: 0 auto; border-radius: 50%;
@@ -2805,6 +2864,8 @@ html.is-presenting { overflow: hidden; }
 .qe-meta { display: flex; gap: 14px; align-items: flex-end; margin-top: 16px; flex-wrap: wrap; }
 .qe-meta .field { margin: 0; }
 .qe-time { width: 150px; }
+.qe-proctor { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); cursor: pointer; line-height: 1.35; }
+.qe-proctor input { margin-top: 3px; }
 .qe-card .q-card-top { flex-wrap: wrap; }
 .qe-type { width: auto; padding: 4px 10px; font-size: 13px; height: 32px; }
 .qe-score { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink2); }
@@ -2882,6 +2943,16 @@ html.is-presenting { overflow: hidden; }
 /* ── ผลคะแนนแบบทดสอบ (quiz/results.latte) ── */
 .qr-note { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 14px; }
 .qr-note .msi { font-size: 20px; flex: none; }
+.qr-locked { border-color: #fca5a5; }
+.qr-locked .qr-head { color: #b91c1c; display: flex; align-items: center; gap: 6px; }
+.qr-lock-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.qr-lock-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 22px; border-top: 1px solid var(--line); }
+.qr-live { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+.qr-live label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+.qr-live-dot { width: 9px; height: 9px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,.18); }
+.qr-proctor summary { cursor: pointer; list-style: none; display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.qr-proctor summary::-webkit-details-marker { display: none; }
+.qr-proctor-log { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; white-space: nowrap; }
 .qr-metrics { margin: 0 0 20px; }
 .qr-of { font: 600 14px/1 var(--sans); color: var(--ink3); letter-spacing: 0; }
 .qr-card { padding: 0; margin-bottom: 20px; overflow: hidden; }

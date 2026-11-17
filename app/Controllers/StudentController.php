@@ -9,6 +9,7 @@ use App\Domain\AttemptRepository;
 use App\Domain\CourseFeedRepository;
 use App\Domain\EnrollmentRepository;
 use App\Domain\LearnPathRepository;
+use App\Domain\ProctorRepository;
 use App\Domain\UnitRepository;
 use App\Domain\QuizRepository;
 use App\Domain\SubmissionRepository;
@@ -42,6 +43,7 @@ final class StudentController
         private readonly SubmissionRepository $submissions,
         private readonly CourseFeedRepository $feed,
         private readonly AssignmentRepository $assignments,
+        private readonly ProctorRepository $proctor,
     ) {
     }
 
@@ -262,6 +264,10 @@ final class StudentController
             'questions' => $view,
             'timeLimit' => $quiz['time_limit_minutes'] ? (int) $quiz['time_limit_minutes'] : null,
             'startedAt' => strtotime((string) $attempt['started_at']),
+            // โหมดคุมสอบ: เต็มจอ ตรวจการสลับหน้าจอ/คัดลอก/จับภาพ (ProctorRepository)
+            'proctor' => $this->proctor->enabled($quiz) ? $this->proctor->state($attempt) : null,
+            'studentName' => (string) $user['full_name'],
+            'studentCode' => (string) $user['username'],
         ]);
     }
 
@@ -273,6 +279,9 @@ final class StudentController
         $data = (array) $request->getParsedBody();
         if (!Csrf::check($data['_token'] ?? null) || $attempt['status'] !== 'in_progress') {
             return $this->json($response, ['ok' => false], 419);
+        }
+        if ($this->proctor->isLocked($attempt)) {
+            return $this->json($response, ['ok' => false, 'locked' => true], 423);
         }
 
         $questionId = (int) ($data['question'] ?? 0);
@@ -307,11 +316,120 @@ final class StudentController
             return $this->redirect($response, "/learn/attempts/{$attempt['id']}");
         }
 
+        // ถูกระงับอยู่: ต้องให้ครูอนุมัติก่อน (ครูเลือกให้สอบต่อหรือจบการสอบแทนได้)
+        if ($attempt['status'] === 'in_progress' && $this->proctor->isLocked($attempt)) {
+            return $this->redirect($response, "/learn/attempts/{$attempt['id']}");
+        }
+
         if ($attempt['status'] === 'in_progress') {
             $this->attempts->grade((int) $attempt['id'], (int) $quiz['id']);
         }
 
         return $this->redirect($response, "/learn/attempts/{$attempt['id']}/result");
+    }
+
+    /**
+     * GET /learn/units/{id}/practice — ซ้อมสอบในโหมดคุมสอบ (หน่วยสอบกลางภาค/ปลายภาค)
+     * ข้อสอบตัวอย่างเป็นข้อตกลงการสอบ ไม่ใช่ข้อสอบจริง · ทำซ้ำได้ไม่จำกัด ลองละเมิดมาตรการได้ ไม่บันทึกอะไร
+     * เปิดได้เฉพาะช่วงที่ครูเปิดไว้ (ProctorRepository::PRACTICE_MINUTES นาที) กันการลองหาช่องโหว่นอกเวลา
+     */
+    public function practice(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [$course, $unit] = $this->studentUnit($request, (int) $args['id'], (int) $user['id']);
+        $until = UnitRepository::isExam($unit) ? $this->proctor->practiceUntil($unit) : null;
+        if ($until === null) {
+            Flash::error('ยังไม่เปิดช่วงซ้อมสอบ หรือหมดเวลาซ้อมแล้ว · ครูผู้สอนเป็นผู้เปิดให้ซ้อมครั้งละ ' . ProctorRepository::PRACTICE_MINUTES . ' นาที');
+
+            return $this->redirect($response, "/learn/units/{$unit['id']}");
+        }
+
+        return $this->renderPractice($response, $course, $unit, (string) $user['full_name'], (string) $user['username'], '/learn/units/' . $unit['id'], $until);
+    }
+
+    /** ครูลองดูหน้าซ้อมสอบ (เปิดได้ตลอด) */
+    public function previewPractice(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [$course, $unit] = $this->teacherUnit($request, (int) $args['courseId'], (int) $args['id'], (int) $user['id']);
+        if (!UnitRepository::isExam($unit)) {
+            throw new HttpNotFoundException($request, 'ซ้อมสอบได้เฉพาะหน่วยสอบ');
+        }
+
+        return $this->renderPractice($response, $course, $unit, (string) $user['full_name'], (string) $user['username'],
+            '/courses/' . $course['id'] . '/units/' . $unit['id'] . '/edit#practice', null);
+    }
+
+    private function renderPractice(Response $response, array $course, array $unit, string $name, string $code, string $back, ?int $until): Response
+    {
+        return $this->view->render($response, 'learn/practice', [
+            'page' => 'learn',
+            'course' => $course,
+            'unit' => $unit,
+            'questions' => self::PRACTICE_QUESTIONS,
+            'limit' => ProctorRepository::LIMIT,
+            'studentName' => $name,
+            'studentCode' => $code,
+            'backUrl' => $back,
+            'until' => $until,
+        ]);
+    }
+
+    /**
+     * ข้อสอบซ้อม: ข้อตกลงของโหมดคุมสอบ (ซักซ้อมความเข้าใจ) · answer = ลำดับตัวเลือกที่ถูก (เริ่ม 0), null = อัตนัย
+     */
+    private const PRACTICE_QUESTIONS = [
+        ['q' => 'ระหว่างสอบ ถ้าเผลอสลับไปแท็บ หน้าต่าง หรือแอปอื่น ระบบอนุญาตได้ไม่เกินกี่ครั้ง',
+         'c' => ['1 ครั้ง', '3 ครั้ง', '5 ครั้ง', 'ไม่จำกัด'], 'answer' => 1,
+         'why' => 'สลับหน้าจอได้ไม่เกิน 3 ครั้ง เผื่อกรณีเผลอกดโดยไม่ตั้งใจ ครั้งที่ 4 ระบบจะระงับการสอบ'],
+        ['q' => 'ข้อใดนับเป็น "การคัดลอก/จับภาพหน้าจอ"',
+         'c' => ['เลือกคำตอบข้อ ก', 'กดปุ่มข้อถัดไป', 'กดปุ่ม Print Screen หรือ Ctrl+C ที่ข้อสอบ', 'พิมพ์คำตอบในช่องอัตนัย'], 'answer' => 2,
+         'why' => 'การคัดลอกข้อสอบ การจับภาพหน้าจอ และการสั่งพิมพ์ นับรวมกันได้ไม่เกิน 3 ครั้ง'],
+        ['q' => 'ถ้าการสอบถูกระงับ คำตอบที่ทำไว้แล้วจะเป็นอย่างไร',
+         'c' => ['หายทั้งหมด ต้องเริ่มใหม่', 'ยังอยู่ครบ เมื่อครูอนุมัติก็ทำต่อได้', 'ระบบส่งคำตอบให้ทันที', 'ได้คะแนนศูนย์ทันที'], 'answer' => 1,
+         'why' => 'คำตอบถูกบันทึกทุกครั้งที่เลือก เมื่อครูอนุมัติก็ทำต่อจากเดิม และเวลาที่ถูกระงับไม่นับรวมในเวลาสอบ'],
+        ['q' => 'ถ้าถูกระงับการสอบ ต้องทำอย่างไร',
+         'c' => ['ปิดเบราว์เซอร์แล้วเปิดใหม่', 'ล็อกอินด้วยเครื่องอื่น', 'แจ้งครูผู้สอนให้อนุมัติการสอบต่อ', 'รอให้ระบบปลดเองภายใน 5 นาที'], 'answer' => 2,
+         'why' => 'มีแต่ครูผู้สอนที่อนุมัติให้สอบต่อได้ เมื่ออนุมัติแล้วหน้าจอจะกลับไปทำข้อสอบเอง'],
+        ['q' => 'ถ้ามีการแจ้งเตือนจากโปรแกรมอื่นเด้งขึ้นมา จนระบบนับว่าสลับหน้าจอ ควรทำอย่างไร',
+         'c' => ['ไม่ต้องทำอะไร', 'แจ้งครูผู้สอนให้ทราบ เพราะระบบอาจตรวจจับผิดพลาดได้', 'ออกจากการสอบทันที', 'สลับหน้าจออีกเพื่อทดสอบ'], 'answer' => 1,
+         'why' => 'โหมดคุมสอบเป็นมาตรการป้องปราม อาจตรวจจับผิดพลาดได้ ครูจะใช้วิจารณญาณประกอบ ควรปิดการแจ้งเตือนก่อนสอบด้วย'],
+        ['q' => 'ลองพิมพ์ชื่อ-นามสกุลของตนเอง (ลองกด Ctrl+V วางข้อความดูได้ ระบบจะไม่ยอมให้วาง)',
+         'c' => [], 'answer' => null,
+         'why' => 'ระหว่างสอบต้องพิมพ์คำตอบเองเสมอ ระบบปิดการวางข้อความไว้'],
+    ];
+
+    /**
+     * POST /learn/attempts/{id}/proctor — เบราว์เซอร์รายงานเหตุการณ์ระหว่างสอบ (สลับหน้าจอ คัดลอก จับภาพ …)
+     * GET  เดียวกัน — ถามสถานะ (หน้าที่ถูกระงับถามทุก 5 วินาทีว่าครูอนุมัติแล้วหรือยัง)
+     */
+    public function proctorEvent(Request $request, Response $response, array $args): Response
+    {
+        $user = $request->getAttribute('user');
+        [$attempt, $quiz] = $this->requireOwnAttempt($request, (int) $args['attemptId'], (int) $user['id']);
+
+        if (!$this->proctor->enabled($quiz)) {
+            return $this->json($response, ['ok' => false, 'status' => $attempt['status']]);
+        }
+
+        if ($request->getMethod() === 'GET') {
+            return $this->json($response, ['ok' => true, 'status' => $attempt['status']] + $this->proctor->state($attempt));
+        }
+
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            return $this->json($response, ['ok' => false], 419);
+        }
+        if ($attempt['status'] !== 'in_progress') {
+            return $this->json($response, ['ok' => false, 'status' => $attempt['status']]);
+        }
+
+        $state = $this->proctor->record((int) $attempt['id'], (string) ($data['type'] ?? ''), (string) ($data['detail'] ?? ''));
+        if ($state === null) {
+            return $this->json($response, ['ok' => false], 422);
+        }
+
+        return $this->json($response, ['ok' => true, 'status' => 'in_progress'] + $state);
     }
 
     public function result(Request $request, Response $response, array $args): Response
@@ -493,6 +611,8 @@ final class StudentController
             'itemBase' => $preview
                 ? '/courses/' . $courseId . '/units/' . $unit['id'] . '/preview'
                 : '/learn/units/' . $unit['id'],
+            // ซ้อมสอบในโหมดคุมสอบ (หน่วยสอบ · เฉพาะช่วงที่ครูเปิดไว้)
+            'practiceUntil' => UnitRepository::isExam($unit) ? $this->proctor->practiceUntil($unit) : null,
         ];
     }
 

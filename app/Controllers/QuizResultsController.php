@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Auth\Auth;
 use App\Domain\AttemptRepository;
 use App\Domain\CourseRepository;
 use App\Domain\EnrollmentRepository;
+use App\Domain\ProctorRepository;
 use App\Domain\QuizRepository;
 use App\Domain\UnitRepository;
+use App\Support\Csrf;
 use App\Support\Db;
+use App\Support\Flash;
+use App\Support\Url;
 use App\Support\View;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -33,19 +38,14 @@ final class QuizResultsController
         private readonly QuizRepository $quizzes,
         private readonly EnrollmentRepository $enrollments,
         private readonly AttemptRepository $attempts,
+        private readonly ProctorRepository $proctor,
+        private readonly Auth $auth,
     ) {
     }
 
     public function show(Request $request, Response $response, array $args): Response
     {
-        $course = $this->courses->find((int) $args['courseId']);
-        if ($course === null || (int) $course['teacher_id'] !== (int) $request->getAttribute('user')['id']) {
-            throw new HttpNotFoundException($request, 'ไม่พบรายวิชานี้');
-        }
-        $quiz = $this->quizzes->find((int) $args['quizId']);
-        if ($quiz === null || (int) $quiz['course_id'] !== (int) $course['id']) {
-            throw new HttpNotFoundException($request, 'ไม่พบแบบทดสอบนี้');
-        }
+        [$course, $quiz] = $this->owned($request, $args);
 
         $unit = $quiz['unit_id'] ? $this->units->find((int) $quiz['unit_id']) : null;
         $isExam = $unit !== null && UnitRepository::isExam($unit);
@@ -135,6 +135,14 @@ final class QuizResultsController
 
         $taken = count($mainIds);
 
+        // โหมดคุมสอบ: คนที่กำลังสอบ/ถูกระงับ และเหตุการณ์ที่บันทึกไว้ของแต่ละคน
+        $live = $this->proctor->liveForQuiz((int) $quiz['id']);
+        $events = $this->proctor->eventsByStudent((int) $quiz['id']);
+        foreach ($rows as &$r) {
+            $r['events'] = $events[$r['id']] ?? null;
+        }
+        unset($r);
+
         return $this->view->render($response, 'quiz/results', [
             'page'      => 'courses',
             'course'    => $course,
@@ -147,6 +155,10 @@ final class QuizResultsController
             'items'     => $items,
             'fullScore' => $fullScore,
             'passPct'   => $passPct,
+            'proctorOn' => $this->proctor->enabled($quiz),
+            'live'      => $live,
+            'locked'    => array_values(array_filter($live, static fn (array $a): bool => !empty($a['proctor_locked_at']))),
+            'proctorLimit' => ProctorRepository::LIMIT,
             'stats'     => [
                 'students' => count(array_filter($roster, static fn (array $s): bool => !$s['left'])),
                 'taken'    => $taken,
@@ -159,6 +171,65 @@ final class QuizResultsController
                 'waiting'  => $waiting,
             ],
         ]);
+    }
+
+    /**
+     * POST /courses/{c}/quizzes/{quizId}/attempts/{attemptId}/proctor — ครูตัดสินการสอบที่ถูกระงับ
+     *   do=resume = อนุมัติให้สอบต่อ (เริ่มนับใหม่ ชดเชยเวลาที่ถูกระงับ)
+     *   do=submit = จบการสอบแทน ตรวจคำตอบที่ทำไว้แล้ว
+     */
+    public function proctor(Request $request, Response $response, array $args): Response
+    {
+        [$course, $quiz] = $this->owned($request, $args);
+        $back = "/courses/{$course['id']}/quizzes/{$quiz['id']}/results";
+        $data = (array) $request->getParsedBody();
+        if (!Csrf::check($data['_token'] ?? null)) {
+            Flash::error('เซสชันหมดอายุ กรุณาลองใหม่อีกครั้ง');
+
+            return $this->redirect($response, $back);
+        }
+
+        $attempt = $this->attempts->find((int) $args['attemptId']);
+        if ($attempt === null || (int) $attempt['quiz_id'] !== (int) $quiz['id'] || $attempt['status'] !== 'in_progress') {
+            Flash::error('การสอบนี้จบไปแล้ว หรือไม่พบข้อมูล');
+
+            return $this->redirect($response, $back);
+        }
+        $name = (string) $this->db->value('SELECT full_name FROM {users} WHERE id = ?', [(int) $attempt['student_id']]);
+        $teacherId = (int) $request->getAttribute('user')['id'];
+
+        if (($data['do'] ?? '') === 'submit') {
+            $this->proctor->closeByTeacher($attempt, $teacherId);
+            $this->attempts->grade((int) $attempt['id'], (int) $quiz['id']);
+            $this->auth->log('quiz.proctor_submit', 'attempt#' . $attempt['id']);
+            Flash::success("จบการสอบของ $name แล้ว ตรวจคำตอบที่ทำไว้ให้แล้ว");
+        } else {
+            $this->proctor->unlock($attempt, $teacherId);
+            $this->auth->log('quiz.proctor_unlock', 'attempt#' . $attempt['id']);
+            Flash::success("อนุมัติให้ $name สอบต่อแล้ว · หน้าจอของนักเรียนจะกลับไปทำข้อสอบเองภายในไม่กี่วินาที");
+        }
+
+        return $this->redirect($response, $back);
+    }
+
+    /** @return array{0:array<string,mixed>,1:array<string,mixed>} */
+    private function owned(Request $request, array $args): array
+    {
+        $course = $this->courses->find((int) $args['courseId']);
+        if ($course === null || (int) $course['teacher_id'] !== (int) $request->getAttribute('user')['id']) {
+            throw new HttpNotFoundException($request, 'ไม่พบรายวิชานี้');
+        }
+        $quiz = $this->quizzes->find((int) $args['quizId']);
+        if ($quiz === null || (int) $quiz['course_id'] !== (int) $course['id']) {
+            throw new HttpNotFoundException($request, 'ไม่พบแบบทดสอบนี้');
+        }
+
+        return [$course, $quiz];
+    }
+
+    private function redirect(Response $response, string $path): Response
+    {
+        return $response->withHeader('Location', Url::to($path))->withStatus(302);
     }
 
     /**

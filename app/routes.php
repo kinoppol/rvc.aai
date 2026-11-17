@@ -174,6 +174,7 @@ return static function (App $app): void {
             $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/export.md', [UnitController::class, 'exportMarkdown']);
             $t->get('/{courseId:[0-9]+}/preview', [StudentController::class, 'previewCourse']);
             $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/preview', [StudentController::class, 'preview']);
+            $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/preview/practice', [StudentController::class, 'previewPractice']);
             $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/preview/{kind:section|worksheet}/{itemId:[0-9]+}', [StudentController::class, 'previewItem']);
             $t->get('/{courseId:[0-9]+}/units/{id:[0-9]+}/preview/section/{itemId:[0-9]+}/file', [StudentController::class, 'previewFile']);
             $t->post('/{courseId:[0-9]+}/units[/{id:[0-9]+}]', [UnitController::class, 'save']);
@@ -202,6 +203,7 @@ return static function (App $app): void {
             $t->get('/{courseId:[0-9]+}/assignments/{id:[0-9]+}/files/{fileId:[0-9]+}', [SubmissionController::class, 'teacherAttachment']);
 
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/report', [UnitController::class, 'saveReport']);
+            $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/practice', [UnitController::class, 'practice']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft', [UnitController::class, 'draftContent']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/draft-plan', [UnitController::class, 'draftPlan']);
             $t->post('/{courseId:[0-9]+}/units/{id:[0-9]+}/content-draft/save', [UnitController::class, 'saveDraftContent']);
@@ -223,6 +225,7 @@ return static function (App $app): void {
             $t->post('/{courseId:[0-9]+}/quizzes/auto', [QuizWizardController::class, 'autoDraft']);
             $t->get('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/review', [QuizWizardController::class, 'review']);
             $t->get('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/results', [QuizResultsController::class, 'show']);
+            $t->post('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/attempts/{attemptId:[0-9]+}/proctor', [QuizResultsController::class, 'proctor']);
             $t->post('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}', [QuizWizardController::class, 'save']);
             $t->post('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/questions/{qid:[0-9]+}/regenerate', [QuizWizardController::class, 'regenerateOne']);
             $t->post('/{courseId:[0-9]+}/quizzes/{quizId:[0-9]+}/questions/{qid:[0-9]+}/delete', [QuizWizardController::class, 'deleteQuestion']);
@@ -289,6 +292,7 @@ return static function (App $app): void {
             $s->post('/join', [JoinController::class, 'join']);
             $s->get('/{courseId:[0-9]+}', [StudentController::class, 'course']);
             $s->get('/units/{id:[0-9]+}', [StudentController::class, 'unit']);
+            $s->get('/units/{id:[0-9]+}/practice', [StudentController::class, 'practice']);
             $s->get('/units/{id:[0-9]+}/{kind:section|worksheet}/{itemId:[0-9]+}', [StudentController::class, 'item']);
             $s->get('/units/{id:[0-9]+}/section/{itemId:[0-9]+}/file', [StudentController::class, 'file']);
             $s->get('/task/{id:[0-9]+}', [SubmissionController::class, 'task']);
@@ -299,6 +303,8 @@ return static function (App $app): void {
             $s->get('/attempts/{attemptId:[0-9]+}', [StudentController::class, 'take']);
             $s->post('/attempts/{attemptId:[0-9]+}/answer', [StudentController::class, 'answer']);
             $s->post('/attempts/{attemptId:[0-9]+}/submit', [StudentController::class, 'submit']);
+            $s->get('/attempts/{attemptId:[0-9]+}/proctor', [StudentController::class, 'proctorEvent']);
+            $s->post('/attempts/{attemptId:[0-9]+}/proctor', [StudentController::class, 'proctorEvent']);
             $s->get('/attempts/{attemptId:[0-9]+}/result', [StudentController::class, 'result']);
         })->add(new RoleMiddleware(['student']));
 

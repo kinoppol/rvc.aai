@@ -286,8 +286,9 @@
     document.querySelectorAll('[data-add]').forEach(function (b) {
         b.addEventListener('click', function () { addQuestion(b.getAttribute('data-add')); });
     });
-    ['quizTitle', 'quizTime'].forEach(function (id) {
-        document.getElementById(id).addEventListener('input', changed);
+    ['quizTitle', 'quizTime', 'quizProctor'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', changed);
     });
 
     var form = document.getElementById('saveForm');

@@ -861,6 +861,10 @@ final class QuizWizardController
             'title' => mb_substr(trim((string) ($data['title'] ?? '')), 0, 180) ?: $quiz['title'],
             'time_limit_minutes' => max(0, min(600, (int) ($data['time_limit'] ?? $quiz['time_limit_minutes'] ?? 0))) ?: null,
         ];
+        // โหมดคุมสอบ (มีเฉพาะหลังรัน migration 000142 · ฟอร์มที่ไม่มีช่องนี้ไม่แตะค่าเดิม)
+        if (($data['proctor_present'] ?? '') === '1' && array_key_exists('proctor', $quiz)) {
+            $meta['proctor'] = ($data['proctor'] ?? '') === '1' ? 1 : 0;
+        }
         $publish = ($data['action'] ?? '') === 'publish';
         $problems = $publish ? $this->quizzes->problems((int) $quiz['id']) : [];
         if ($publish && $this->quizzes->questionCount((int) $quiz['id']) === 0) {

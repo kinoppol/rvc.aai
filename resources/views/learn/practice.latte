@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ซ้อมสอบ · {$unit['title']} · {$appName}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="{$base}/assets/css/app.css?v={$assetVer ?? 1}">
+</head>
+<body>
+{*
+    ซ้อมสอบในโหมดคุมสอบ (StudentController::practice / previewPractice)
+    ข้อสอบเป็นข้อตกลงการสอบ ตรวจในเบราว์เซอร์ ไม่ส่งอะไรไปเซิร์ฟเวอร์ · โหมดคุมสอบทำงานแบบ data-practice (ไม่บันทึก ไม่ระงับจริง)
+*}
+<div class="take" id="take" data-proctor="1" data-practice="1" data-plimit="{$limit}" data-switches="0" data-copies="0"
+     data-locked="0" data-student="{$studentName} · {$studentCode}" data-until="{$until ?? ''}">
+
+    <header class="take-bar">
+        <div class="take-bar-inner">
+            <div class="grow">
+                <div class="take-code mono">ซ้อมสอบ · {$course['code']}</div>
+                <div class="take-title">{$unit['title']} — ข้อสอบซ้อม (ไม่มีผลกับการสอบจริง)</div>
+            </div>
+            <div class="take-clock mono" id="clock" title="เวลาที่เหลือของช่วงซ้อม"></div>
+        </div>
+        <div class="bar take-progress"><span id="progress" style="width:0%"></span></div>
+        <div class="take-bar-inner take-meta">
+            <span id="posText">ข้อ 1 จาก {count($questions)}</span>
+            <span class="pr-counters" id="prCounters">สลับหน้าจอ 0/{$limit} · คัดลอก/จับภาพ 0/{$limit}</span>
+        </div>
+    </header>
+
+    <main class="take-main">
+        {foreach $questions as $i => $q}
+            <section class="take-q" data-answer="{$q['answer'] ?? ''}" {if $i > 0}hidden{/if}>
+                <div class="take-q-text">{$q['q']}</div>
+                {if $q['c']}
+                    <div class="take-choices">
+                        {foreach $q['c'] as $k => $c}
+                            <button type="button" class="take-choice" data-choice="{$k}">
+                                <span class="take-choice-key mono">{['ก', 'ข', 'ค', 'ง'][$k]}</span>
+                                <span>{$c}</span>
+                            </button>
+                        {/foreach}
+                    </div>
+                {else}
+                    <textarea class="input take-answer" data-text placeholder="พิมพ์คำตอบของคุณที่นี่" rows="3"></textarea>
+                {/if}
+                <p class="practice-why" hidden>{$q['why']}</p>
+            </section>
+        {/foreach}
+
+        <section class="practice-done" id="practiceDone" hidden>
+            <div class="result-check">✓</div>
+            <h2>ซ้อมเสร็จแล้ว</h2>
+            <p id="practiceScore"></p>
+            <p class="hint">ในการสอบจริง เมื่อส่งคำตอบแล้วจะแก้ไขไม่ได้อีก · ข้อสอบซ้อมนี้ทำซ้ำได้ไม่จำกัดในช่วงที่ครูเปิดไว้</p>
+            <div class="practice-done-actions">
+                <button type="button" class="btn btn-primary" id="practiceAgain">ซ้อมอีกครั้ง</button>
+                <a class="btn" href="{$base}{$backUrl}" id="practiceBack">กลับ</a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="take-foot" id="practiceFoot">
+        <button type="button" class="btn" id="prevBtn">ข้อก่อนหน้า</button>
+        <span class="grow hint" style="text-align:center">ซ้อม · ไม่บันทึกคำตอบ</span>
+        <button type="button" class="btn btn-primary" id="nextBtn">ข้อถัดไป</button>
+    </footer>
+
+    {include '../_partials/proctor-overlays.latte', limit: $limit, practice: true, switches: 0, copies: 0}
+</div>
+
+<script src="{$base}/assets/js/quiz-proctor.js?v={$assetVer ?? 1}"></script>
+<script src="{$base}/assets/js/quiz-practice.js?v={$assetVer ?? 1}"></script>
+</body>
+</html>

@@ -49,6 +49,13 @@
             <label for="quizTime">เวลาทำ (นาที)</label>
             <input class="input" type="number" id="quizTime" min="0" max="600" placeholder="ไม่จำกัด" value="{$quiz['time_limit_minutes']}">
         </div>
+        {if array_key_exists('proctor', $quiz)}
+            {* โหมดคุมสอบ (ProctorRepository) — ส่งไปกับ #saveForm ผ่าน form="" *}
+            <label class="qe-proctor" title="มาตรการป้องปราม ไม่สามารถป้องกันได้ 100% และอาจตรวจจับผิดพลาดได้">
+                <input type="checkbox" id="quizProctor" name="proctor" value="1" form="saveForm" {if (int) $quiz['proctor'] === 1}checked{/if}>
+                <span><b>โหมดคุมสอบ</b><br><small class="hint">เต็มจอ · สลับหน้าจอ/คัดลอก/จับภาพ ได้ไม่เกิน 3 ครั้ง เกินแล้วระงับรอครูอนุมัติ</small></span>
+            </label>
+        {/if}
     </div>
 
     <div id="questionList"></div>
@@ -65,6 +72,7 @@
         <input type="hidden" name="payload" id="payloadField">
         <input type="hidden" name="title" id="titleField">
         <input type="hidden" name="time_limit" id="timeField">
+        {if array_key_exists('proctor', $quiz)}<input type="hidden" name="proctor_present" value="1">{/if}
         <div class="grow hint" id="footHint"></div>
         {if $regenQuery}
             <a class="btn" href="{$base}/courses/{$course['id']}/quizzes/workspace?{$regenQuery|noescape}">ให้ AI ร่างใหม่ทั้งชุด</a>

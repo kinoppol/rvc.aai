@@ -230,6 +230,16 @@
             </header>
 
             <main class="content">
+                {if !empty($proctorLocks)}
+                    <div class="alert alert-error proctor-bar">
+                        <span class="msi" aria-hidden="true">lock</span>
+                        <span class="grow">มีนักเรียนถูกระงับการสอบ รอครูอนุมัติ:
+                            {foreach $proctorLocks as $pl}
+                                <a href="{$base}/courses/{$pl['course_id']}/quizzes/{$pl['quiz_id']}/results#proctorLocked">{$pl['title']} ({$pl['n']} คน)</a>{sep} · {/sep}
+                            {/foreach}
+                        </span>
+                    </div>
+                {/if}
                 {foreach $flash as $message}
                     <div class="alert alert-{$message['type']}">{$message['message']}</div>
                 {/foreach}

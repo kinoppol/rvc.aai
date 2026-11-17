@@ -67,6 +67,16 @@
         </div>
     </section>
 
+    {if !empty($practiceUntil) && !$preview}
+        <section class="learn-card practice-banner">
+            <div class="grow">
+                <b>ครูเปิดให้ซ้อมสอบในโหมดคุมสอบ</b> ถึงเวลา {date('H:i', $practiceUntil)} น.
+                <div class="hint">ลองทำข้อสอบตัวอย่างในโหมดเต็มจอ ลองสลับหน้าจอหรือคัดลอกเพื่อดูว่าระบบเตือนอย่างไรได้ ไม่มีผลกับการสอบจริง ทำซ้ำได้ไม่จำกัด</div>
+            </div>
+            <a class="btn btn-primary" href="{$base}/learn/units/{$unit['id']}/practice">ซ้อมสอบ</a>
+        </section>
+    {/if}
+
     <section class="learn-card">
         {if $unit['key_content']}
             <h2 class="learn-h">{$isExam ? 'คำชี้แจงการสอบ' : 'สาระสำคัญ'}</h2>

@@ -1,0 +1,62 @@
+{*
+    หน้าจอซ้อนของโหมดคุมสอบ — ใช้กับ learn/take.latte (สอบจริง) และ learn/practice.latte (ซ้อมสอบ)
+    ควบคุมโดย assets/js/quiz-proctor.js · ส่งตัวแปร limit, practice, switches, copies มาเสมอ
+*}
+<div class="pr-watermark" id="prWatermark" aria-hidden="true"></div>
+<div class="pr-toast" id="prToast" role="status" hidden></div>
+
+<div class="pr-overlay" id="prGate" hidden>
+    <div class="pr-box">
+        <div class="pr-icon">🛡️</div>
+        {if $practice}
+            <h2>ซ้อมสอบในโหมดคุมสอบ</h2>
+            <p class="pr-lead">นี่คือ<b>การซ้อม</b> ข้อสอบเป็นข้อตกลงการสอบ ไม่ใช่ข้อสอบจริง <b>ไม่มีผลกับการสอบจริงและไม่บันทึกอะไร</b> ทำซ้ำได้ไม่จำกัด
+                ลองสลับหน้าจอ คัดลอก หรือกด Print Screen ดูได้ว่าระบบเตือนและระงับอย่างไร</p>
+        {else}
+            <h2>ข้อตกลงก่อนเริ่มทำข้อสอบ</h2>
+            <p class="pr-lead">แบบทดสอบนี้เปิด<b>โหมดคุมสอบ</b> เพื่อให้ทุกคนทำข้อสอบด้วยความรู้ของตนเอง</p>
+        {/if}
+        <ul class="pr-rules">
+            <li><b>ทำในโหมดเต็มจอ</b> — ห้ามสลับไปแท็บ หน้าต่าง หรือแอปอื่น (รวมถึงแอปหรือเว็บ AI) อนุญาตให้สลับหน้าจอได้<b>ไม่เกิน {$limit} ครั้ง</b> เผื่อกรณีเผลอกดโดยไม่ตั้งใจ</li>
+            <li><b>ห้ามคัดลอกข้อสอบหรือจับภาพหน้าจอ</b> — รวมกันได้<b>ไม่เกิน {$limit} ครั้ง</b></li>
+            <li>ปิดการคลิกขวาและการวางข้อความ ต้องพิมพ์คำตอบเอง</li>
+            <li>ถ้าเกินจำนวนครั้งที่กำหนด <b>ระบบจะระงับการสอบ</b> คำตอบที่ทำไว้ยังอยู่ครบ แต่ต้องให้<b>ครูผู้สอนอนุมัติ</b>จึงจะสอบต่อได้</li>
+            <li>{$practice ? 'ในการสอบจริง ทุกเหตุการณ์จะถูกบันทึกพร้อมเวลาและแจ้งให้ครูผู้สอนทราบ' : 'ทุกเหตุการณ์ถูกบันทึกพร้อมเวลาและแจ้งให้ครูผู้สอนทราบ'}</li>
+            <li>ก่อนสอบควรปิดการแจ้งเตือนของโปรแกรมอื่น เพราะอาจทำให้ระบบนับว่าสลับหน้าจอ</li>
+        </ul>
+        {if $switches || $copies}
+            <p class="pr-count">ที่ผ่านมาในการสอบครั้งนี้: สลับหน้าจอ {$switches} / {$limit} ครั้ง · คัดลอก/จับภาพ {$copies} / {$limit} ครั้ง</p>
+        {/if}
+        <p class="pr-note">หมายเหตุ: เป็นมาตรการป้องปราม ระบบอาจตรวจจับผิดพลาดได้ (เช่น มีการแจ้งเตือนจากโปรแกรมอื่นเด้งขึ้นมา) หากเกิดเหตุสุดวิสัยให้แจ้งครูผู้สอนทันที</p>
+        <button type="button" class="btn btn-primary pr-btn" id="prStartBtn">{if $practice}เริ่มซ้อมสอบ{elseif $switches || $copies}กลับเข้าทำข้อสอบต่อ{else}ยอมรับและเริ่มทำข้อสอบ{/if}</button>
+        <p class="pr-sub">ระบบจะเปิดโหมดเต็มจอให้อัตโนมัติ (อุปกรณ์ที่เปิดเต็มจอไม่ได้ เช่น iPhone จะตรวจการสลับแอปแทน)</p>
+    </div>
+</div>
+
+<div class="pr-overlay" id="prWarn" hidden>
+    <div class="pr-box pr-box-warn">
+        <div class="pr-icon">⚠️</div>
+        <h2 id="prWarnTitle"></h2>
+        <p class="pr-what" id="prWarnWhat"></p>
+        <p id="prWarnLeft"></p>
+        {if $practice}<p class="pr-count">นี่คือการซ้อม — ไม่มีผลกับการสอบจริง</p>{/if}
+        <p class="pr-note">ถ้าเกิดโดยไม่ตั้งใจหรือมีเหตุสุดวิสัย ให้แจ้งครูผู้สอนทราบ</p>
+        <button type="button" class="btn btn-primary pr-btn" id="prWarnBtn">รับทราบ</button>
+    </div>
+</div>
+
+<div class="pr-overlay pr-overlay-lock" id="prLock" hidden>
+    <div class="pr-box pr-box-lock">
+        <div class="pr-icon">🔒</div>
+        <h2>การสอบถูกระงับชั่วคราว</h2>
+        <p>ระบบตรวจพบการสลับหน้าจอ หรือการคัดลอก/จับภาพหน้าจอ <b>เกิน {$limit} ครั้ง</b></p>
+        {if $practice}
+            <p class="pr-count">นี่คือการซ้อม: <b>ในการสอบจริง</b> หน้าจอจะหยุดอยู่ที่นี่ คำตอบที่ทำไว้ยังอยู่ครบ และต้องแจ้งครูผู้สอนให้อนุมัติจึงจะสอบต่อได้ (เวลาที่ถูกระงับไม่นับรวมในเวลาสอบ)</p>
+            <button type="button" class="btn btn-primary pr-btn" id="prRestart">เริ่มซ้อมใหม่</button>
+        {else}
+            <p>คำตอบที่ทำไว้ถูกบันทึกครบแล้ว · <b>กรุณาแจ้งครูผู้สอน</b> เมื่อครูอนุมัติ หน้านี้จะกลับไปทำข้อสอบต่อเอง (เวลาที่ถูกระงับไม่นับรวมในเวลาสอบ)</p>
+            <p class="pr-wait"><span class="pr-spin" aria-hidden="true"></span>กำลังรอครูอนุมัติ…</p>
+            <p class="pr-note">หากเป็นการตรวจจับผิดพลาดหรือเหตุสุดวิสัย ให้ชี้แจงกับครูผู้สอนได้</p>
+        {/if}
+    </div>
+</div>

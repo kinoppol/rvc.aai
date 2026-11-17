@@ -12,7 +12,9 @@
 <body>
 <div class="take" id="take"
      data-base="{$base}" data-attempt="{$attempt['id']}" data-token="{$csrf}"
-     data-limit="{$timeLimit ?? ''}" data-started="{$startedAt}" data-total="{count($questions)}">
+     data-limit="{$timeLimit ?? ''}" data-started="{$startedAt}" data-total="{count($questions)}"
+     {if $proctor}data-proctor="1" data-plimit="{$proctor['limit']}" data-switches="{$proctor['switches']}" data-copies="{$proctor['copies']}"
+     data-locked="{$proctor['locked'] ? 1 : 0}" data-extra="{$proctor['extra']}" data-student="{$studentName} · {$studentCode}"{/if}>
 
     <header class="take-bar">
         <div class="take-bar-inner">
@@ -58,11 +60,16 @@
     <form method="post" action="{$base}/learn/attempts/{$attempt['id']}/submit" id="submitForm" hidden>
         <input type="hidden" name="_token" value="{$csrf}">
     </form>
+
+    {if $proctor}
+        {include '../_partials/proctor-overlays.latte', limit: $proctor['limit'], practice: false, switches: $proctor['switches'], copies: $proctor['copies']}
+    {/if}
 </div>
 
 {* หน้านี้ไม่ได้ใช้ layout.latte จึงต้องโหลดกล่องยืนยันกลางเอง ไม่งั้น rvcConfirm ไม่มีและกดส่งคำตอบไม่ได้ *}
 {include '../_partials/confirm.latte'}
 <script src="{$base}/assets/js/ui.js?v={$assetVer ?? 1}"></script>
+{if $proctor}<script src="{$base}/assets/js/quiz-proctor.js?v={$assetVer ?? 1}"></script>{/if}
 
 <script>
 (function () {
@@ -95,7 +102,10 @@
         var body = new URLSearchParams({ _token: token, question: sec.dataset.qid });
         if (choiceId != null) body.set('choice', choiceId);
         if (text != null) body.set('text', text);
-        post('/learn/attempts/' + attempt + '/answer', body);
+        post('/learn/attempts/' + attempt + '/answer', body).then(function (r) {
+            // ถูกระงับการสอบ (โหมดคุมสอบ) ระหว่างทำ
+            if (r.status === 423 && window.rvcProctor && window.rvcProctor.onLocked) window.rvcProctor.onLocked();
+        }).catch(function () {});
         document.getElementById('answeredText').textContent = 'ตอบแล้ว ' + Object.keys(answered).length + ' ข้อ';
     }
 
@@ -125,18 +135,26 @@
             message: 'ส่งคำตอบและจบการทำแบบทดสอบใช่หรือไม่ · เมื่อส่งแล้วจะแก้ไขคำตอบไม่ได้อีก',
             confirmText: 'ส่งคำตอบ'
         }).then(function (ok) {
-            if (ok) document.getElementById('submitForm').submit();
+            if (!ok) return;
+            if (window.rvcProctor) window.rvcProctor.leaving = true;   // ออกจากหน้าเพื่อส่งคำตอบ ไม่ใช่การสลับหน้าจอ
+            document.getElementById('submitForm').submit();
         });
     });
 
     if (limit) {
-        var deadline = started + limit * 60000;
+        // เวลาที่ถูกระงับการสอบ (รอครูอนุมัติ) ไม่นับรวม
+        var deadline = started + limit * 60000 + (+root.dataset.extra || 0) * 1000;
         var clock = document.getElementById('clock');
         (function tick() {
             var left = Math.max(0, deadline - Date.now());
             var m = Math.floor(left / 60000), s = Math.floor(left % 60000 / 1000);
             clock.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-            if (left <= 0) { document.getElementById('submitForm').submit(); return; }
+            if (left <= 0) {
+                // ถูกระงับอยู่: ไม่ส่งเอง รอครูตัดสิน (ครูให้สอบต่อหรือจบการสอบแทนได้)
+                if (window.rvcProctor && window.rvcProctor.locked) { setTimeout(tick, 2000); return; }
+                if (window.rvcProctor) window.rvcProctor.leaving = true;
+                document.getElementById('submitForm').submit(); return;
+            }
             setTimeout(tick, 500);
         })();
     }

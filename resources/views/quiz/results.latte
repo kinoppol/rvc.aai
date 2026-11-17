@@ -2,6 +2,27 @@
 
 {block title}ผลคะแนน · {$quiz['title']}{/block}
 
+{* เหตุการณ์จากโหมดคุมสอบของนักเรียนหนึ่งคน (รวมทุกครั้งที่ทำ) *}
+{define proctorCell}
+    {if $ev}
+        <details class="qr-proctor">
+            <summary>
+                {if $ev['switch']}<span class="tag tag-warn" title="สลับหน้าจอ">สลับ {$ev['switch']}</span>{/if}
+                {if $ev['copy']}<span class="tag tag-warn" title="คัดลอก/จับภาพหน้าจอ">คัดลอก {$ev['copy']}</span>{/if}
+                {if $ev['unlock']}<span class="tag tag-muted" title="ครูอนุมัติให้สอบต่อ">อนุมัติ {$ev['unlock']}</span>{/if}
+                {if !$ev['switch'] && !$ev['copy'] && !$ev['unlock']}<span class="tag tag-muted">{$ev['other']} รายการ</span>{/if}
+            </summary>
+            <ol class="qr-proctor-log">
+                {foreach $ev['events'] as $e}
+                    <li><span class="mono">{date('H:i:s', strtotime($e['created_at']))}</span> {$e['label']}{if $e['attempt_no'] > 1} <span class="hint">(ครั้งที่ {$e['attempt_no']})</span>{/if}</li>
+                {/foreach}
+            </ol>
+        </details>
+    {else}
+        <span class="hint">—</span>
+    {/if}
+{/define}
+
 {*
     ผลคะแนนของแบบทดสอบหนึ่งชุด (QuizResultsController::show) — ครูดูได้ทุกประเภท รวมถึงก่อนเรียนที่ไม่คิดคะแนน
       • ก่อนเรียน: ใช้คะแนนครั้งแรกของแต่ละคน และเทียบกับหลังเรียนของหน่วยเดียวกัน (พัฒนาการ)
@@ -44,6 +65,66 @@
             <span class="msi" aria-hidden="true">schedule</span>
             <span>มีนักเรียน {$stats['waiting']} คนที่ตอบข้ออัตนัย คะแนนที่เห็นนับเฉพาะข้อปรนัยที่ตรวจอัตโนมัติ</span>
         </div>
+    {/if}
+
+    {* ---- โหมดคุมสอบ (ProctorRepository) ---- *}
+    {if $proctorOn || $live}
+        <div class="alert alert-info qr-note">
+            <span class="msi" aria-hidden="true">shield</span>
+            <span>
+                {if $proctorOn}แบบทดสอบนี้เปิด<b>โหมดคุมสอบ</b>: นักเรียนทำในโหมดเต็มจอ สลับหน้าจอได้ไม่เกิน {$proctorLimit} ครั้ง และคัดลอก/จับภาพหน้าจอรวมได้ไม่เกิน {$proctorLimit} ครั้ง เกินกว่านั้นระบบระงับการสอบจนครูอนุมัติ ·{/if}
+                <b>เป็นเพียงมาตรการป้องปราม</b> ระบบอาจตรวจจับผิดพลาดได้ (เช่น การแจ้งเตือนจากโปรแกรมอื่นเด้งขึ้นมา อินเทอร์เน็ตหลุด หรือเหตุสุดวิสัยอื่น) และไม่สามารถป้องกันได้ทั้งหมด
+                โปรด<b>ตั้งข้อสังเกตไว้</b>และพิจารณาร่วมกับการสังเกตในห้องสอบหรือสอบถามนักเรียนก่อนตัดสิน
+            </span>
+        </div>
+    {/if}
+    {if $locked}
+        <div class="card qr-card qr-locked" id="proctorLocked">
+            <div class="qr-head"><span class="msi" aria-hidden="true">lock</span> ถูกระงับการสอบ รอครูอนุมัติ ({count($locked)} คน)</div>
+            <p class="hint qr-items-hint">อนุมัติให้สอบต่อ = นับจำนวนครั้งใหม่และชดเชยเวลาที่ถูกระงับ · จบการสอบแทน = ตรวจคำตอบที่ทำไว้แล้วเป็นคะแนน</p>
+            <ul class="qr-lock-list">
+                {foreach $locked as $a}
+                    <li>
+                        <div class="grow">
+                            <b>{$a['full_name']}</b> <span class="mono hint">{$a['username']}</span>
+                            <div class="hint">
+                                {$a['proctor_lock_reason'] === 'switch' ? 'สลับหน้าจอเกินกำหนด' : 'คัดลอก/จับภาพหน้าจอเกินกำหนด'}
+                                · ระงับเมื่อ {date('H:i:s', strtotime($a['proctor_locked_at']))}
+                                · สลับหน้าจอ {$a['proctor_switches']} · คัดลอก/จับภาพ {$a['proctor_copies']}
+                                {if $a['proctor_unlocks']} · เคยอนุมัติแล้ว {$a['proctor_unlocks']} ครั้ง{/if}
+                            </div>
+                        </div>
+                        <form method="post" action="{$base}/courses/{$course['id']}/quizzes/{$quiz['id']}/attempts/{$a['id']}/proctor">
+                            <input type="hidden" name="_token" value="{$csrf}">
+                            <button type="submit" name="do" value="resume" class="btn btn-sm btn-primary">อนุมัติให้สอบต่อ</button>
+                        </form>
+                        <form method="post" action="{$base}/courses/{$course['id']}/quizzes/{$quiz['id']}/attempts/{$a['id']}/proctor"
+                              data-confirm="จบการสอบของ {$a['full_name']} และตรวจคำตอบที่ทำไว้แล้วเป็นคะแนนใช่หรือไม่">
+                            <input type="hidden" name="_token" value="{$csrf}">
+                            <button type="submit" name="do" value="submit" class="btn btn-sm">จบการสอบแทน</button>
+                        </form>
+                    </li>
+                {/foreach}
+            </ul>
+        </div>
+    {/if}
+    {if $live}
+        <p class="hint qr-live">
+            <span class="qr-live-dot" aria-hidden="true"></span>กำลังทำอยู่ {count($live)} คน{if $locked} (ถูกระงับ {count($locked)} คน){/if}
+            · <label><input type="checkbox" id="qrAutoRefresh" checked> อัปเดตหน้านี้อัตโนมัติทุก 15 วินาที</label>
+        </p>
+        <script>
+        (function () {
+            var box = document.getElementById('qrAutoRefresh');
+            try { if (localStorage.getItem('rvc.qrAuto') === '0') box.checked = false; } catch (e) { }
+            box.addEventListener('change', function () { try { localStorage.setItem('rvc.qrAuto', box.checked ? '1' : '0'); } catch (e) { } });
+            setInterval(function () {
+                if (!box.checked || document.hidden) return;
+                if (document.querySelector('details[open], .modal-backdrop:not([hidden])')) return;
+                location.reload();
+            }, 15000);
+        })();
+        </script>
     {/if}
 
     <div class="metric-grid qr-metrics">
@@ -97,6 +178,7 @@
                     <th class="num">ทำ (ครั้ง)</th>
                     {if $pair}<th class="num">{$pairLabel}</th><th class="num">พัฒนาการ</th>{/if}
                     <th>ส่งล่าสุด</th>
+                    {if $proctorOn || array_filter($rows, fn($r) => $r['events'])}<th title="บันทึกจากโหมดคุมสอบ — อาจตรวจจับผิดพลาดได้">คุมสอบ</th>{var $showProctor = true}{else}{var $showProctor = false}{/if}
                 </tr>
                 </thead>
                 <tbody>
@@ -128,6 +210,7 @@
                                 </td>
                             {/if}
                             <td class="hint">{App\Support\Thai::dateTime($r['last_at'])}</td>
+                            {if $showProctor}<td>{include proctorCell, ev: $r['events']}</td>{/if}
                         {else}
                             <td class="num muted">ยังไม่ทำ</td>
                             <td class="qr-bar-col"></td>
@@ -138,6 +221,7 @@
                                 <td class="num">—</td>
                             {/if}
                             <td></td>
+                            {if $showProctor}<td>{include proctorCell, ev: $r['events']}</td>{/if}
                         {/if}
                     </tr>
                 {/foreach}

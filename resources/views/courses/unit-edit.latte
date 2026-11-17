@@ -438,6 +438,31 @@
     </div>
 </div>
 
+{* ── ซ้อมสอบ (หน่วยสอบ): ให้นักเรียนลองใช้โหมดคุมสอบกับข้อสอบตัวอย่างก่อนสอบจริง ลดความกังวล
+   ครูเปิดช่วงซ้อมครั้งละ 10 นาที (UnitController::practice) กันการใช้หน้าซ้อมหาช่องโหว่นอกเวลา ── *}
+{if $practice}
+<div class="card practice-card" id="practice" style="margin-top:16px">
+    <div class="grow">
+        <div class="card-head" style="margin-bottom:4px"><span class="msi" aria-hidden="true">shield</span> ซ้อมสอบในโหมดคุมสอบ</div>
+        <p class="hint">
+            นักเรียนลองทำข้อสอบตัวอย่าง (ข้อตกลงการสอบ ไม่ใช่ข้อสอบจริง) ในโหมดเต็มจอได้ไม่จำกัดครั้ง และลองสลับหน้าจอ/คัดลอก/จับภาพเพื่อดูว่าระบบเตือนและระงับอย่างไร
+            โดยไม่มีผลกับการสอบจริงและไม่บันทึกอะไร · เปิดให้ซ้อมได้ครั้งละ {$practice['minutes']} นาที
+        </p>
+        {if $practice['until']}
+            <p class="practice-open"><span class="qr-live-dot" aria-hidden="true"></span>เปิดให้ซ้อมอยู่ ถึงเวลา <b>{date('H:i', $practice['until'])} น.</b></p>
+        {/if}
+    </div>
+    <div class="practice-actions">
+        <form method="post" action="{$base}/courses/{$course['id']}/units/{$unit['id']}/practice">
+            <input type="hidden" name="_token" value="{$csrf}">
+            <button type="submit" name="do" value="open" class="btn btn-primary"><span class="msi" aria-hidden="true">timer</span>{$practice['until'] ? 'ต่อเวลาอีก ' . $practice['minutes'] . ' นาที' : 'เปิดช่วงซ้อมสอบ ' . $practice['minutes'] . ' นาที'}</button>
+            {if $practice['until']}<button type="submit" name="do" value="close" class="btn">ปิดช่วงซ้อม</button>{/if}
+        </form>
+        <a class="btn btn-sm" href="{$base}/courses/{$course['id']}/units/{$unit['id']}/preview/practice" target="_blank" rel="noopener"><span class="msi" aria-hidden="true">visibility</span>ลองดูหน้าซ้อมสอบ</a>
+    </div>
+</div>
+{/if}
+
 
 {* ── บันทึกหลังการจัดการเรียนรู้ (ข้อ 9 ของแผนการสอน) — กรอกหลังสอนจบหน่วย พิมพ์ลงแผนพร้อมวันที่บันทึก
    การ์ดแสดงสรุปสิ่งที่บันทึกไว้ · ปุ่ม "บันทึกหลังสอน" เปิดแบบฟอร์มใน modal (ลิงก์ #report-form เปิดให้ทันที) ── *}
