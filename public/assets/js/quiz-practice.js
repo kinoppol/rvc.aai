@@ -17,7 +17,7 @@
         $('posText').textContent = 'ข้อ ' + (cur + 1) + ' จาก ' + total;
         $('progress').style.width = Math.round((cur + 1) / total * 100) + '%';
         $('prevBtn').disabled = cur === 0;
-        $('nextBtn').textContent = cur === total - 1 ? 'ส่งคำตอบ (ซ้อม)' : 'ข้อถัดไป';
+        $('nextBtn').textContent = cur === total - 1 ? (root.dataset.submitText || 'ส่งคำตอบ') : 'ข้อถัดไป';
     }
 
     qs.forEach(function (sec, i) {

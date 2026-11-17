@@ -16,14 +16,14 @@
       • ครูทดลองสอบในมุมมองนักเรียน (StudentController::tryQuiz) ใช้ข้อสอบจริงของชุดนั้น
     โหมดคุมสอบ (ถ้าเปิด) ทำงานแบบ data-practice: เตือนและแสดงหน้าระงับให้เห็น แต่ไม่บันทึก ไม่ระงับจริง
 *}
-<div class="take" id="take" {if $proctorOn}data-proctor="1" data-practice="1" data-plimit="{$limit}" data-switches="0" data-copies="0"
+<div class="take" id="take" data-submit-text="{$teacherTrial ? 'ส่งคำตอบ' : 'ส่งคำตอบ (ซ้อม)'}" {if $proctorOn}data-proctor="1" data-practice="1" data-plimit="{$limit}" data-switches="0" data-copies="0"
      data-locked="0" data-student="{$studentName} · {$studentCode}"{/if} data-until="{$until ?? ''}" data-timeup="{$timeUpText}">
 
+    {* ครูทดลองสอบ: หน้าจอเหมือนที่นักเรียนเห็นทุกประการ · ข้อมูลสำหรับครูอยู่ในป้ายลอยมุมจอ (.trial-only) อย่างเดียว *}
     {if $teacherTrial}
-        <div class="trial-bar">
-            <b>ทดลองสอบในมุมมองนักเรียน</b> · ไม่บันทึกคำตอบ · ใช้ข้อสอบที่บันทึกไว้ล่าสุด
-            {if $quiz['review_status'] !== 'published'} · <span>ชุดนี้ยังไม่เผยแพร่ นักเรียนยังมองไม่เห็น</span>{/if}
-            {if !$proctorOn} · โหมดคุมสอบปิดอยู่{/if}
+        <div class="trial-only trial-float" role="note">
+            <span class="trial-only-tag">เฉพาะครู · นักเรียนไม่เห็นป้ายนี้</span>
+            <span>ทดลองสอบในมุมมองนักเรียน · ไม่บันทึกคำตอบ · ใช้ข้อสอบที่บันทึกไว้ล่าสุด{if $quiz['review_status'] !== 'published'} · ชุดนี้ยังไม่เผยแพร่{/if}{if !$proctorOn} · โหมดคุมสอบปิดอยู่{/if}</span>
             <a href="{$base}{$backUrl}" data-leave>ออกจากการทดลอง</a>
         </div>
     {/if}
@@ -39,7 +39,8 @@
         <div class="bar take-progress"><span id="progress" style="width:0%"></span></div>
         <div class="take-bar-inner take-meta">
             <span id="posText">ข้อ 1 จาก {count($questions)}</span>
-            {if $proctorOn}<span class="pr-counters" id="prCounters">สลับหน้าจอ 0/{$limit} · คัดลอก/จับภาพ 0/{$limit}</span>{/if}
+            {if $teacherTrial}<span>ตอบแล้ว 0 ข้อ</span>
+            {elseif $proctorOn}<span class="pr-counters" id="prCounters">สลับหน้าจอ 0/{$limit} · คัดลอก/จับภาพ 0/{$limit}</span>{/if}
         </div>
     </header>
 
@@ -81,7 +82,7 @@
         <button type="button" class="btn btn-primary" id="nextBtn">ข้อถัดไป</button>
     </footer>
 
-    {if $proctorOn}{include '../_partials/proctor-overlays.latte', limit: $limit, practice: true, switches: 0, copies: 0}{/if}
+    {if $proctorOn}{include '../_partials/proctor-overlays.latte', limit: $limit, practice: !$teacherTrial, trial: $teacherTrial, switches: 0, copies: 0}{/if}
 </div>
 
 {if $proctorOn}<script src="{$base}/assets/js/quiz-proctor.js?v={$assetVer ?? 1}"></script>{/if}

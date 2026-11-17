@@ -445,7 +445,7 @@ final class StudentController
         return $this->view->render($response, 'learn/practice', [
             'page' => 'courses',
             'course' => $course,
-            'kicker' => 'ทดลองสอบในมุมมองนักเรียน · ' . $course['code'],
+            'kicker' => (string) $course['code'],
             'heading' => $quiz['title'],
             'questions' => $questions,
             'proctorOn' => $this->proctor->enabled($quiz),
@@ -456,7 +456,7 @@ final class StudentController
             'until' => $limit > 0 ? time() + $limit * 60 : null,
             'timeUpText' => 'หมดเวลาทำข้อสอบแล้ว (นักเรียนจะถูกส่งคำตอบให้อัตโนมัติ)',
             'doneHint' => 'นี่คือการทดลองของครู ไม่บันทึกคำตอบและไม่นับเป็นการสอบของใคร · นักเรียนจะไม่เห็นเฉลยหลังส่ง',
-            'footNote' => 'ทดลองสอบ · ไม่บันทึกคำตอบ',
+            'footNote' => 'คำตอบถูกบันทึกอัตโนมัติทุกครั้งที่เลือก',   // ข้อความเดียวกับหน้าสอบจริง (การทดลองไม่บันทึก — บอกครูในป้ายลอย)
             'teacherTrial' => true,
             'quiz' => $quiz,
         ]);

@@ -1,7 +1,10 @@
 {*
-    หน้าจอซ้อนของโหมดคุมสอบ — ใช้กับ learn/take.latte (สอบจริง) และ learn/practice.latte (ซ้อมสอบ)
+    หน้าจอซ้อนของโหมดคุมสอบ — ใช้กับ learn/take.latte (สอบจริง) และ learn/practice.latte (ซ้อมสอบ / ครูทดลองสอบ)
     ควบคุมโดย assets/js/quiz-proctor.js · ส่งตัวแปร limit, practice, switches, copies มาเสมอ
+    trial: true = ครูทดลองสอบในมุมมองนักเรียน: ข้อความทุกจุดต้องเหมือนสอบจริง (practice: false) ห้ามมีคำว่า "ซ้อม"
+    ส่วนที่มีเฉพาะครูใส่ใน .trial-only เท่านั้น (ปุ่มเริ่มทดลองใหม่ในหน้าระงับ เพราะการทดลองไม่มีใครมาอนุมัติ)
 *}
+{var $trial = $trial ?? false}
 <div class="pr-watermark" id="prWatermark" aria-hidden="true"></div>
 <div class="pr-toast" id="prToast" role="status" hidden></div>
 
@@ -57,6 +60,13 @@
             <p>คำตอบที่ทำไว้ถูกบันทึกครบแล้ว · <b>กรุณาแจ้งครูผู้สอน</b> เมื่อครูอนุมัติ หน้านี้จะกลับไปทำข้อสอบต่อเอง (เวลาที่ถูกระงับไม่นับรวมในเวลาสอบ)</p>
             <p class="pr-wait"><span class="pr-spin" aria-hidden="true"></span>กำลังรอครูอนุมัติ…</p>
             <p class="pr-note">หากเป็นการตรวจจับผิดพลาดหรือเหตุสุดวิสัย ให้ชี้แจงกับครูผู้สอนได้</p>
+            {if $trial}
+                <div class="trial-only">
+                    <span class="trial-only-tag">เฉพาะครู · นักเรียนไม่เห็นส่วนนี้</span>
+                    <p>นักเรียนจะค้างที่หน้านี้จนครูกดอนุมัติในหน้าผลคะแนน · การทดลองไม่มีการระงับจริงและไม่บันทึกอะไร</p>
+                    <button type="button" class="btn btn-sm" id="prRestart">เริ่มทดลองใหม่</button>
+                </div>
+            {/if}
         {/if}
     </div>
 </div>

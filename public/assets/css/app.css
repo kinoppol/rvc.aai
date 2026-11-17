@@ -1129,8 +1129,13 @@ textarea.input {
 @media print { .take[data-proctor="1"] { display: none !important; } }
 /* ซ้อมสอบ (learn/practice.latte · การ์ดในหน้าแก้ไขหน่วยสอบ · แถบในหน้าหน่วยของนักเรียน) */
 .pr-counters { font-weight: 700; color: var(--warn); }
-.trial-bar { background: var(--brand); color: #fff; padding: 8px 24px; font-size: 13.5px; text-align: center; line-height: 1.5; }
-.trial-bar a { color: #fff; font-weight: 700; text-decoration: underline; margin-left: 10px; white-space: nowrap; }
+/* ส่วนที่มีเฉพาะครูในหน้าทดลองสอบ — ต่างจากหน้าสอบจริงชัดเจน (ขอบประ + ป้าย "เฉพาะครู") */
+.trial-only { border: 2px dashed var(--brand); background: var(--brandSoft); color: var(--brandInk); border-radius: 14px; padding: 10px 14px; font-size: 13px; line-height: 1.5; text-align: left; }
+.trial-only p { margin: 6px 0; color: var(--brandInk) !important; }
+.trial-only-tag { display: inline-block; font: 800 11px/1 var(--sans); letter-spacing: .02em; background: var(--brand); color: #fff; border-radius: 999px; padding: 4px 8px; margin-bottom: 4px; }
+.trial-float { position: fixed; left: 16px; bottom: 84px; z-index: 75; max-width: min(360px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 4px; box-shadow: 0 10px 30px rgba(15, 23, 42, .18); }
+.trial-float a { color: var(--brand); font-weight: 700; text-decoration: underline; }
+.pr-box .trial-only { margin-top: 14px; }
 .practice-why { margin-top: 14px; padding: 10px 14px; border-radius: 12px; background: var(--brandSoft); color: var(--brandInk); font-size: 14px; line-height: 1.6; }
 .take-q:not([hidden]) + .take-q:not([hidden]) { margin-top: 34px; padding-top: 26px; border-top: 1px dashed var(--line); }
 .take-choice.is-right { border-color: var(--ok); background: var(--okSoft); }
