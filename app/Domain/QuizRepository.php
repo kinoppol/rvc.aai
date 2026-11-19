@@ -74,7 +74,7 @@ final class QuizRepository
              WHERE q.course_id = ? AND q.review_status = \'published\' AND q.deleted_at IS NULL
              HAVING question_count > 0
              ORDER BY u.sort_order IS NULL, u.sort_order, q.kind = \'posttest\', q.created_at',
-            [$studentId, $studentId, $studentId, $studentId, $studentId, $courseId]
+            [$studentId, $studentId, $studentId, $studentId, $courseId]
         );
     }
 
