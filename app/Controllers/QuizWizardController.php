@@ -865,6 +865,12 @@ final class QuizWizardController
         if (($data['proctor_present'] ?? '') === '1' && array_key_exists('proctor', $quiz)) {
             $meta['proctor'] = ($data['proctor'] ?? '') === '1' ? 1 : 0;
         }
+        // ทำซ้ำได้หรือไม่ (ค่าเริ่มต้น attempts_allowed = 1 = ทำได้ครั้งเดียว · 0 = ทำซ้ำได้ไม่จำกัด)
+        if (($data['retake_present'] ?? '') === '1') {
+            $meta['attempts_allowed'] = ($data['retake'] ?? '') === '1'
+                ? ((int) ($quiz['attempts_allowed'] ?? 1) > 1 ? (int) $quiz['attempts_allowed'] : 0)
+                : 1;
+        }
         $publish = ($data['action'] ?? '') === 'publish';
         $problems = $publish ? $this->quizzes->problems((int) $quiz['id']) : [];
         if ($publish && $this->quizzes->questionCount((int) $quiz['id']) === 0) {

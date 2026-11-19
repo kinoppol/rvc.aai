@@ -286,7 +286,7 @@
     document.querySelectorAll('[data-add]').forEach(function (b) {
         b.addEventListener('click', function () { addQuestion(b.getAttribute('data-add')); });
     });
-    ['quizTitle', 'quizTime', 'quizProctor'].forEach(function (id) {
+    ['quizTitle', 'quizTime', 'quizProctor', 'quizRetake'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', changed);
     });

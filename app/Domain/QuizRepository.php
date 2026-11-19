@@ -55,7 +55,7 @@ final class QuizRepository
     public function publishedForStudent(int $courseId, int $studentId): array
     {
         return $this->db->all(
-            'SELECT q.id, q.title, q.kind, q.unit_id, q.time_limit_minutes,
+            'SELECT q.id, q.title, q.kind, q.unit_id, q.time_limit_minutes, q.attempts_allowed,
                     u.title AS unit_title,
                     (SELECT COUNT(*) FROM {quiz_questions} qq WHERE qq.quiz_id = q.id) AS question_count,
                     (SELECT COALESCE(SUM(qq.score), 0) FROM {quiz_questions} qq WHERE qq.quiz_id = q.id) AS total_score,
@@ -74,7 +74,37 @@ final class QuizRepository
              WHERE q.course_id = ? AND q.review_status = \'published\' AND q.deleted_at IS NULL
              HAVING question_count > 0
              ORDER BY u.sort_order IS NULL, u.sort_order, q.kind = \'posttest\', q.created_at',
-            [$studentId, $studentId, $studentId, $studentId, $courseId]
+            [$studentId, $studentId, $studentId, $studentId, $studentId, $courseId]
+        );
+    }
+
+    /**
+     * นักเรียนคนนี้ทำแบบทดสอบนี้ครบจำนวนครั้งที่ครูกำหนดแล้วหรือยัง
+     * attempts_allowed: 0 = ทำซ้ำได้ไม่จำกัด · N = ทำได้ N ครั้ง (ค่าเริ่มต้น 1 = ทำได้ครั้งเดียว)
+     */
+    public static function attemptsUsedUp(mixed $allowed, int $done): bool
+    {
+        $allowed = (int) $allowed;
+
+        return $allowed > 0 && $done >= $allowed;
+    }
+
+    /** id ของครั้งล่าสุดที่ส่งแล้วของนักเรียนคนนี้ (ไว้พาไปดูผลเมื่อทำซ้ำไม่ได้) */
+    public function lastFinishedAttempt(int $quizId, int $studentId): ?int
+    {
+        $id = $this->db->value(
+            "SELECT id FROM {quiz_attempts} WHERE quiz_id = ? AND student_id = ? AND status <> 'in_progress' ORDER BY id DESC LIMIT 1",
+            [$quizId, $studentId]
+        );
+
+        return $id === null || $id === false ? null : (int) $id;
+    }
+
+    public function finishedCount(int $quizId, int $studentId): int
+    {
+        return $this->db->int(
+            "SELECT COUNT(*) FROM {quiz_attempts} WHERE quiz_id = ? AND student_id = ? AND status <> 'in_progress'",
+            [$quizId, $studentId]
         );
     }
 

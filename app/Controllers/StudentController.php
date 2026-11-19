@@ -212,6 +212,17 @@ final class StudentController
 
         $active = $this->attempts->inProgress((int) $quiz['id'], (int) $user['id']);
 
+        // ครูไม่ได้เปิดให้ทำซ้ำ (ค่าเริ่มต้น): ทำครบแล้วพาไปดูผลครั้งล่าสุดแทนการเริ่มใหม่
+        if ($active === null
+            && QuizRepository::attemptsUsedUp($quiz['attempts_allowed'] ?? 1, $this->quizzes->finishedCount((int) $quiz['id'], (int) $user['id']))) {
+            $last = $this->quizzes->lastFinishedAttempt((int) $quiz['id'], (int) $user['id']);
+            Flash::warning((int) ($quiz['attempts_allowed'] ?? 1) === 1
+                ? 'แบบทดสอบนี้ทำได้ครั้งเดียว คุณส่งไปแล้ว'
+                : 'คุณทำแบบทดสอบนี้ครบ ' . (int) $quiz['attempts_allowed'] . ' ครั้งตามที่ครูกำหนดแล้ว');
+
+            return $this->redirect($response, $last !== null ? "/learn/attempts/$last/result" : "/learn/{$quiz['course_id']}");
+        }
+
         // แบบทดสอบหลังเรียน: ต้องทำแบบทดสอบก่อนเรียนและส่งใบงานของหน่วยให้ครบก่อน (ที่ทำค้างไว้แล้วทำต่อได้)
         if ($active === null && $quiz['kind'] === 'posttest' && $quiz['unit_id'] !== null) {
             $lock = $this->path->postLock((int) $quiz['unit_id'], (int) $user['id']);
@@ -816,8 +827,17 @@ final class StudentController
             }
 
             $quizzes[$i]['kind_label'] = $q['kind'] === 'pretest' ? 'ก่อนเรียน' : 'หลังเรียน';
+            $usedUp = !$q['open_attempt_id'] && QuizRepository::attemptsUsedUp($q['attempts_allowed'] ?? 1, $done);
+            $quizzes[$i]['closed'] = $usedUp;
+            $quizzes[$i]['action'] = $q['open_attempt_id'] ? 'ทำต่อ' : ($usedUp ? 'ดูผลคะแนน' : ($done > 0 ? 'ทำอีกครั้ง' : 'เริ่มทำ'));
+            if ((int) ($q['attempts_allowed'] ?? 1) === 0) {
+                $meta[] = 'ทำซ้ำได้';
+            } elseif ((int) $q['attempts_allowed'] > 1) {
+                $meta[] = 'ทำได้ ' . (int) $q['attempts_allowed'] . ' ครั้ง';
+            } else {
+                $meta[] = 'ทำได้ครั้งเดียว';
+            }
             $quizzes[$i]['meta'] = implode(' · ', $meta);
-            $quizzes[$i]['action'] = $q['open_attempt_id'] ? 'ทำต่อ' : ($done > 0 ? 'ทำอีกครั้ง' : 'เริ่มทำ');
             $quizzes[$i]['state'] = match (true) {
                 $q['best_score'] !== null => 'คะแนนสูงสุด ' . $num($q['best_score']) . ' / ' . $num($q['best_max_score']),
                 $done > 0 => 'ส่งแล้ว · รอครูตรวจ',

@@ -240,7 +240,13 @@ final class LearnPathRepository
         return $this->item('quiz', (int) $q['id'], $type, (string) $q['title'], (int) $q['done_count'] > 0, true) + [
             'minutes' => $minutes,
             'score' => (float) $q['total_score'] > 0 ? self::num($q['total_score']) . ' คะแนน' : null,
-            'meta' => (int) $q['question_count'] . ' ข้อ · ' . $minutes . ' นาที',
+            'meta' => (int) $q['question_count'] . ' ข้อ · ' . $minutes . ' นาที'
+                . match (true) {
+                    !array_key_exists('attempts_allowed', $q) => '',
+                    (int) $q['attempts_allowed'] === 0 => ' · ทำซ้ำได้',
+                    (int) $q['attempts_allowed'] > 1 => ' · ทำได้ ' . (int) $q['attempts_allowed'] . ' ครั้ง',
+                    default => ' · ทำได้ครั้งเดียว',
+                },
             'quiz' => $q,
         ];
     }

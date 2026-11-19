@@ -53,6 +53,11 @@
             <label for="quizTime">เวลาทำ (นาที)</label>
             <input class="input" type="number" id="quizTime" min="0" max="600" placeholder="ไม่จำกัด" value="{$quiz['time_limit_minutes']}">
         </div>
+        {* ทำซ้ำได้หรือไม่ — ค่าเริ่มต้นทำได้ครั้งเดียว · ส่งไปกับ #saveForm ผ่าน form="" *}
+        <label class="qe-proctor" title="ปิดไว้ = นักเรียนส่งแล้วทำใหม่ไม่ได้ ดูได้เฉพาะผลคะแนน">
+            <input type="checkbox" id="quizRetake" name="retake" value="1" form="saveForm" {if (int) ($quiz['attempts_allowed'] ?? 1) !== 1}checked{/if}>
+            <span><b>ให้ทำซ้ำได้</b><br><small class="hint">{if (int) ($quiz['attempts_allowed'] ?? 1) > 1}ทำได้ {(int) $quiz['attempts_allowed']} ครั้ง{else}ปิดไว้ = ทำได้ครั้งเดียว (ค่าเริ่มต้น){/if}</small></span>
+        </label>
         {if array_key_exists('proctor', $quiz)}
             {* โหมดคุมสอบ (ProctorRepository) — ส่งไปกับ #saveForm ผ่าน form="" *}
             <label class="qe-proctor" title="มาตรการป้องปราม ไม่สามารถป้องกันได้ 100% และอาจตรวจจับผิดพลาดได้">
@@ -76,7 +81,8 @@
         <input type="hidden" name="payload" id="payloadField">
         <input type="hidden" name="title" id="titleField">
         <input type="hidden" name="time_limit" id="timeField">
-        {if array_key_exists('proctor', $quiz)}<input type="hidden" name="proctor_present" value="1">{/if}
+<input type="hidden" name="retake_present" value="1">
+                {if array_key_exists('proctor', $quiz)}<input type="hidden" name="proctor_present" value="1">{/if}
         <div class="grow hint" id="footHint"></div>
         {if $regenQuery}
             <a class="btn" href="{$base}/courses/{$course['id']}/quizzes/workspace?{$regenQuery|noescape}">ให้ AI ร่างใหม่ทั้งชุด</a>
